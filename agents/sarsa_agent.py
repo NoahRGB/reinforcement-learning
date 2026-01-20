@@ -3,7 +3,7 @@ from agents.agent import Agent
 import numpy as np
 
 
-class QLearningAgent(Agent):
+class SarsaAgent(Agent):
     def __init__(self, alpha, epsilon, gamma, decay_rate=1.0, time_limit=10000):
         self.alpha = alpha
         self.epsilon = epsilon
@@ -37,7 +37,8 @@ class QLearningAgent(Agent):
     def update(self, s, sprime, a, r):
         self.current_episode_rewards += r
         if not self.eval:
-            update_target = r + self.gamma * self.qtable[sprime, :].max()
+            aprime = self.run_policy(sprime)
+            update_target = r + self.gamma * self.qtable[sprime, aprime]
             self.qtable[s, a] += self.alpha * (update_target - self.qtable[s, a])
         self.time_step += 1
         return self.time_step >= self.time_limit

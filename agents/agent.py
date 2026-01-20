@@ -5,16 +5,47 @@ class Agent(ABC):
 
     @abstractmethod
     def run_policy(self, s):
+        """
+        this method should return an action to perform on
+        the given state s
+        """
         ...
 
     @abstractmethod
     def update(self, s, sprime, a, r):
+        """
+        this method should perform any necessary learning
+        updates based on the given s, s', a, r sequence
+
+        it should return a bool denoting whether the agent
+        wants to stop learning 
+        (perhaps based on a timeout)
+        """
         ...
 
     @abstractmethod
-    def initialise(self):
+    def initialise(self, state_space_size, action_space_size, resume=False):
+        """
+        this method should initialise all relevant structures
+        associated with the agent's logic so a new episode can
+        begin
+        """
         ...
 
     @abstractmethod
     def finish_episode(self):
+        """
+        this method should execute the relevant book keeping
+        or learning that needs to be done at the end of an
+        episode
+        """
+        ...
+
+    @abstractmethod
+    def toggle_eval(self):
+        """
+        this method should change the agent's behaviour so that
+        it performs as well as it can given the learning that it
+        has done so far so that its performance can be "evaluated"
+        """
         ...

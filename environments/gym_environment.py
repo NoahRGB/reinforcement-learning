@@ -3,8 +3,8 @@ from environments.environment import Environment
 import gymnasium as gym
 
 class GymEnvironment(Environment):
-    def __init__(self, name, rendermode):
-        self.env = gym.make(name, render_mode=rendermode)
+    def __init__(self, name, **kwargs):
+        self.env = gym.make(name, **kwargs)
 
     def __del__(self):
         self.env.close()
