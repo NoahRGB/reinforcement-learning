@@ -4,11 +4,11 @@ import numpy as np
 
 
 class QLearningAgent(Agent):
-    def __init__(self, alpha, epsilon, gamma, decay=False):
+    def __init__(self, alpha, epsilon, gamma, decay_rate=1.0):
         self.alpha = alpha
         self.epsilon = epsilon
         self.gamma = gamma
-        self.decay = decay
+        self.decay_rate = decay_rate
 
     def initialise(self, state_space_size, action_space_size):
         self.state_space_size = state_space_size
@@ -20,8 +20,7 @@ class QLearningAgent(Agent):
     def finish_episode(self):
         self.reward_history.append(self.current_episode_rewards)
         self.current_episode_rewards = 0
-        if self.decay:
-            self.epsilon *= 0.99
+        self.epsilon *= self.decay_rate
 
     def run_policy(self, s):
         if np.random.random() < self.epsilon:
