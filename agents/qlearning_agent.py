@@ -12,7 +12,7 @@ class QLearningAgent(Agent):
         self.eval = False
         self.time_limit = time_limit
 
-    def initialise(self, state_space_size, action_space_size, resume=False):
+    def initialise(self, state_space_size, action_space_size, start_state, resume=False):
         if not self.eval:
             if not resume:
                 self.state_space_size = state_space_size
@@ -28,13 +28,13 @@ class QLearningAgent(Agent):
         if not self.eval:
             self.epsilon *= self.decay_rate
 
-    def run_policy(self, s):
+    def run_policy(self, s, t):
         if np.random.random() >= self.epsilon or self.eval:
             best_actions = np.where(self.qtable[s, :] == self.qtable[s, :].max())
             return np.random.choice(best_actions[0])
         return np.random.choice([i for i in range(self.action_space_size)])
 
-    def update(self, s, sprime, a, r):
+    def update(self, s, sprime, a, r, done):
         self.current_episode_rewards += r
         if not self.eval:
             update_target = r + self.gamma * self.qtable[sprime, :].max()

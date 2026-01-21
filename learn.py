@@ -1,7 +1,7 @@
 import numpy as np
 
 def learn(episodes, env, agent, resume=False, timeouts=False, quiet=True):
-    agent.initialise(env.get_state_space_size(), env.get_action_space_size(), resume=resume)
+    agent.initialise(env.get_state_space_size(), env.get_action_space_size(), env.get_start_state(), resume=resume)
     if not quiet: print(f"Starting learning over {episodes} episodes")
     reward_history = np.empty(episodes) 
     for _ in range(episodes):
@@ -9,15 +9,17 @@ def learn(episodes, env, agent, resume=False, timeouts=False, quiet=True):
         env.reset()
         s = env.get_start_state()
         done = False
+        t = 0
         while not done:
-            a = agent.run_policy(s)
+            a = agent.run_policy(s, t)
             sprime, r, done = env.step(s, a)
-            agent_done = agent.update(s, sprime, a, r)
+            agent_done = agent.update(s, sprime, a, r, done)
             if agent_done and timeouts:
                 total_reward = 9999
                 done = True
             s = sprime
             total_reward += r
+            t += 1
         agent.finish_episode()
         if not quiet: print(f"Episode {_} reward: {total_reward}")
         reward_history[_] = total_reward
@@ -36,18 +38,20 @@ def parallel_learn_evaluate(episodes, env, agent, resume=False, quiet=True):
     cumulative_learning_reward_history = np.empty(episodes)
     cumulative_eval_reward_history = np.empty(episodes)
     if not resume:
-        agent.initialise(env.get_state_space_size(), env.get_action_space_size())
+        agent.initialise(env.get_state_space_size(), env.get_action_space_size(), env.get_start_state())
     for _ in range(episodes):
         total_learning_reward = 0
         env.reset()
         s = env.get_start_state()
         done = False
+        t = 0
         while not done:
-            a = agent.run_policy(s)
+            a = agent.run_policy(s, t)
             sprime, r, done = env.step(s, a)
-            agent.update(s, sprime, a, r)
+            agent.update(s, sprime, a, r, done)
             s = sprime
             total_learning_reward += r
+            t += 1
         agent.finish_episode()
         if not quiet: print(f"finished learning episode {_}")
         cumulative_learning_reward_history[_] = total_learning_reward

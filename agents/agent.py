@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 class Agent(ABC):
 
     @abstractmethod
-    def run_policy(self, s):
+    def run_policy(self, s, t):
         """
         this method should return an action to perform on
         the given state s
@@ -12,7 +12,7 @@ class Agent(ABC):
         ...
 
     @abstractmethod
-    def update(self, s, sprime, a, r):
+    def update(self, s, sprime, a, r, done):
         """
         this method should perform any necessary learning
         updates based on the given s, s', a, r sequence
@@ -24,7 +24,7 @@ class Agent(ABC):
         ...
 
     @abstractmethod
-    def initialise(self, state_space_size, action_space_size, resume=False):
+    def initialise(self, state_space_size, action_space_size, start_state, resume=False):
         """
         this method should initialise all relevant structures
         associated with the agent's logic so a new episode can

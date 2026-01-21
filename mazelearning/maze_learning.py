@@ -24,17 +24,17 @@ agents = [
         # TreeBackupOffPolicyNstepSarsaAgent(MazeEnvironment(), n=2, epsilon=0.1, discount_factor=0.99),
         # ImportanceSamplingOffPolicyNstepSarsaAgent(MazeEnvironment(), n=2, epsilon=0.1, discount_factor=0.99),
         # NstepExpectedSarsaAgent(MazeEnvironment(), n=1, epsilon=0.2, discount_factor=0.99),
-        # NstepSarsaAgent(MazeEnvironment(), n=1, epsilon=0.1, discount_factor=0.99),
+        NstepSarsaAgent(MazeEnvironment(), n=1, epsilon=0.1, discount_factor=0.99),
         # DoubleQLearningAgent(MazeEnvironment(), epsilon=0.9, discount_factor=0.99),
         # QLearningAgent(MazeEnvironment(), epsilon=0.9, discount_factor=0.99),
         # SarsaAgent(MazeEnvironment(), epsilon=0.8, discount_factor=0.99),
         # ExpectedSarsaAgent(MazeEnvironment(), epsilon=0.9, discount_factor=0.99),
-        OnPolicyMonteCarloAgent(MazeEnvironment(), epsilon=0.9, discount_factor=0.99, every_visit=False),
+        # OnPolicyMonteCarloAgent(MazeEnvironment(), epsilon=0.9, discount_factor=0.99, every_visit=False),
 ]
 
 # show_agents(agents)
 
-agents[0].learn(100, quiet=False)
+agents[0].learn(1000, quiet=False)
 agents[0].plot()
 
 
