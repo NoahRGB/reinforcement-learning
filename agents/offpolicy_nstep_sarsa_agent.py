@@ -1,9 +1,9 @@
 from agents.agent import Agent
-
+import math
 import numpy as np
 
 
-class NstepSarsaAgent(Agent):
+class OffPolicyNstepSarsaAgent(Agent):
     def __init__(self, n, alpha, epsilon, gamma, expected, decay_rate=1.0, time_limit=10000):
         self.n = n
         self.alpha = alpha
@@ -25,7 +25,7 @@ class NstepSarsaAgent(Agent):
                 self.states = {0: start_state}
                 self.actions = {0: self.generate_action(start_state)}
                 self.rewards = {}
-                self.termination_time = np.inf 
+                self.termination_time = np.inf
         self.current_episode_rewards = 0
         self.time_step = 0
 
@@ -37,7 +37,7 @@ class NstepSarsaAgent(Agent):
             self.states = {0: self.start_state}
             self.actions = {0: self.generate_action(self.start_state)}
             self.rewards = {}
-            self.termination_time = np.inf 
+            self.termination_time = np.inf
             self.time_step = 0
 
     def get_all_actions(self):
@@ -47,19 +47,37 @@ class NstepSarsaAgent(Agent):
         return np.where(self.qtable[s, :] == self.qtable[s, :].max())[0]
 
     def run_policy(self, s, t):
-        return self.actions[t]
+        if not self.eval:
+            return self.actions[t]
+        return self.run_target_policy(s)
 
     def generate_action(self, s):
         if np.random.random() >= self.epsilon or self.eval:
             return np.random.choice(self.get_best_actions(s))
         return np.random.choice(self.get_all_actions())
 
+    def run_target_policy(self, state):
+        return np.random.choice(self.get_best_actions(state))
+
     def nstep_update(self, time_to_update):
         state_to_update = self.states[time_to_update]
         action_to_update = self.actions[time_to_update]
 
-        target = 0
+        importance_sampling_ratio = 1
         for t in range(time_to_update+1, min(time_to_update+self.n, self.termination_time)+1):
+            this_action = self.actions[t]
+            legal_actions = self.get_all_actions()
+            best_actions = self.get_best_actions(self.states[t])
+            if this_action in best_actions:
+                behaviour_probability = ((self.epsilon / len(legal_actions)) + ((1-self.epsilon) / len(best_actions)))
+                target_probability = 1 / len(best_actions)
+            else:
+                behaviour_probability = (self.epsilon / len(legal_actions))
+                target_probability = 0
+            importance_sampling_ratio *= (target_probability / behaviour_probability)
+
+        target = 0
+        for t in range(time_to_update+1, min(time_to_update+self.n, self.termination_time)):
             target += (self.gamma**(t - time_to_update - 1)) * self.rewards[t]
 
         if time_to_update + self.n < self.termination_time:
@@ -73,12 +91,12 @@ class NstepSarsaAgent(Agent):
                     else:
                         prob = (self.epsilon / len(all_actions))
                     update_target += prob * self.qtable[self.states[time_to_update+self.n], aprime]
-                target += (self.gamma**self.n) * update_target
+                update_target *= (self.gamma**self.n)
             else:
                 target += (self.gamma**self.n) * self.qtable[self.states[time_to_update+self.n], self.actions[time_to_update+self.n]]
 
         self.qtable[state_to_update, action_to_update] += (
-                self.alpha * (target - self.qtable[state_to_update, action_to_update])
+                self.alpha * importance_sampling_ratio * (target - self.qtable[state_to_update, action_to_update])
         )
 
     def update(self, s, sprime, a, r, done):
