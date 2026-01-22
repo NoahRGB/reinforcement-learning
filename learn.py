@@ -14,7 +14,6 @@ def learn(episodes, env, agent, resume=False, timeouts=False, quiet=True):
             a = agent.run_policy(s, t)
             sprime, r, done = env.step(s, a)
             agent_done = agent.update(s, sprime, a, r, done)
-            if resume: print(a, sprime, r, done, agent_done)
             if agent_done and timeouts:
                 total_reward = 9999
                 done = True

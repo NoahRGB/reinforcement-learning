@@ -3,7 +3,7 @@ import math
 import numpy as np
 
 
-class OffPolicyNstepSarsaAgent(Agent):
+class OffPolicyNstepSarsaAgentISR(Agent):
     def __init__(self, n, alpha, epsilon, gamma, expected, decay_rate=1.0, time_limit=10000):
         self.n = n
         self.alpha = alpha
