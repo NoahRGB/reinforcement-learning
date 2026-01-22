@@ -11,34 +11,31 @@ class OffPolicyNstepSarsaAgent(Agent):
         self.gamma = gamma
         self.expected = expected
         self.decay_rate = decay_rate
-        self.eval = False
         self.time_limit = time_limit
 
     def initialise(self, state_space_size, action_space_size, start_state, resume=False):
-        if not self.eval:
-            if not resume:
-                self.start_state = start_state
-                self.state_space_size = state_space_size
-                self.action_space_size = action_space_size
-                self.qtable = np.full((state_space_size, action_space_size), 0.0)
-                self.reward_history = []
-                self.states = {0: start_state}
-                self.actions = {0: self.generate_action(start_state)}
-                self.rewards = {}
-                self.termination_time = np.inf
+        self.state_space_size = state_space_size
+        self.action_space_size = action_space_size
+        if not resume:
+            self.qtable = np.full((state_space_size, action_space_size), 0.0)
+            self.reward_history = []
+        self.start_state = start_state
+        self.states = {0: start_state}
+        self.actions = {0: self.generate_action(self.start_state)}
+        self.rewards = {}
+        self.termination_time = np.inf
         self.current_episode_rewards = 0
         self.time_step = 0
 
     def finish_episode(self):
         self.reward_history.append(self.current_episode_rewards)
         self.current_episode_rewards = 0
-        if not self.eval:
-            self.epsilon *= self.decay_rate
-            self.states = {0: self.start_state}
-            self.actions = {0: self.generate_action(self.start_state)}
-            self.rewards = {}
-            self.termination_time = np.inf
-            self.time_step = 0
+        self.states = {0: self.start_state}
+        self.actions = {0: self.generate_action(self.start_state)}
+        self.rewards = {}
+        self.termination_time = np.inf
+        self.time_step = 0
+        self.epsilon *= self.decay_rate
 
     def get_all_actions(self):
         return [i for i in range(self.action_space_size)]
@@ -47,12 +44,10 @@ class OffPolicyNstepSarsaAgent(Agent):
         return np.where(self.qtable[s, :] == self.qtable[s, :].max())[0]
 
     def run_policy(self, s, t):
-        if not self.eval:
-            return self.actions[t]
-        return self.run_target_policy(s)
+        return self.actions[t]
 
     def generate_action(self, s):
-        if np.random.random() >= self.epsilon or self.eval:
+        if np.random.random() >= self.epsilon:
             return np.random.choice(self.get_best_actions(s))
         return np.random.choice(self.get_all_actions())
 
@@ -64,7 +59,7 @@ class OffPolicyNstepSarsaAgent(Agent):
         action_to_update = self.actions[time_to_update]
 
         importance_sampling_ratio = 1
-        for t in range(time_to_update+1, min(time_to_update+self.n, self.termination_time)+1):
+        for t in range(time_to_update+1, min(time_to_update+self.n-1, self.termination_time-1)+1):
             this_action = self.actions[t]
             legal_actions = self.get_all_actions()
             best_actions = self.get_best_actions(self.states[t])
@@ -77,7 +72,7 @@ class OffPolicyNstepSarsaAgent(Agent):
             importance_sampling_ratio *= (target_probability / behaviour_probability)
 
         target = 0
-        for t in range(time_to_update+1, min(time_to_update+self.n, self.termination_time)):
+        for t in range(time_to_update+1, min(time_to_update+self.n, self.termination_time)+1):
             target += (self.gamma**(t - time_to_update - 1)) * self.rewards[t]
 
         if time_to_update + self.n < self.termination_time:
@@ -91,7 +86,7 @@ class OffPolicyNstepSarsaAgent(Agent):
                     else:
                         prob = (self.epsilon / len(all_actions))
                     update_target += prob * self.qtable[self.states[time_to_update+self.n], aprime]
-                update_target *= (self.gamma**self.n)
+                target += (self.gamma**self.n) * update_target
             else:
                 target += (self.gamma**self.n) * self.qtable[self.states[time_to_update+self.n], self.actions[time_to_update+self.n]]
 
@@ -101,28 +96,25 @@ class OffPolicyNstepSarsaAgent(Agent):
 
     def update(self, s, sprime, a, r, done):
         self.current_episode_rewards += r
-        if not self.eval:
-            if self.time_step < self.termination_time:
-                self.states[self.time_step+1] = sprime
-                self.rewards[self.time_step+1] = r
-                self.actions[self.time_step+1] = self.generate_action(sprime)
-                if done:
-                    self.termination_time = self.time_step + 1 
 
-            time_to_update = self.time_step - self.n + 1
-            if time_to_update >= 0:
-                self.nstep_update(time_to_update)
-
+        if self.time_step < self.termination_time:
+            self.states[self.time_step+1] = sprime
+            self.rewards[self.time_step+1] = r
+            self.actions[self.time_step+1] = self.generate_action(sprime)
             if done:
-                # do n-1 extra updates
-                extra_time_step = self.time_step
-                while time_to_update <= (self.termination_time-1):
-                    extra_time_step += 1 
-                    time_to_update = extra_time_step - self.n + 1
-                    self.nstep_update(time_to_update)
+                self.termination_time = self.time_step + 1
+
+        time_to_update = self.time_step - self.n + 1
+        if time_to_update >= 0:
+            self.nstep_update(time_to_update)
+
+        if done:
+            # do n-1 extra updates
+            extra_time_step = self.time_step
+            while time_to_update <= (self.termination_time-1):
+                extra_time_step += 1
+                time_to_update = extra_time_step - self.n + 1
+                self.nstep_update(time_to_update)
 
         self.time_step += 1
         return self.time_step >= self.time_limit
-
-    def toggle_eval(self):
-        self.eval = not self.eval

@@ -40,12 +40,3 @@ class Agent(ABC):
         episode
         """
         ...
-
-    @abstractmethod
-    def toggle_eval(self):
-        """
-        this method should change the agent's behaviour so that
-        it performs as well as it can given the learning that it
-        has done so far so that its performance can be "evaluated"
-        """
-        ...
