@@ -18,7 +18,7 @@ class Agent(ABC):
         updates based on the given s, s', a, r sequence
 
         it should return a bool denoting whether the agent
-        wants to stop learning 
+        wants to stop learning
         (perhaps based on a timeout)
         """
         ...

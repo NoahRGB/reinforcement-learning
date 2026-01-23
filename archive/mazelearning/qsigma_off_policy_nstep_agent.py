@@ -49,9 +49,9 @@ class QSigmaOffPolicyNstepAgent(Agent):
         self.done = False
         self.current_iteration_path = []
 
-        self.states = {0: self.environment.start_state} 
-        self.actions = {} 
-        self.rewards = {} 
+        self.states = {0: self.environment.start_state}
+        self.actions = {}
+        self.rewards = {}
         self.sigmas = {}
         self.isrs = {} # importance sampling ratios
 
