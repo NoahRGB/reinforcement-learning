@@ -33,6 +33,7 @@ class ReinforceAgent(Agent):
         self.current_episode_rewards = 0
         self.time_step = 0
         if not resume:
+            self.optimiser = keras.optimizers.Adam(0.02)
             self.theta = tf.Variable(np.zeros((state_space_size, action_space_size), np.float32), tf.float32)
             self.reward_history = []
 
@@ -54,13 +55,16 @@ class ReinforceAgent(Agent):
 
     def finish_episode(self):
         
-        returns = []
         G = 0
         for t in range(len(self.steps)-1, -1, -1):
             s, sprime, a, r = self.steps[t]
-            G = self.gamma * G + r
-            returns.insert(0, G)
-        self.theta.assign_add(self.alpha * self.get_derivative(self.steps, returns))
+            G += self.gamma * G + r
+         
+        grads = self.get_derivative(self.steps, G)
+        for line in grads:
+            print(line)
+        self.optimiser.apply_gradients(zip([-grads], [self.theta]))
+        # self.theta.assign_add(self.alpha * self.get_derivative(self.steps, returns))
 
 
         self.steps = []
