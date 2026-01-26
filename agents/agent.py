@@ -40,3 +40,11 @@ class Agent(ABC):
         episode
         """
         ...
+
+    @abstractmethod
+    def get_supported_state_spaces(self):
+        ...
+
+    @abstractmethod
+    def get_supported_action_spaces(self):
+        ...

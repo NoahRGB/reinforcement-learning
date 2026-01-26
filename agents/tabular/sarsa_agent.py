@@ -1,7 +1,7 @@
 from agents.agent import Agent
+from environments.spaces import DiscreteSpace
 
 import numpy as np
-
 
 class SarsaAgent(Agent):
     def __init__(self, alpha, epsilon, gamma, expected, decay_rate=1.0, time_limit=10000):
@@ -12,16 +12,16 @@ class SarsaAgent(Agent):
         self.decay_rate = decay_rate
         self.time_limit = time_limit
 
-    def initialise(self, state_space_size, action_space_size, start_state, resume=False):
+    def initialise(self, state_space, action_space, start_state, resume=False):
         self.start_state = start_state
-        self.state_space_size = state_space_size
-        self.action_space_size = action_space_size
+        self.state_space_size = state_space.dimensions 
+        self.action_space_size = action_space.dimensions 
+        if not resume:
+            self.qtable = np.full((self.state_space_size, self.action_space_size), 0.0)
+            self.reward_history = []
         self.action = self.generate_action(start_state)
         self.current_episode_rewards = 0
         self.time_step = 0
-        if not resume:
-            self.qtable = np.full((state_space_size, action_space_size), 0.0)
-            self.reward_history = []
 
     def finish_episode(self):
         self.reward_history.append(self.current_episode_rewards)
@@ -66,3 +66,9 @@ class SarsaAgent(Agent):
 
         self.time_step += 1
         return self.time_step >= self.time_limit
+
+    def get_supported_state_spaces(self):
+        return [DiscreteSpace]
+
+    def get_supported_action_spaces(self):
+        return [DiscreteSpace]

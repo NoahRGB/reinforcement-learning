@@ -12,11 +12,11 @@ class Environment(ABC):
         ...
 
     @abstractmethod
-    def get_state_space_size(self):
+    def get_state_space(self):
         ...
 
     @abstractmethod
-    def get_action_space_size(self):
+    def get_action_space(self):
         ...
 
     @abstractmethod

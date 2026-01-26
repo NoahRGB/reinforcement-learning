@@ -1,7 +1,7 @@
 from environments.environment import Environment
+from environments.spaces import DiscreteSpace
 
 import numpy as np
-
 
 class MazeEnvironment(Environment):
     def __init__(self):
@@ -27,6 +27,8 @@ class MazeEnvironment(Environment):
         self.start_state = self.compress([1, 1])
         self.goal_state = self.compress([self.maze_height-2, self.maze_width-2])
         self.actions = [[-1, 0], [1, 0], [0, -1], [0, 1]]
+        self.state_space = DiscreteSpace(self.maze_width*self.maze_height)
+        self.action_space = DiscreteSpace(len(self.actions))
 
     def compress(self, s):
         return self.maze_width * s[0] + s[1]
@@ -64,8 +66,8 @@ class MazeEnvironment(Environment):
     def get_start_state(self):
         return self.start_state
 
-    def get_state_space_size(self):
-        return self.maze_width * self.maze_height
+    def get_state_space(self):
+        return self.state_space
 
-    def get_action_space_size(self):
-        return len(self.actions)
+    def get_action_space(self):
+        return self.action_space

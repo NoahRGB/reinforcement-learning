@@ -1,7 +1,16 @@
 import numpy as np
 
 def learn(episodes, env, agent, resume=False, timeouts=False, quiet=True):
-    agent.initialise(env.get_state_space_size(), env.get_action_space_size(), env.get_start_state(), resume=resume)
+    state_space = env.get_state_space()
+    action_space = env.get_action_space()
+    if type(state_space) not in agent.get_supported_state_spaces():
+        print("Envrionment state space not supported by agent")
+        return False
+    if type(action_space) not in agent.get_supported_action_spaces():
+        print("Envrionment action space not supported by agent")
+        return False
+
+    agent.initialise(state_space, action_space, env.get_start_state(), resume=resume)
     if not quiet: print(f"Starting learning over {episodes} episodes")
     reward_history = np.empty(episodes)
     for _ in range(episodes):
