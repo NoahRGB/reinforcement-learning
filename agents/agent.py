@@ -24,7 +24,7 @@ class Agent(ABC):
         ...
 
     @abstractmethod
-    def initialise(self, state_space_size, action_space_size, start_state, resume=False):
+    def initialise(self, state_space, action_space, start_state, resume=False):
         """
         this method should initialise all relevant structures
         associated with the agent's logic so a new episode can
@@ -42,9 +42,17 @@ class Agent(ABC):
         ...
 
     @abstractmethod
-    def get_supported_state_spaces(self):
+    def get_supported_state_spaces(self) -> list:
+        """
+        this method should return a list of spaces from environments/spaces.py
+        that the agent supports for environment state spaces
+        """
         ...
 
     @abstractmethod
-    def get_supported_action_spaces(self):
+    def get_supported_action_spaces(self) -> list:
+        """
+        this method should return a list of spaces from environments/spaces.py
+        that the agent supports for environment action spaces
+        """
         ...

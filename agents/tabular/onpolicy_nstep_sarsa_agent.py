@@ -1,4 +1,5 @@
 from agents.agent import Agent
+from environments.spaces import DiscreteSpace
 
 import numpy as np
 
@@ -13,12 +14,12 @@ class OnPolicyNstepSarsaAgent(Agent):
         self.decay_rate = decay_rate
         self.time_limit = time_limit
 
-    def initialise(self, state_space_size, action_space_size, start_state, resume=False):
+    def initialise(self, state_space, action_space, start_state, resume=False):
         self.start_state = start_state
-        self.state_space_size = state_space_size
-        self.action_space_size = action_space_size
+        self.state_space_size = state_space.dimensions
+        self.action_space_size = action_space.dimensions
         if not resume:
-            self.qtable = np.full((state_space_size, action_space_size), 0.0)
+            self.qtable = np.full((self.state_space_size, self.action_space_size), 0.0)
             self.reward_history = []
         self.states = {0: start_state}
         self.actions = {0: self.generate_action(start_state)}
@@ -102,3 +103,9 @@ class OnPolicyNstepSarsaAgent(Agent):
 
         self.time_step += 1
         return self.time_step >= self.time_limit
+
+    def get_supported_state_spaces(self):
+        return [DiscreteSpace]
+
+    def get_supported_action_spaces(self):
+        return [DiscreteSpace]

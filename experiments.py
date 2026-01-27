@@ -16,26 +16,31 @@ from agents.tabular.offpolicy_nstep_sarsa_agent_tb import OffPolicyNstepSarsaAge
 from agents.tabular.qsigma_offpolicy_nstep_sarsa_agent import QSigmaOffPolicyNstepSarsaAgent
 
 # from agents.approximate.reinforce_agent import ReinforceAgent
+from agents.approximate.semigradient_sarsa_agent import SemigradientSarsaAgent
 
-episode_count = 100
-
-# "CliffWalking-v1"
-# "Taxi-v3"
-# "FrozenLake-v1", is_slippery=True
+# =============== env =================
+env = GymEnvironment("CartPole-v1", render_mode=None)
+# env = GymEnvironment("MountainCar-v0", render_mode=None)
+# env = GymEnvironment("Taxi-v3", render_mode=None)
+# env = GymEnvironment("FrozenLake-v1", is_slippery=True, render_mode=None)
 # env = GymEnvironment("CliffWalking-v1", render_mode=None)
-env = MazeEnvironment()
+# env = MazeEnvironment()
 
-
+# =============== agent =================
+agent = SemigradientSarsaAgent(alpha=1.0, epsilon=0.9, gamma=0.99, decay_rate=0.99)
 # agent = ReinforceAgent(alpha=0.1, gamma=0.99)
 # agent = QSigmaOffPolicyNstepSarsaAgent(n=2, alpha=1.0, epsilon=0.1, gamma=0.9)
 # agent = OffPolicyMonteCarloAgent(epsilon=0.9, gamma=1.0, every_visit=False, decay_rate=1.0)
+
 # agent = OffPolicyNstepSarsaAgentTB(n=4, alpha=1.0, epsilon=0.1, gamma=0.9)
 # agent = OffPolicyNstepSarsaAgentISR(n=2, alpha=1.0, epsilon=0.1, gamma=0.9, expected=True)
-# agent = OnPolicyNstepSarsaAgent(n=2, alpha=0.5, epsilon=0.1, gamma=0.9, expected=False, decay_rate=0.99)
-agent = SarsaAgent(alpha=1.0, epsilon=0.1, gamma=0.9, expected=True, decay_rate=0.99)
+# agent = OnPolicyNstepSarsaAgent(n=4, alpha=1.0, epsilon=0.5, gamma=0.4, expected=True, decay_rate=0.99)
+# agent = SarsaAgent(alpha=1.0, epsilon=0.1, gamma=0.9, expected=True, decay_rate=0.99)
 # agent = QLearningAgent(alpha=0.3, epsilon=0.9, gamma=0.8, decay_rate=0.99)
-# agent = OnPolicyMonteCarloAgent(epsilon=0.3, gamma=0.9, every_visit=False, decay_rate=1.0)
+# agent = OnPolicyMonteCarloAgent(epsilon=0.1, gamma=0.99, every_visit=False, decay_rate=0.99)
 
+# =============== learning =================
+episode_count = 2000
 learning_rewards = learn(episode_count, env, agent, quiet=False)
 
 plt.plot(learning_rewards)
