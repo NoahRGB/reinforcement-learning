@@ -8,6 +8,7 @@ class GymEnvironment(Environment):
     def __init__(self, name, is_recording, **kwargs):
         if is_recording and kwargs["render_mode"] == None:
             kwargs["render_mode"] = "rgb_array"
+
         self.env = gym.make(name, **kwargs)
         if is_recording:
             self.env = RecordVideo(self.env, ".", episode_trigger=lambda x: True)

@@ -7,7 +7,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 import numpy as np
-import pickle
 
 class NN(nn.Module):
     def __init__(self, state_space_dim, action_space_dim):
@@ -114,5 +113,5 @@ class SemigradientSarsaAgent(Agent):
         return [ContinuousSpace]
 
     def get_supported_action_spaces(self):
-        return [DiscreteSpace]
+        return [DiscreteSpace, ContinuousSpace]
 

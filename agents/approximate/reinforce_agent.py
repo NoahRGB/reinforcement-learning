@@ -1,72 +1,83 @@
 import os, warnings
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-warnings.filterwarnings("ignore", category=UserWarning)                                           
 
 from agents.agent import Agent
+from environments.spaces import DiscreteSpace, ContinuousSpace
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
 
 import numpy as np
-import tensorflow as tf
-import tensorflow.keras as keras
+
+class NN(nn.Module):
+    def __init__(self, state_space_dim, action_space_dim):
+        super(NN, self).__init__()
+        self.fc1 = nn.Linear(state_space_dim, 8)
+        self.fc2 = nn.Linear(8, action_space_dim)
+
+    def forward(self, input):
+        f1 = F.relu(self.fc1(input))
+        output = F.softmax(self.fc2(f1))
+        return output
 
 class ReinforceAgent(Agent):
-    def __init__(self, alpha, gamma, time_limit=10000):
-        self.alpha = alpha
+    def __init__(self, lr, gamma, normalise, time_limit=10000):
+        self.lr = lr
         self.gamma = gamma
+        self.normalise = normalise
         self.time_limit = time_limit
 
-    def run_policy(self, s, t):
-        probs = self.theta[s, :]
-        actions = [i for i in range(self.action_space_size)]
-        probs = tf.nn.softmax(probs).numpy()
-        return np.random.choice(actions, 1, p=probs)[0]
+    def normalise_state(self, s):
+        s = torch.from_numpy(s).float().clone()
+        if self.normalise:
+            for i in range(len(self.state_space_mins)):
+                s[i] = (s[i] - self.state_space_mins[i]) / (self.state_space_maxs[i] - self.state_space_mins[i])
+        return s
 
+    def run_policy(self, s, t):
+        with torch.no_grad():
+            probs = self.nn.forward(self.normalise_state(s)).numpy()
+        # print(probs)
+        return np.argmax(probs)
+        
     def update(self, s, sprime, a, r, done):
         self.current_episode_rewards += r
         self.steps.append((s, sprime, a, r))
         self.time_step += 1
         return self.time_step >= self.time_limit
 
-    def initialise(self, state_space_size, action_space_size, start_state, resume=False):
+    def initialise(self, state_space, action_space, start_state, resume=False):
         self.steps = []
-        self.state_space_size = state_space_size
-        self.action_space_size = action_space_size
+        self.state_space_size = state_space.dimensions
+        self.action_space_size = action_space.dimensions
+        self.state_space_mins = state_space.min_bound
+        self.state_space_maxs = state_space.max_bound
         self.current_episode_rewards = 0
         self.time_step = 0
         if not resume:
-            self.optimiser = keras.optimizers.Adam(0.02)
-            self.theta = tf.Variable(np.zeros((state_space_size, action_space_size), np.float32), tf.float32)
+            self.nn = NN(self.state_space_size, self.action_space_size)
+            self.optimiser = optim.Adam(self.nn.parameters(), lr=self.lr)
             self.reward_history = []
-
-    def get_action_probs(self, steps):
-        action_probs = [tf.nn.softmax(self.theta[s, :]) for (s, sprime, a, r) in steps]
-        chosen_action_probs = []
-        for i in range(len(steps)):
-            (s, sprime, a, r) = steps[i]
-            chosen_action_probs.append(action_probs[i][a])
-        return tf.stack(chosen_action_probs)
-
-    def get_derivative(self, steps, G):
-
-        with tf.GradientTape() as tape:
-            tape.watch(self.theta)
-            action_probs = self.get_action_probs(steps)
-            L = tf.reduce_sum(tf.math.log(action_probs * G))
-        return tape.gradient(L, self.theta)
 
     def finish_episode(self):
         
         G = 0
         for t in range(len(self.steps)-1, -1, -1):
             s, sprime, a, r = self.steps[t]
-            G += self.gamma * G + r
-         
-        grads = self.get_derivative(self.steps, G)
-        for line in grads:
-            print(line)
-        self.optimiser.apply_gradients(zip([-grads], [self.theta]))
-        # self.theta.assign_add(self.alpha * self.get_derivative(self.steps, returns))
+            G = r + self.gamma * G
 
+            self.optimiser.zero_grad()
+            loss = G * torch.log(self.nn.forward(self.normalise_state(s))[a])
+            loss.backward()
+            self.optimiser.step()
 
         self.steps = []
         self.reward_history.append(self.current_episode_rewards)
         self.current_episode_rewards = 0
+
+    def get_supported_state_spaces(self):
+        return [ContinuousSpace]
+
+    def get_supported_action_spaces(self):
+        return [DiscreteSpace]
