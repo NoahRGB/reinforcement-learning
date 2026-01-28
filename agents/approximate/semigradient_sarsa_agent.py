@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 import numpy as np
+import pickle
 
 class NN(nn.Module):
     def __init__(self, state_space_dim, action_space_dim):
@@ -22,27 +23,35 @@ class NN(nn.Module):
         return output
 
 class SemigradientSarsaAgent(Agent):
-    def __init__(self, alpha, epsilon, gamma, decay_rate=1.0, time_limit=10000):
-        self.alpha = alpha
+    def __init__(self, normalise, lr,  epsilon, gamma, decay_rate=1.0, load_nn_path=None, save_nn_path=None, time_limit=10000):
+        self.normalise = normalise
+        self.lr = lr
         self.epsilon = epsilon
         self.gamma = gamma
         self.decay_rate = decay_rate
         self.time_limit = time_limit
+        self.load_nn_path = load_nn_path
+        self.save_nn_path = save_nn_path
 
     def normalise_state(self, s):
         s = torch.from_numpy(s).float().clone()
-        s[0] = (s[0] - (-1.2)) / (0.6 - (-1.2))
-        s[1] = (s[1] - (-0.07)) / (0.07 - (-0.07))
+        if self.normalise:
+            for i in range(len(self.state_space_mins)):
+                s[i] = (s[i] - self.state_space_mins[i]) / (self.state_space_maxs[i] - self.state_space_mins[i])
         return s 
 
     def initialise(self, state_space, action_space, start_state, resume=False):
         self.start_state = start_state
-        self.state_space_size = state_space.dimensions[0] 
+        self.state_space_size = state_space.dimensions 
         self.action_space_size = action_space.dimensions 
+        self.state_space_mins = state_space.min_bound
+        self.state_space_maxs = state_space.max_bound
         if not resume:
             self.nn = NN(self.state_space_size, self.action_space_size)
-            self.optimiser = optim.Adam(self.nn.parameters(), lr=0.001)
-            # self.optimiser = optim.SGD(self.nn.parameters(), lr=0.00001)
+            if self.load_nn_path != None:
+                self.nn.load_state_dict(torch.load(self.load_nn_path))
+            self.optimiser = optim.Adam(self.nn.parameters(), lr=self.lr)
+            # self.optimiser = optim.SGD(self.nn.parameters(), lr=0.0001)
             self.reward_history = []
         self.action = self.generate_action(start_state)
         self.current_episode_rewards = 0
@@ -82,19 +91,21 @@ class SemigradientSarsaAgent(Agent):
 
         if done:
             target = torch.tensor(r)
-            # print(qs)
         else:
             with torch.no_grad():
                 target = r + self.gamma * self.nn.forward(self.normalise_state(sprime))[aprime]
 
         td_err = target - qsa
-        loss = F.mse_loss(qsa, target.detach())
-        # loss = 0.5 * td_err.pow(2)
+
+        loss = 0.5 * td_err.pow(2)
         # loss = -td_err * qsa
         loss.backward()
         self.optimiser.step()
 
         self.action = aprime
+
+        if done and self.save_nn_path != None:
+            torch.save(self.nn.state_dict(), self.save_nn_path)
 
         self.time_step += 1
         return self.time_step >= self.time_limit
