@@ -9,8 +9,6 @@ Contains implementations of various RL algorithms following the `agents/agent.py
 
 These are used with the functions in `learn.py` to solve the environments from the `environments/` folder
 
-`tabular` contains age
-
 Tabular based agents:
 - [x] On policy Monte Carlo
 - [x] Q-learning
