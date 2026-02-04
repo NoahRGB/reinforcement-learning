@@ -29,7 +29,7 @@ def learn(episodes, env, agent, resume=False, timeouts=False, quiet=True):
             s = sprime
             total_reward += r
             t += 1
-        agent.finish_episode()
+        agent.finish_episode(_)
         if not quiet: print(f"Episode {_} reward: {total_reward}")
         reward_history[_] = total_reward
     if not quiet: print(f"Finished learning over {episodes} episodes")

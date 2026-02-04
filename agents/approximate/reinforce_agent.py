@@ -20,7 +20,6 @@ class NN(nn.Module):
     def forward(self, input):
         f1 = F.relu(self.fc1(input))
         f2 = F.relu(self.fc2(f1))
-        F.log_softmax
         output = F.log_softmax(self.fc3(f2))
         return output
 

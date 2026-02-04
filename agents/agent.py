@@ -33,7 +33,7 @@ class Agent(ABC):
         ...
 
     @abstractmethod
-    def finish_episode(self):
+    def finish_episode(self, episode_num):
         """
         this method should execute the relevant book keeping
         or learning that needs to be done at the end of an
