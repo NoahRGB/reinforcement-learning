@@ -1,5 +1,3 @@
-import os, warnings
-
 from agents.agent import Agent
 from environments.spaces import DiscreteSpace, ContinuousSpace
 
@@ -7,7 +5,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils.tensorboard import SummaryWriter
 
 import numpy as np
 
@@ -38,7 +35,9 @@ class PolicyNN(nn.Module):
         return output
 
 class ReinforceBaselineAgent(Agent):
-    def __init__(self, policy_lr, state_value_lr, gamma, normalise, save_policy_nn_path=None, save_state_value_nn_path=None, load_policy_nn_path=None, load_state_value_nn_path=None, time_limit=10000):
+    def __init__(self, device, writer, policy_lr, state_value_lr, gamma, normalise, save_policy_nn_path=None, save_state_value_nn_path=None, load_policy_nn_path=None, load_state_value_nn_path=None, time_limit=10000):
+        self.writer = writer
+        self.device = device
         self.policy_lr = policy_lr
         self.state_value_lr = state_value_lr
         self.gamma = gamma
@@ -48,10 +47,9 @@ class ReinforceBaselineAgent(Agent):
         self.load_policy_nn_path = load_policy_nn_path
         self.load_state_value_nn_path = load_state_value_nn_path
         self.time_limit = time_limit
-        self.writer = SummaryWriter()
 
     def normalise_state(self, s):
-        s = torch.from_numpy(s).float().clone()
+        s = torch.from_numpy(s).float().clone().to(self.device)
         if self.normalise:
             for i in range(len(self.state_space_mins)):
                 s[i] = (s[i] - self.state_space_mins[i]) / (self.state_space_maxs[i] - self.state_space_mins[i])
@@ -59,7 +57,7 @@ class ReinforceBaselineAgent(Agent):
 
     def run_policy(self, s, t):
         with torch.no_grad():
-            probs = self.policy_nn(self.normalise_state(s)).numpy()
+            probs = self.policy_nn(self.normalise_state(s)).cpu().numpy()
         probs = np.exp(probs)
         return np.random.choice([i for i in range(self.action_space_size)], p=probs)
         
@@ -78,9 +76,9 @@ class ReinforceBaselineAgent(Agent):
         self.current_episode_rewards = 0
         self.time_step = 0
         if not resume:
-            self.policy_nn = PolicyNN(self.state_space_size, self.action_space_size)
+            self.policy_nn = PolicyNN(self.state_space_size, self.action_space_size).to(self.device)
             self.policy_optimiser = optim.Adam(self.policy_nn.parameters(), lr=self.policy_lr)
-            self.state_value_nn = StateValueNN(self.state_space_size)
+            self.state_value_nn = StateValueNN(self.state_space_size).to(self.device)
             self.state_value_optimiser = optim.Adam(self.state_value_nn.parameters(), lr=self.state_value_lr)
             if self.load_policy_nn_path != None:
                 self.policy_nn.load_state_dict(torch.load(self.load_policy_nn_path))
@@ -118,6 +116,7 @@ class ReinforceBaselineAgent(Agent):
         self.steps = []
         self.reward_history.append(self.current_episode_rewards)
         self.writer.add_scalar("episode_reward", self.current_episode_rewards, episode_num)
+        self.writer.flush()
         self.current_episode_rewards = 0
 
         if self.save_policy_nn_path != None:
