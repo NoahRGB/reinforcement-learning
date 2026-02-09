@@ -22,7 +22,8 @@ class NN(nn.Module):
         return output
 
 class SemigradientSarsaAgent(Agent):
-    def __init__(self, normalise, lr,  epsilon, gamma, decay_rate=1.0, load_nn_path=None, save_nn_path=None, time_limit=10000):
+    def __init__(self, device, normalise, lr, epsilon, gamma, decay_rate=1.0, load_nn_path=None, save_nn_path=None, time_limit=10000):
+        self.device = device
         self.normalise = normalise
         self.lr = lr
         self.epsilon = epsilon
@@ -56,7 +57,7 @@ class SemigradientSarsaAgent(Agent):
         self.current_episode_rewards = 0
         self.time_step = 0
 
-    def finish_episode(self):
+    def finish_episode(self, episode_num):
         self.reward_history.append(self.current_episode_rewards)
         self.current_episode_rewards = 0
         self.action = self.generate_action(self.start_state)
@@ -68,7 +69,8 @@ class SemigradientSarsaAgent(Agent):
     def get_best_actions(self, s):
         with torch.no_grad():
             qvals = self.nn.forward(self.normalise_state(s)).numpy()
-        return np.where(qvals == qvals.max())[0]
+        best = np.where(qvals == qvals.max())[0]
+        return best 
 
     def run_policy(self, s, t):
         return self.action

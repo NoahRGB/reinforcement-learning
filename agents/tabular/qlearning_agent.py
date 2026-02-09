@@ -3,7 +3,6 @@ from environments.spaces import DiscreteSpace
 
 import numpy as np
 
-
 class QLearningAgent(Agent):
     def __init__(self, alpha, epsilon, gamma, decay_rate=1.0, time_limit=10000):
         self.alpha = alpha

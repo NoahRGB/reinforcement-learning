@@ -17,6 +17,7 @@ from agents.tabular.qsigma_offpolicy_nstep_sarsa_agent import QSigmaOffPolicyNst
 from agents.approximate.reinforce_agent import ReinforceAgent
 from agents.approximate.reinforce_baseline_agent import ReinforceBaselineAgent 
 from agents.approximate.semigradient_sarsa_agent import SemigradientSarsaAgent
+from agents.approximate.dqn_agent import DQNAgent
 
 device = detect_torch_device()
 writer = create_tensorboard_writer()
@@ -24,15 +25,16 @@ writer = create_tensorboard_writer()
 # =============== env =================
 # env = GymEnvironment("LunarLander-v3", False, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", False, render_mode=None)
-env = GymEnvironment("CartPole-v1", False, render_mode=None)
-# env = GymEnvironment("MountainCar-v0", False, render_mode=None)
+# env = GymEnvironment("CartPole-v1", False, render_mode=None)
+env = GymEnvironment("MountainCar-v0", False, render_mode=None)
 # env = GymEnvironment("Taxi-v3", False, render_mode=None)
 # env = GymEnvironment("FrozenLake-v1", False, is_slippery=True, render_mode=None)
 # env = GymEnvironment("CliffWalking-v1", False, render_mode="human")
 # env = MazeEnvironment()
 
 # =============== agent =================
-agent = ReinforceBaselineAgent(device, writer, policy_lr=0.001, state_value_lr=0.0001, gamma=0.99, normalise=False)
+agent = DQNAgent(device, writer, lr=0.0001, replay_memory_size=1000, minibatch_size=16, epsilon=0.9, gamma=1.0, decay_rate=0.99, save_nn_path="dqn.pt")
+# agent = ReinforceBaselineAgent(device, writer, policy_lr=0.001, state_value_lr=0.0001, gamma=0.99, normalise=False)
 # agent = ReinforceAgent(device, lr=0.001, gamma=0.99, normalise=False)
 # agent = QSigmaOffPolicyNstepSarsaAgent(n=2, alpha=1.0, epsilon=0.1, gamma=0.9)
 # agent = OffPolicyMonteCarloAgent(epsilon=0.5, gamma=1.0, every_visit=False, decay_rate=0.99)
@@ -46,8 +48,8 @@ agent = ReinforceBaselineAgent(device, writer, policy_lr=0.001, state_value_lr=0
 # agent = OnPolicyMonteCarloAgent(epsilon=0.9, gamma=0.99, every_visit=False, decay_rate=0.99)
 
 # =============== learning =================
-episode_count = 1000 
-learning_rewards = learn(episode_count, env, agent, quiet=False)
+episode_count = 1000
+learning_rewards = learn(episode_count, env, agent, quiet=True)
 
 plt.plot(learning_rewards)
 plt.show()
