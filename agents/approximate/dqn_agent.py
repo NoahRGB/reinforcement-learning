@@ -24,7 +24,7 @@ class DQN(nn.Module):
         output = self.fc3(f2)
         return output
 
-class DQNAgent:
+class DQNAgent(Agent):
     def __init__(self, device, writer, lr, replay_memory_size, minibatch_size, epsilon, gamma, decay_rate=1.0, load_nn_path=None, save_nn_path=None, time_limit=10000):
         self.device = device
         self.writer = writer
@@ -85,10 +85,10 @@ class DQNAgent:
         
         all_s, all_a, all_r, all_sprime, all_done = zip(*minibatch)
         all_s = torch.stack([self.process_state(s_) for s_ in all_s]).to(self.device)
-        all_a = torch.tensor(all_a).to(self.device)
-        all_r = torch.tensor(all_r).to(self.device)
+        all_a = torch.tensor(all_a, dtype=torch.int32).to(self.device)
+        all_r = torch.tensor(all_r, dtype=torch.float32).to(self.device)
         all_sprime = torch.stack([self.process_state(s_) for s_ in all_sprime]).to(self.device)
-        all_done = torch.tensor(all_done, dtype=torch.int).to(self.device)
+        all_done = torch.tensor(all_done, dtype=torch.float32).to(self.device)
 
         chosen_q_vals = self.dqn(all_s).gather(1, all_a.unsqueeze(1)).squeeze(1)
         with torch.no_grad():

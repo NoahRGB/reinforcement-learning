@@ -11,9 +11,9 @@ import numpy as np
 class StateValueNN(nn.Module):
     def __init__(self, state_space_dim):
         super(StateValueNN, self).__init__()
-        self.fc1 = nn.Linear(state_space_dim, 32)
-        self.fc2 = nn.Linear(32, 16)
-        self.fc3 = nn.Linear(16, 1)
+        self.fc1 = nn.Linear(state_space_dim, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 1)
 
     def forward(self, input):
         f1 = F.relu(self.fc1(input))
@@ -31,13 +31,13 @@ class PolicyNN(nn.Module):
     def forward(self, input):
         f1 = F.relu(self.fc1(input))
         f2 = F.relu(self.fc2(f1))
-        output = F.log_softmax(self.fc3(f2))
+        output = F.log_softmax(self.fc3(f2), dim=0)
         return output
 
 class ReinforceBaselineAgent(Agent):
     def __init__(self, device, writer, policy_lr, state_value_lr, gamma, normalise, save_policy_nn_path=None, save_state_value_nn_path=None, load_policy_nn_path=None, load_state_value_nn_path=None, time_limit=10000):
-        self.writer = writer
         self.device = device
+        self.writer = writer
         self.policy_lr = policy_lr
         self.state_value_lr = state_value_lr
         self.gamma = gamma
@@ -48,16 +48,12 @@ class ReinforceBaselineAgent(Agent):
         self.load_state_value_nn_path = load_state_value_nn_path
         self.time_limit = time_limit
 
-    def normalise_state(self, s):
-        s = torch.from_numpy(s).float().clone().to(self.device)
-        if self.normalise:
-            for i in range(len(self.state_space_mins)):
-                s[i] = (s[i] - self.state_space_mins[i]) / (self.state_space_maxs[i] - self.state_space_mins[i])
-        return s
+    def process_state(self, s):
+        return torch.tensor(s).to(self.device)
 
     def run_policy(self, s, t):
         with torch.no_grad():
-            probs = self.policy_nn(self.normalise_state(s)).cpu().numpy()
+            probs = self.policy_nn(self.process_state(s)).cpu().numpy()
         probs = np.exp(probs)
         return np.random.choice([i for i in range(self.action_space_size)], p=probs)
         
@@ -88,30 +84,31 @@ class ReinforceBaselineAgent(Agent):
 
     def finish_episode(self, episode_num):
 
-        for t in range(0, len(self.steps)-1):
+        self.policy_optimiser.zero_grad()
+        self.state_value_optimiser.zero_grad()
+
+        G = 0
+        state_value_predictions = torch.tensor([0.0], dtype=torch.float32).to(self.device) 
+        policy_loss_total = torch.tensor([0.0], dtype=torch.float32).to(self.device) 
+
+        # accumulate losses
+        for t in range(len(self.steps)-1, -1, -1):
             s, sprime, a, r = self.steps[t]
+            G = self.gamma * G + r
 
-            self.policy_optimiser.zero_grad()
-            self.state_value_optimiser.zero_grad()
+            state_value_prediction = self.state_value_nn(self.process_state(s))
+            state_value_predictions = state_value_predictions + state_value_prediction
+            policy_loss_total = policy_loss_total + -(self.gamma**t) * (G - state_value_prediction) * self.policy_nn(self.process_state(s))[a]
 
-            G = 0
-            for k in range(t+1, len(self.steps)):
-                _, _, _, rk = self.steps[k]
-                G += (self.gamma**(k-t-1)) * rk
+        self.writer.add_scalar("policy_loss", policy_loss_total.item(), episode_num)
+        policy_loss_total.backward(retain_graph=True)
+        self.policy_optimiser.step()
 
-           
-            td_err = G - self.state_value_nn(self.normalise_state(s)) 
-
-            # state_value_loss = td_err * self.state_value_nn.forward(self.normalise_state(s))
-            state_value_loss = 0.5 * td_err.pow(2)
-            state_value_loss.backward(retain_graph=True)
-            
-            nn_loss = -(self.gamma**t) * td_err * self.policy_nn(self.normalise_state(s))[a]
-            nn_loss.backward()
-            
-            self.state_value_optimiser.step()
-            self.policy_optimiser.step()
-            
+        targets = torch.tensor([G], dtype=torch.float32).to(self.device)
+        state_value_loss = F.mse_loss(state_value_predictions, targets)
+        self.writer.add_scalar("sv_loss", state_value_loss.item(), episode_num)
+        state_value_loss.backward()
+        self.state_value_optimiser.step()
 
         self.steps = []
         self.reward_history.append(self.current_episode_rewards)

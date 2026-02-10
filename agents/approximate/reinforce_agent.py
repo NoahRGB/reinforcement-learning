@@ -18,29 +18,28 @@ class NN(nn.Module):
         self.fc3 = nn.Linear(16, action_space_dim)
 
     def forward(self, input):
-        f1 = F.relu(self.fc1(input))
-        f2 = F.relu(self.fc2(f1))
-        output = F.log_softmax(self.fc3(f2))
+        output = F.relu(self.fc1(input))
+        output = F.relu(self.fc2(output))
+        output = self.fc3(output)
+        output = F.log_softmax(output, dim=0)
         return output
 
 class ReinforceAgent(Agent):
-    def __init__(self, lr, gamma, normalise, time_limit=10000):
+    def __init__(self, device, writer, lr, gamma, normalise, time_limit=10000):
+        self.device = device
+        self.writer = writer
         self.lr = lr
         self.gamma = gamma
         self.normalise = normalise
         self.time_limit = time_limit
 
-    def normalise_state(self, s):
-        s = torch.from_numpy(s).float().clone()
-        if self.normalise:
-            for i in range(len(self.state_space_mins)):
-                s[i] = (s[i] - self.state_space_mins[i]) / (self.state_space_maxs[i] - self.state_space_mins[i])
-        return s
+    def process_state(self, s):
+        return torch.tensor(s).to(self.device)
 
     def run_policy(self, s, t):
         with torch.no_grad():
-            probs = self.nn.forward(self.normalise_state(s)).numpy()
-        probs = np.exp(probs)
+            probs = self.nn.forward(self.process_state(s)).cpu().numpy()
+        probs = np.exp(probs) # exp() because output is LOG_softmax (is there a better way to do this?)
         return np.random.choice([i for i in range(self.action_space_size)], p=probs)
         
     def update(self, s, sprime, a, r, done):
@@ -58,29 +57,32 @@ class ReinforceAgent(Agent):
         self.current_episode_rewards = 0
         self.time_step = 0
         if not resume:
-            self.nn = NN(self.state_space_size, self.action_space_size)
+            self.nn = NN(self.state_space_size, self.action_space_size).to(self.device)
             self.optimiser = optim.Adam(self.nn.parameters(), lr=self.lr)
             self.reward_history = []
 
-    def finish_episode(self):
+    def finish_episode(self, episode_num):
         
         self.optimiser.zero_grad()
 
-        for t in range(0, len(self.steps)-1):
+        G = 0
+        loss_total = torch.tensor(0.0, dtype=torch.float32).to(self.device) 
+
+        # accumulate loss
+        for t in range(len(self.steps)-1, -1, -1):
             s, sprime, a, r = self.steps[t]
+            G = self.gamma * G + r
+            # note this is negated since default is to do gradient DESCENT but policy gradient
+            # wants gradient ASCENT on performance measure J
+            loss_total += -(self.gamma**t) * (G - 0) * self.nn.forward(self.process_state(s))[a]
 
-            G = 0
-            for k in range(t+1, len(self.steps)):
-                _, _, _, rk = self.steps[k]
-                G += (self.gamma**(k-t-1)) * rk
-
-            loss = (self.gamma**t) * G * self.nn.forward(self.normalise_state(s))[a]
-            loss.backward()
-
+        self.writer.add_scalar("policy_loss", loss_total.item(), episode_num)
+        loss_total.backward()
         self.optimiser.step()
 
         self.steps = []
         self.reward_history.append(self.current_episode_rewards)
+        self.writer.add_scalar("episode_reward", self.current_episode_rewards, episode_num)
         self.current_episode_rewards = 0
 
     def get_supported_state_spaces(self):
