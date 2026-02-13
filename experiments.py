@@ -29,7 +29,7 @@ device = detect_torch_device()
 writer = create_tensorboard_writer(comment="pong")
 
 # =============== env =================
-env = AtariEnvironment("ALE/Pong-v5", render_mode=None)
+env = AtariEnvironment("ALE/Pong-v5", render_mode="human")
 # env = GymEnvironment("LunarLander-v3", False, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", False, render_mode=None)
 # env = GymEnvironment("CartPole-v1", False, render_mode=None)
@@ -43,7 +43,7 @@ env = AtariEnvironment("ALE/Pong-v5", render_mode=None)
 # agent = QSigmaOffPolicyNstepSarsaAgent(n=2, alpha=1.0, epsilon=0.1, gamma=0.9)
 # agent = OffPolicyMonteCarloAgent(epsilon=0.5, gamma=1.0, every_visit=False, decay_rate=0.99)
 
-agent = DQNAgent2(device, writer, lr=0.0001, replay_memory_size=1000000, minibatch_size=32, epsilon=0.9, gamma=0.99, decay_rate=1.0, save_nn_path="pong_dqn.pt")
+agent = DQNAgent2(device, writer, lr=0.0001, replay_memory_size=1000000, minibatch_size=32, epsilon=0.00, gamma=0.99, decay_rate=1.0, load_nn_path="pong_dqn.pt")
 # agent = ReinforceBaselineAgent(device, writer, policy_lr=0.01, state_value_lr=0.01, gamma=0.99, normalise=False)
 # agent = ReinforceAgent(device, writer, lr=0.00001, gamma=0.99, normalise=False)
 # agent = DQNAgent(device, writer, lr=0.0008, replay_memory_size=100000, minibatch_size=64, epsilon=0.9, gamma=0.99, decay_rate=0.99)
