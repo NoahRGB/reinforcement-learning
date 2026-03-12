@@ -6,16 +6,18 @@ from environments.spaces import DiscreteSpace, ContinuousSpace
 import gymnasium as gym
 import ale_py
 
+import cv2 as cv
+
 class AtariEnvironment(Environment):
     def __init__(self, name, **kwargs):
 
         self.env = gym.make(name, frameskip=1, **kwargs)
         self.env = AtariPreprocessing(self.env,
-            noop_max=10, frame_skip=4, terminal_on_life_loss=False,
+            noop_max=30, frame_skip=4, terminal_on_life_loss=False,
             screen_size=84, grayscale_obs=True, grayscale_newaxis=False
         )
         self.env = FrameStackObservation(self.env, stack_size=4)
-        self.env = ClipReward(self.env, -1, 1)
+        # self.env = ClipReward(self.env, -1, 1)
 
         if type(self.env.observation_space) == gym.spaces.Discrete:
             self.state_space = DiscreteSpace(self.env.observation_space.n)
@@ -37,6 +39,12 @@ class AtariEnvironment(Environment):
 
     def step(self, s, a):
         sprime, r, is_terminated, is_truncated, info = self.env.step(a)
+        # cv.imshow("frame1", sprime[0])
+        # cv.imshow("frame2", sprime[1])
+        # cv.imshow("frame3", sprime[2])
+        # cv.imshow("frame4", sprime[3])
+        # cv.waitKey(0)
+        # cv.destroyAllWindows()
         return sprime, r, (is_terminated or is_truncated)
 
     def reset(self):

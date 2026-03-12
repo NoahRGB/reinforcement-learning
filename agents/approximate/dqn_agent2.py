@@ -30,20 +30,20 @@ class DQN(nn.Module):
         return output
 
 class DQNAgent2(Agent):
-    def __init__(self, device, writer, lr, replay_memory_size, minibatch_size, epsilon, gamma, load_nn_path=None, save_nn_path=None):
+    def __init__(self, device, writer, lr, replay_memory_size, replay_warmup_length, minibatch_size, epsilon_start, epsilon_end, epsilon_decay_steps, gamma, C, load_nn_path=None, save_nn_path=None):
         self.device = device
         self.writer = writer
         self.lr = lr
         self.replay_memory_size = replay_memory_size
         self.minibatch_size = minibatch_size
-        self.C = 10000 # target_dqn update frequency
+        self.C = C # target_dqn update frequency
         self.eval_mode = False
 
-        self.epsilon = epsilon
-        self.epsilon_start = epsilon
-        self.epsilon_end = 0.1
-        self.epsilon_decay_steps = 1000000
-        self.replay_warmup_length = 50000
+        self.epsilon = epsilon_start
+        self.epsilon_start = epsilon_start
+        self.epsilon_end = epsilon_end 
+        self.epsilon_decay_steps = epsilon_decay_steps 
+        self.replay_warmup_length = replay_warmup_length 
 
         self.gamma = gamma
         self.load_nn_path = load_nn_path
