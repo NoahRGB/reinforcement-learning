@@ -56,3 +56,11 @@ class Agent(ABC):
         that the agent supports for environment action spaces
         """
         ...
+
+    @abstractmethod
+    def toggle_eval(self):
+        """
+        this method should internally set the agent into an 'eval' mode where
+        no learning is done and performance can be measured
+        """
+        ...

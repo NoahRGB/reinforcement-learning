@@ -35,7 +35,9 @@ class PolicyNN(nn.Module):
         return output
 
 class ReinforceBaselineAgent(Agent):
-    def __init__(self, device, writer, policy_lr, state_value_lr, gamma, normalise, save_policy_nn_path=None, save_state_value_nn_path=None, load_policy_nn_path=None, load_state_value_nn_path=None, time_limit=10000):
+    def __init__(self, device, writer, policy_lr, state_value_lr, gamma, normalise,
+                 save_policy_nn_path=None, save_state_value_nn_path=None,
+                 load_policy_nn_path=None, load_state_value_nn_path=None):
         self.device = device
         self.writer = writer
         self.policy_lr = policy_lr
@@ -46,7 +48,6 @@ class ReinforceBaselineAgent(Agent):
         self.save_state_value_nn_path = save_state_value_nn_path
         self.load_policy_nn_path = load_policy_nn_path
         self.load_state_value_nn_path = load_state_value_nn_path
-        self.time_limit = time_limit
 
     def process_state(self, s):
         return torch.tensor(s).to(self.device)
@@ -61,7 +62,6 @@ class ReinforceBaselineAgent(Agent):
         self.current_episode_rewards += r
         self.steps.append((s, sprime, a, r))
         self.time_step += 1
-        return self.time_step >= self.time_limit
 
     def initialise(self, state_space, action_space, start_state, resume=False):
         self.steps = []

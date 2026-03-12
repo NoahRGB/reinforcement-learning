@@ -30,25 +30,31 @@ class DQN(nn.Module):
         return output
 
 class DQNAgent2(Agent):
-    def __init__(self, device, writer, lr, replay_memory_size, minibatch_size, epsilon, gamma, decay_rate=1.0, load_nn_path=None, save_nn_path=None, time_limit=10000):
+    def __init__(self, device, writer, lr, replay_memory_size, minibatch_size, epsilon, gamma, load_nn_path=None, save_nn_path=None):
         self.device = device
         self.writer = writer
         self.lr = lr
         self.replay_memory_size = replay_memory_size
         self.minibatch_size = minibatch_size
+        self.C = 10000 # target_dqn update frequency
+        self.eval_mode = False
+
         self.epsilon = epsilon
+        self.epsilon_start = epsilon
+        self.epsilon_end = 0.1
+        self.epsilon_decay_steps = 1000000
+        self.replay_warmup_length = 50000
+
         self.gamma = gamma
-        self.decay_rate = decay_rate
-        self.time_limit = time_limit
         self.load_nn_path = load_nn_path
         self.save_nn_path = save_nn_path
 
     def process_single_state(self, s):
-        return torch.tensor(s, dtype=torch.float32).to(self.device) 
+        processed_s = torch.tensor(s, dtype=torch.float32) / 255.0
+        return processed_s.to(self.device) 
 
-    def prep_batch(self, batch):
-        return batch
-        # return batch.unsqueeze(1)
+    def clone_qnet(self):
+        self.target_dqn.load_state_dict(self.dqn.state_dict())
 
     def initialise(self, state_space, action_space, start_state, resume=False):
         self.start_state = start_state
@@ -57,35 +63,61 @@ class DQNAgent2(Agent):
         self.state_space_mins = state_space.min_bound
         self.state_space_maxs = state_space.max_bound
         self.actions = [i for i in range(self.action_space_size)]
-        if not resume:
-            self.dqn = DQN(self.state_space_size, self.action_space_size).to(self.device)
-            if self.load_nn_path != None:
-                self.dqn.load_state_dict(torch.load(self.load_nn_path))
-            # self.optimiser = optim.Adam(self.dqn.parameters(), lr=self.lr)
-            self.optimiser = optim.RMSprop(self.dqn.parameters(), lr=self.lr)
-            self.replay = deque(maxlen=self.replay_memory_size)
-            self.reward_history = []
-        self.action = self.generate_action(start_state)
         self.current_episode_rewards = 0
-        self.time_step = 0
+        self.episode_start_time = 0
 
+        if not resume:
+            self.time_step = 0
+            self.reward_history = []
+            self.noop_count = 0
+
+            self.dqn = DQN(self.state_space_size, self.action_space_size).to(self.device)
+            self.target_dqn = DQN(self.state_space_size, self.action_space_size).to(self.device)
+            self.clone_qnet()
+
+            self.optimiser = optim.RMSprop(self.dqn.parameters(), lr=self.lr, alpha=0.95, eps=0.01, momentum=0.0, centered=False)
+            self.replay = deque(maxlen=self.replay_memory_size)
+
+            if self.load_nn_path != None:
+                checkpoint = torch.load(self.load_nn_path, weights_only=False)
+                self.dqn.load_state_dict(checkpoint["dqn"])
+                self.target_dqn.load_state_dict(checkpoint["target_dqn"])
+                self.optimiser.load_state_dict(checkpoint["optimiser"])
+                self.time_step = checkpoint["time_step"]
+                self.epsilon = checkpoint["epsilon"]
+            
     def finish_episode(self, episode_num):
         self.reward_history.append(self.current_episode_rewards)
-        self.writer.add_scalar("episode_reward", self.current_episode_rewards, episode_num)
-        self.writer.flush()
+        if self.writer != None:
+            self.writer.add_scalar("episode_reward", self.current_episode_rewards, episode_num)
+            self.writer.add_scalar("episode_length", self.time_step-self.episode_start_time, episode_num)
+            self.writer.add_scalar("noop_count", self.noop_count, episode_num)
+            self.writer.flush()
+        self.episode_start_time = self.time_step
         self.current_episode_rewards = 0
-        self.action = self.generate_action(self.start_state)
-        self.epsilon *= self.decay_rate
+        self.noop_count = 0
+
+        print(f"\ntime_step: {self.time_step}\nepsilon: {self.epsilon}\nreplay size: {len(self.replay)}")
+
         if self.save_nn_path != None:
-            torch.save(self.dqn.state_dict(), self.save_nn_path)
+            torch.save({
+                "dqn": self.dqn.state_dict(),
+                "target_dqn": self.target_dqn.state_dict(),
+                "optimiser": self.optimiser.state_dict(),
+                "time_step": self.time_step,
+                "epsilon": self.epsilon,
+            }, self.save_nn_path)
 
     def get_best_actions(self, s):
         with torch.no_grad():
             state = torch.stack([self.process_single_state(s)]).to(self.device)
-            qvals = self.dqn.forward(self.prep_batch(state)).cpu().numpy()
+            qvals = self.dqn.forward(state).cpu().numpy()
         return np.where(qvals == qvals.max())[0]
 
     def run_policy(self, s, t):
+        self.action = self.generate_action(s)
+        if self.action == 0:
+            self.noop_count += 1
         return self.action
 
     def generate_action(self, s):
@@ -98,40 +130,59 @@ class DQNAgent2(Agent):
         
         all_s, all_a, all_r, all_sprime, all_done = zip(*minibatch)
         all_s = torch.stack([self.process_single_state(s_) for s_ in all_s]).to(self.device)
-        all_a = torch.tensor(all_a, dtype=torch.int32).to(self.device)
+        all_a = torch.tensor(all_a, dtype=torch.long).to(self.device)
         all_r = torch.tensor(all_r, dtype=torch.float32).to(self.device)
         all_sprime = torch.stack([self.process_single_state(s_) for s_ in all_sprime]).to(self.device)
         all_done = torch.tensor(all_done, dtype=torch.float32).to(self.device)
 
-        chosen_q_vals = self.dqn(self.prep_batch(all_s)).gather(1, all_a.unsqueeze(1)).squeeze(1)
+        chosen_q_vals = self.dqn(all_s).gather(1, all_a.unsqueeze(1)).squeeze(1)
+        avg_q_val = chosen_q_vals.mean().item()
         with torch.no_grad():
-            targets = all_r + self.gamma * self.dqn(self.prep_batch(all_sprime)).max(1)[0] * (1 - all_done)
+            # * (1 - all_done) will collapse the targets to just r if the episode terminated
+            targets = all_r + self.gamma * self.target_dqn(all_sprime).max(1)[0] * (1 - all_done)
 
         self.optimiser.zero_grad()
-        loss = F.mse_loss(chosen_q_vals, targets)
-        self.writer.add_scalar("loss", loss.item(), len(self.reward_history) + self.time_step)
+        loss = F.smooth_l1_loss(chosen_q_vals, targets)
+        # loss = F.mse_loss(chosen_q_vals, targets)
+        if self.writer != None:
+            self.writer.add_scalar("loss", loss.item(), len(self.reward_history) + self.time_step)
+            self.writer.add_scalar("avg_qval", avg_q_val, len(self.reward_history) + self.time_step)
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.dqn.parameters(), 10)
         self.optimiser.step()
 
     def update(self, s, sprime, a, r, done):
         self.current_episode_rewards += r
 
-        aprime = self.generate_action(sprime) 
+        # a = self.action
+        # a' = aprime
+        # s = s
+        # s' = sprime
 
-        self.replay.append((s, a, r, sprime, done))
-        # self.writer.add_scalar("replay_size", len(self.replay), len(self.reward_history) + self.time_step)
+        if not self.eval_mode:
+            self.epsilon = (self.epsilon_end + (self.epsilon_start - self.epsilon_end) *
+                            (1 - (self.time_step / self.epsilon_decay_steps)))
+            self.epsilon = max(self.epsilon, self.epsilon_end)
 
-        if len(self.replay) >= self.minibatch_size:
-            self.replay_memory_update()
+            self.replay.append((s, a, r, sprime, done))
+            if len(self.replay) >= self.replay_warmup_length and self.time_step % 4 == 0:
+                self.replay_memory_update()
 
-        self.action = aprime
+            self.time_step += 1
+            if self.time_step % self.C == 0:
+                self.clone_qnet()
 
-        self.time_step += 1
-        return self.time_step >= self.time_limit
+    def toggle_eval(self):
+        if self.eval_mode:
+            self.epsilon = self.epsilon_checkpoint
+        else:
+            self.epsilon_checkpoint = self.epsilon
+            self.epsilon = 0.05
+        self.eval_mode = not self.eval_mode
 
     def get_supported_state_spaces(self):
         return [ContinuousSpace]
 
     def get_supported_action_spaces(self):
-        return [DiscreteSpace, ContinuousSpace]
+        return [DiscreteSpace]
 

@@ -25,13 +25,12 @@ class NN(nn.Module):
         return output
 
 class ReinforceAgent(Agent):
-    def __init__(self, device, writer, lr, gamma, normalise, time_limit=10000):
+    def __init__(self, device, writer, lr, gamma, normalise):
         self.device = device
         self.writer = writer
         self.lr = lr
         self.gamma = gamma
         self.normalise = normalise
-        self.time_limit = time_limit
 
     def process_state(self, s):
         return torch.tensor(s).to(self.device)
@@ -46,7 +45,6 @@ class ReinforceAgent(Agent):
         self.current_episode_rewards += r
         self.steps.append((s, sprime, a, r))
         self.time_step += 1
-        return self.time_step >= self.time_limit
 
     def initialise(self, state_space, action_space, start_state, resume=False):
         self.steps = []

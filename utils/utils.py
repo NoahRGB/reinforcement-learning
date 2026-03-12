@@ -1,6 +1,6 @@
 import torch
 
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 def detect_torch_device():
     # return torch.device("cpu")

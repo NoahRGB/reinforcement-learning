@@ -1,5 +1,5 @@
 from gymnasium.wrappers.atari_preprocessing import AtariPreprocessing
-from gymnasium.wrappers import FrameStackObservation
+from gymnasium.wrappers import FrameStackObservation, ClipReward
 from environments.environment import Environment
 from environments.spaces import DiscreteSpace, ContinuousSpace
 
@@ -9,12 +9,13 @@ import ale_py
 class AtariEnvironment(Environment):
     def __init__(self, name, **kwargs):
 
-        self.env = gym.make(name, **kwargs)
+        self.env = gym.make(name, frameskip=1, **kwargs)
         self.env = AtariPreprocessing(self.env,
-            noop_max=10, frame_skip=1, terminal_on_life_loss=True,
+            noop_max=10, frame_skip=4, terminal_on_life_loss=False,
             screen_size=84, grayscale_obs=True, grayscale_newaxis=False
         )
         self.env = FrameStackObservation(self.env, stack_size=4)
+        self.env = ClipReward(self.env, -1, 1)
 
         if type(self.env.observation_space) == gym.spaces.Discrete:
             self.state_space = DiscreteSpace(self.env.observation_space.n)

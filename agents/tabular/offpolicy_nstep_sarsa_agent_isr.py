@@ -6,14 +6,13 @@ import numpy as np
 
 
 class OffPolicyNstepSarsaAgentISR(Agent):
-    def __init__(self, n, alpha, epsilon, gamma, expected, decay_rate=1.0, time_limit=10000):
+    def __init__(self, n, alpha, epsilon, gamma, expected, decay_rate=1.0):
         self.n = n
         self.alpha = alpha
         self.epsilon = epsilon
         self.gamma = gamma
         self.expected = expected
         self.decay_rate = decay_rate
-        self.time_limit = time_limit
 
     def initialise(self, state_space, action_space, start_state, resume=False):
         self.state_space_size = state_space.dimensions
@@ -119,7 +118,6 @@ class OffPolicyNstepSarsaAgentISR(Agent):
                 self.nstep_update(time_to_update)
 
         self.time_step += 1
-        return self.time_step >= self.time_limit
 
     def get_supported_state_spaces(self):
         return [DiscreteSpace]

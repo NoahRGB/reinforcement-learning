@@ -22,14 +22,14 @@ class NN(nn.Module):
         return output
 
 class SemigradientSarsaAgent(Agent):
-    def __init__(self, device, normalise, lr, epsilon, gamma, decay_rate=1.0, load_nn_path=None, save_nn_path=None, time_limit=10000):
+    def __init__(self, device, normalise, lr, epsilon, gamma, decay_rate=1.0, 
+                 load_nn_path=None, save_nn_path=None):
         self.device = device
         self.normalise = normalise
         self.lr = lr
         self.epsilon = epsilon
         self.gamma = gamma
         self.decay_rate = decay_rate
-        self.time_limit = time_limit
         self.load_nn_path = load_nn_path
         self.save_nn_path = save_nn_path
 
@@ -109,7 +109,6 @@ class SemigradientSarsaAgent(Agent):
             torch.save(self.nn.state_dict(), self.save_nn_path)
 
         self.time_step += 1
-        return self.time_step >= self.time_limit
 
     def get_supported_state_spaces(self):
         return [ContinuousSpace]
