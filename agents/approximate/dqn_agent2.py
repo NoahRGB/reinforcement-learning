@@ -21,6 +21,7 @@ class DQN(nn.Module):
         self.fc2 = nn.Linear(512, action_space_dim)
 
     def forward(self, input):
+        input = input / 255.0
         output = F.relu(self.conv1(input))
         output = F.relu(self.conv2(output))
         output = F.relu(self.conv3(output))
@@ -29,7 +30,7 @@ class DQN(nn.Module):
         output = self.fc2(output)
         return output
 
-class DQNAgent2(Agent):
+class ConvDQNAgent(Agent):
     def __init__(self, device, writer, lr, replay_memory_size, replay_warmup_length, minibatch_size, epsilon_start, epsilon_end, epsilon_decay_steps, gamma, C, load_nn_path=None, save_nn_path=None):
         self.device = device
         self.writer = writer
@@ -50,7 +51,7 @@ class DQNAgent2(Agent):
         self.save_nn_path = save_nn_path
 
     def process_single_state(self, s):
-        processed_s = torch.tensor(s, dtype=torch.float32) / 255.0
+        processed_s = torch.tensor(s, dtype=torch.float32)
         return processed_s.to(self.device) 
 
     def clone_qnet(self):
@@ -70,12 +71,15 @@ class DQNAgent2(Agent):
             self.time_step = 0
             self.reward_history = []
             self.noop_count = 0
+            self.all_rewards = []
 
             self.dqn = DQN(self.state_space_size, self.action_space_size).to(self.device)
             self.target_dqn = DQN(self.state_space_size, self.action_space_size).to(self.device)
             self.clone_qnet()
 
-            self.optimiser = optim.RMSprop(self.dqn.parameters(), lr=self.lr, alpha=0.95, eps=0.01, momentum=0.0, centered=False)
+            self.optimiser = optim.Adam(self.dqn.parameters(), lr=self.lr)
+            # self.optimiser = optim.RMSprop(self.dqn.parameters(), lr=self.lr, alpha=0.95, eps=0.01, momentum=0.0, centered=False)
+
             self.replay = deque(maxlen=self.replay_memory_size)
 
             if self.load_nn_path != None:
@@ -88,8 +92,10 @@ class DQNAgent2(Agent):
             
     def finish_episode(self, episode_num):
         self.reward_history.append(self.current_episode_rewards)
+        self.all_rewards.append(self.current_episode_rewards)
         if self.writer != None:
             self.writer.add_scalar("episode_reward", self.current_episode_rewards, episode_num)
+            self.writer.add_scalar("mean_episode_reward", np.mean(self.all_rewards[-100:]), episode_num)
             self.writer.add_scalar("episode_length", self.time_step-self.episode_start_time, episode_num)
             self.writer.add_scalar("noop_count", self.noop_count, episode_num)
             self.writer.flush()
@@ -111,13 +117,13 @@ class DQNAgent2(Agent):
     def get_best_actions(self, s):
         with torch.no_grad():
             state = torch.stack([self.process_single_state(s)]).to(self.device)
-            qvals = self.dqn.forward(state).cpu().numpy()
-        return np.where(qvals == qvals.max())[0]
+            qvals = self.dqn.forward(state).cpu().numpy()[0]
+        best = [qvals.argmax()]
+        return best
 
     def run_policy(self, s, t):
         self.action = self.generate_action(s)
-        if self.action == 0:
-            self.noop_count += 1
+        self.noop_count += (self.action == 0)
         return self.action
 
     def generate_action(self, s):
@@ -137,16 +143,21 @@ class DQNAgent2(Agent):
 
         chosen_q_vals = self.dqn(all_s).gather(1, all_a.unsqueeze(1)).squeeze(1)
         avg_q_val = chosen_q_vals.mean().item()
+
         with torch.no_grad():
             # * (1 - all_done) will collapse the targets to just r if the episode terminated
             targets = all_r + self.gamma * self.target_dqn(all_sprime).max(1)[0] * (1 - all_done)
+            targets = targets.detach()
 
         self.optimiser.zero_grad()
+
         loss = F.smooth_l1_loss(chosen_q_vals, targets)
         # loss = F.mse_loss(chosen_q_vals, targets)
+
         if self.writer != None:
             self.writer.add_scalar("loss", loss.item(), len(self.reward_history) + self.time_step)
             self.writer.add_scalar("avg_qval", avg_q_val, len(self.reward_history) + self.time_step)
+
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.dqn.parameters(), 10)
         self.optimiser.step()
@@ -160,15 +171,19 @@ class DQNAgent2(Agent):
         # s' = sprime
 
         if not self.eval_mode:
-            self.epsilon = (self.epsilon_end + (self.epsilon_start - self.epsilon_end) *
-                            (1 - (self.time_step / self.epsilon_decay_steps)))
-            self.epsilon = max(self.epsilon, self.epsilon_end)
-
-            self.replay.append((s, a, r, sprime, done))
-            if len(self.replay) >= self.replay_warmup_length and self.time_step % 4 == 0:
-                self.replay_memory_update()
 
             self.time_step += 1
+            self.replay.append((s, a, r, sprime, done))
+
+            if len(self.replay) >= self.replay_warmup_length:
+
+                self.epsilon = (self.epsilon_end + (self.epsilon_start - self.epsilon_end) *
+                                (1 - ((self.time_step - self.replay_warmup_length) / self.epsilon_decay_steps)))
+                self.epsilon = max(self.epsilon, self.epsilon_end)
+
+                if self.time_step % 4 == 0:
+                    self.replay_memory_update()
+
             if self.time_step % self.C == 0:
                 self.clone_qnet()
 

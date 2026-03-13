@@ -13,7 +13,7 @@ class AtariEnvironment(Environment):
 
         self.env = gym.make(name, frameskip=1, **kwargs)
         self.env = AtariPreprocessing(self.env,
-            noop_max=30, frame_skip=4, terminal_on_life_loss=False,
+            noop_max=0, frame_skip=4, terminal_on_life_loss=False,
             screen_size=84, grayscale_obs=True, grayscale_newaxis=False
         )
         self.env = FrameStackObservation(self.env, stack_size=4)
