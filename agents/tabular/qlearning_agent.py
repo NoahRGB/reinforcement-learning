@@ -8,6 +8,7 @@ class QLearningAgent(Agent):
         self.alpha = alpha
         self.epsilon = epsilon
         self.gamma = gamma
+        self.eval = False 
         self.decay_rate = decay_rate
 
     def initialise(self, state_space, action_space, start_state, resume=False):
@@ -19,7 +20,7 @@ class QLearningAgent(Agent):
             self.qtable = np.full((self.state_space_size, self.action_space_size), 0.0)
             self.reward_history = []
 
-    def finish_episode(self):
+    def finish_episode(self, episode_num):
         self.reward_history.append(self.current_episode_rewards)
         self.current_episode_rewards = 0
         self.epsilon *= self.decay_rate
@@ -35,6 +36,14 @@ class QLearningAgent(Agent):
         update_target = r + self.gamma * self.qtable[sprime, :].max()
         self.qtable[s, a] += self.alpha * (update_target - self.qtable[s, a])
         self.time_step += 1
+
+    def toggle_eval(self):
+        if not self.eval:
+            self.epsilon_checkpoint = self.epsilon
+            self.epsilon = 0.0
+        else:
+            self.epsilon = self.epsilon_checkpoint
+        self.eval = not self.eval
 
     def get_supported_state_spaces(self):
         return [DiscreteSpace]

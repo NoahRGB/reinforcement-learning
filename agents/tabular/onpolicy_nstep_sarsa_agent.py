@@ -9,6 +9,7 @@ class OnPolicyNstepSarsaAgent(Agent):
         self.n = n
         self.alpha = alpha
         self.epsilon = epsilon
+        self.eval = False
         self.gamma = gamma
         self.expected = expected
         self.decay_rate = decay_rate
@@ -27,7 +28,7 @@ class OnPolicyNstepSarsaAgent(Agent):
         self.current_episode_rewards = 0
         self.time_step = 0
 
-    def finish_episode(self):
+    def finish_episode(self, episode_num):
         self.reward_history.append(self.current_episode_rewards)
         self.current_episode_rewards = 0
         self.epsilon *= self.decay_rate
@@ -101,6 +102,14 @@ class OnPolicyNstepSarsaAgent(Agent):
                 self.nstep_update(time_to_update)
 
         self.time_step += 1
+    
+    def toggle_eval(self):
+        if not self.eval:
+            self.epsilon_checkpoint = self.epsilon
+            self.epsilon = 0.0
+        else:
+            self.epsilon = self.epsilon_checkpoint
+        self.eval = not self.eval
 
     def get_supported_state_spaces(self):
         return [DiscreteSpace]

@@ -6,6 +6,7 @@ import numpy as np
 class OnPolicyMonteCarloAgent(Agent):
     def __init__(self, epsilon, gamma, every_visit=True, decay_rate=1.0):
         self.epsilon = epsilon
+        self.eval = False
         self.gamma = gamma
         self.every_visit = every_visit
         self.decay_rate = decay_rate
@@ -34,7 +35,7 @@ class OnPolicyMonteCarloAgent(Agent):
             self.visit_count = np.zeros((self.state_space_size, self.action_space_size))
             self.reward_history = []
 
-    def finish_episode(self):
+    def finish_episode(self, episode_num):
         G = 0
         for t in range(len(self.episodes)-1, -1, -1):
             s, sprime, a, r = self.episodes[t]
@@ -51,6 +52,14 @@ class OnPolicyMonteCarloAgent(Agent):
 
         self.reward_history.append(self.current_episode_rewards)
         self.current_episode_rewards = 0
+
+    def toggle_eval(self):
+        if not self.eval:
+            self.epsilon_checkpoint = self.epsilon
+            self.epsilon = 0.0
+        else:
+            self.epsilon = self.epsilon_checkpoint
+        self.eval = not self.eval
 
     def get_supported_state_spaces(self):
         return [DiscreteSpace]
