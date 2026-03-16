@@ -25,7 +25,7 @@ from agents.approximate.reinforce_agent import ReinforceAgent
 from agents.approximate.reinforce_baseline_agent import ReinforceBaselineAgent 
 from agents.approximate.semigradient_sarsa_agent import SemigradientSarsaAgent
 from agents.approximate.dqn_agent import DQNAgent
-from agents.approximate.dqn_agent2 import ConvDQNAgent
+from agents.approximate.conv_dqn_agent import ConvDQNAgent
 
 device = detect_torch_device()
 writer = create_tensorboard_writer(comment="-pong")

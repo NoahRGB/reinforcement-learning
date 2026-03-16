@@ -83,7 +83,7 @@ class ConvDQNAgent(Agent):
             self.replay = deque(maxlen=self.replay_memory_size)
 
             if self.load_nn_path != None:
-                checkpoint = torch.load(self.load_nn_path, weights_only=False)
+                checkpoint = torch.load(self.load_nn_path, weights_only=False, map_location=torch.device('cpu'))
                 self.dqn.load_state_dict(checkpoint["dqn"])
                 self.target_dqn.load_state_dict(checkpoint["target_dqn"])
                 self.optimiser.load_state_dict(checkpoint["optimiser"])
@@ -117,8 +117,8 @@ class ConvDQNAgent(Agent):
     def get_best_actions(self, s):
         with torch.no_grad():
             state = torch.stack([self.process_single_state(s)]).to(self.device)
-            qvals = self.dqn.forward(state).cpu().numpy()[0]
-        best = [qvals.argmax()]
+            qvals = self.dqn.forward(state).cpu().numpy()[0] # (6)
+        best = [qvals.argmax()]  
         return best
 
     def run_policy(self, s, t):
