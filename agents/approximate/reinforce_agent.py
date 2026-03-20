@@ -29,6 +29,7 @@ class ReinforceAgent(Agent):
         self.device = device
         self.writer = writer
         self.lr = lr
+        self.eval = False
         self.gamma = gamma
         self.normalise = normalise
 
@@ -82,6 +83,9 @@ class ReinforceAgent(Agent):
         self.reward_history.append(self.current_episode_rewards)
         self.writer.add_scalar("episode_reward", self.current_episode_rewards, episode_num)
         self.current_episode_rewards = 0
+
+    def toggle_eval(self):
+        self.eval = not self.eval
 
     def get_supported_state_spaces(self):
         return [ContinuousSpace]

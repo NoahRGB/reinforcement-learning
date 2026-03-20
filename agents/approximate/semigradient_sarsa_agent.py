@@ -22,11 +22,13 @@ class NN(nn.Module):
         return output
 
 class SemigradientSarsaAgent(Agent):
-    def __init__(self, device, normalise, lr, epsilon, gamma, decay_rate=1.0, 
+    def __init__(self, device, writer, normalise, lr, epsilon, gamma, decay_rate=1.0, 
                  load_nn_path=None, save_nn_path=None):
         self.device = device
+        self.writer = writer
         self.normalise = normalise
         self.lr = lr
+        self.eval = False
         self.epsilon = epsilon
         self.gamma = gamma
         self.decay_rate = decay_rate
@@ -59,8 +61,10 @@ class SemigradientSarsaAgent(Agent):
 
     def finish_episode(self, episode_num):
         self.reward_history.append(self.current_episode_rewards)
-        self.current_episode_rewards = 0
         self.action = self.generate_action(self.start_state)
+        if self.writer != None:
+            self.writer.add_scalar("episode_reward", self.current_episode_rewards, episode_num)
+        self.current_episode_rewards = 0
         self.epsilon *= self.decay_rate
 
     def get_all_actions(self):
@@ -109,6 +113,14 @@ class SemigradientSarsaAgent(Agent):
             torch.save(self.nn.state_dict(), self.save_nn_path)
 
         self.time_step += 1
+
+    def toggle_eval(self):
+        if not self.eval:
+            self.epsilon_checkpoint = self.epsilon
+            self.epsilon = 0.0
+        else:
+            self.epsilon = self.epsilon_checkpoint
+        self.eval = not self.eval
 
     def get_supported_state_spaces(self):
         return [ContinuousSpace]

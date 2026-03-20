@@ -32,10 +32,10 @@ agents = [
         # OnPolicyMonteCarloAgent(MazeEnvironment(), epsilon=0.9, discount_factor=0.99, every_visit=False),
 ]
 
-# show_agents(agents)
+show_agents(agents)
 
-agents[0].learn(1000, quiet=False)
-agents[0].plot()
+# agents[0].learn(1000, quiet=False)
+# agents[0].plot()
 
 
 

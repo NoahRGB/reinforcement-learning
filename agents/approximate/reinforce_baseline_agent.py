@@ -41,6 +41,7 @@ class ReinforceBaselineAgent(Agent):
         self.device = device
         self.writer = writer
         self.policy_lr = policy_lr
+        self.eval = False
         self.state_value_lr = state_value_lr
         self.gamma = gamma
         self.normalise = normalise
@@ -121,6 +122,8 @@ class ReinforceBaselineAgent(Agent):
         if self.save_state_value_nn_path != None:
             torch.save(self.state_value_nn.state_dict(), self.save_state_value_nn_path)
 
+    def toggle_eval(self):
+        self.eval = not self.eval
 
     def get_supported_state_spaces(self):
         return [ContinuousSpace]
