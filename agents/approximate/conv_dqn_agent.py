@@ -25,7 +25,7 @@ class DQN(nn.Module):
         output = F.relu(self.conv1(input))
         output = F.relu(self.conv2(output))
         output = F.relu(self.conv3(output))
-        output = output.view(output.size(0), -1) 
+        output = output.view(output.size(0), -1)
         output = F.relu(self.fc1(output))
         output = self.fc2(output)
         return output

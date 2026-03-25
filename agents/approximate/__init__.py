@@ -4,6 +4,8 @@ from .semigradient_sarsa_agent import SemigradientSarsaAgent
 from .dqn_agent import DQNAgent
 from .conv_dqn_agent import ConvDQNAgent
 from .td_lambda_agent import TDLambdaAgent
+from .a2c_agent import A2CAgent
+from .conv_a2c_agent import ConvA2CAgent
 
 __all__ = [
         "ReinforceAgent",
@@ -11,5 +13,7 @@ __all__ = [
         "SemigradientSarsaAgent",
         "DQNAgent",
         "ConvDQNAgent",
-        "TDLambdaAgent"
+        "TDLambdaAgent",
+        "A2CAgent",
+        "ConvA2CAgent"
 ]
