@@ -27,19 +27,18 @@ env = AtariEnvironment("ALE/Pong-v5", render_mode=None)
 # env = MazeEnvironment()
 
 # =============== agents =================
-# agent = ConvDQNAgent(device, writer, lr=1e-4, 
-#                   replay_memory_size=10000, replay_warmup_length=10000,
-#                   minibatch_size=32, 
-#                   epsilon_start=1.0, epsilon_end=0.01, epsilon_decay_steps=150000,
-#                   C=1000, gamma=0.99,)
-                  # save_nn_path="./torch_models/pong/pong_checkpoint.pt")
-                  # load_nn_path="./torch_models/pong/pong_checkpoint.pt")
-                  # load_nn_path="./results/bundles/pong/pong1/pong_checkpoint.pt")
+agent = ConvDQNAgent(device, writer, lr=0.0001, 
+                  replay_memory_size=10000, replay_warmup_length=10000,
+                  minibatch_size=32, 
+                  epsilon_start=0.00, epsilon_end=0.00, epsilon_decay_steps=150000,
+                  C=1000, gamma=0.99,)
+                #   save_nn_path="./torch_models/pong/pong_checkpoint.pt")
+                #   load_nn_path="./results/bundles/hpc/pong_learning_rates/pong_model_gpu_lr_5e-05.pt")
 
 # agent = DQNAgent(device, writer, lr=0.001, replay_memory_size=10000, C=1000,
                 #  minibatch_size=32, epsilon=0.9, gamma=0.99, decay_rate=0.99)
 
-agent = ConvA2CAgent(device, writer, lr=0.001, gamma=0.99, tmax=10)
+# agent = ConvA2CAgent(device, writer, lr=0.001, gamma=0.99, tmax=10)
 
 # agent = A2CAgent(device, writer, lr=0.001, gamma=0.99, tmax=10)
 

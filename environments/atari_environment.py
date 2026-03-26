@@ -1,5 +1,5 @@
 from gymnasium.wrappers.atari_preprocessing import AtariPreprocessing
-from gymnasium.wrappers import FrameStackObservation, ClipReward
+from gymnasium.wrappers import FrameStackObservation, ClipReward, RecordVideo
 from environments.environment import Environment
 from environments.spaces import DiscreteSpace, ContinuousSpace
 
@@ -18,6 +18,8 @@ class AtariEnvironment(Environment):
         )
         self.env = FrameStackObservation(self.env, stack_size=4)
         # self.env = ClipReward(self.env, -1, 1)
+
+        # self.env = RecordVideo(self.env, ".", episode_trigger=lambda x: True)
 
         if type(self.env.observation_space) == gym.spaces.Discrete:
             self.state_space = DiscreteSpace(self.env.observation_space.n)
