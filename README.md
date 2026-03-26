@@ -18,4 +18,4 @@ Implementations of various RL algorithms
 
 `results/`, `graph_data/`, `torch_models/` contain various saved experiments for visualising
 
-<video src="https://github.com/NoahRGB/reinforcement-learning/blob/master/results/videos/dqn_pong_master.mp4" controls width="600"></video>
+<video src="https://raw.githubusercontent.com/NoahRGB/reinforcement-learning/master/results/videos/dqn_pong_master.mp4" controls width="600"></video>
