@@ -1,9 +1,11 @@
 from .gym_environment import GymEnvironment
-from .atari_environment import AtariEnvironment
+from .vectorised_atari_environment import VectorisedAtariEnvironment
 from .maze_environment import MazeEnvironment
+from .vectorised_gym_environment import VectorisedGymEnvironment
 
 __all__ = [
         "GymEnvironment",
-        "AtariEnvironment",
+        "VectorisedAtariEnvironment",
         "MazeEnvironment",
+        "VectorisedGymEnvironment"
 ]

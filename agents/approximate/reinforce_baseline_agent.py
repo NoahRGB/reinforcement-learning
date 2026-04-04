@@ -11,7 +11,7 @@ import numpy as np
 class StateValueNN(nn.Module):
     def __init__(self, state_space_dim):
         super(StateValueNN, self).__init__()
-        self.fc1 = nn.Linear(state_space_dim, 128)
+        self.fc1 = nn.Linear(*state_space_dim, 128)
         self.fc2 = nn.Linear(128, 64)
         self.fc3 = nn.Linear(64, 1)
 
@@ -24,7 +24,7 @@ class StateValueNN(nn.Module):
 class PolicyNN(nn.Module):
     def __init__(self, state_space_dim, action_space_dim):
         super(PolicyNN, self).__init__()
-        self.fc1 = nn.Linear(state_space_dim, 32)
+        self.fc1 = nn.Linear(*state_space_dim, 32)
         self.fc2 = nn.Linear(32, 16)
         self.fc3 = nn.Linear(16, action_space_dim)
 
@@ -68,8 +68,8 @@ class ReinforceBaselineAgent(Agent):
         self.steps = []
         self.state_space_size = state_space.dimensions
         self.action_space_size = action_space.dimensions
-        self.state_space_mins = state_space.min_bound
-        self.state_space_maxs = state_space.max_bound
+        self.state_space_mins = state_space.min_bounds
+        self.state_space_maxs = state_space.max_bounds
         self.current_episode_rewards = 0
         self.time_step = 0
         if not resume:

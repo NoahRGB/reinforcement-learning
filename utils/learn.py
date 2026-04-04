@@ -4,7 +4,7 @@ from agents.agent import Agent
 from environments.environment import Environment
 from utils.evaluate import evaluate
 
-def learn(episodes, env: Environment, agent: Agent, eval_period=1, resume=False, quiet=True):
+def learn(episodes: int, env: Environment, agent: Agent, eval_period=1, resume=False, quiet=True):
     # check agent-environment compatibility
     state_space = env.get_state_space()
     action_space = env.get_action_space()
@@ -50,3 +50,20 @@ def learn(episodes, env: Environment, agent: Agent, eval_period=1, resume=False,
     if not quiet: print(f"Finished learning over {episodes} episodes")
 
     return reward_history
+
+def learn_vectorised(episodes: int, env: Environment, agent: Agent, quiet=True):
+    
+    episodes_completed = 0
+    agent.initialise(env.get_state_space(), env.get_action_space(), env.get_start_state())
+
+    current_states = env.get_start_state() # (num_envs, state_dim)
+    while episodes_completed < episodes:
+        actions = agent.run_policy(current_states, -1) # (num_envs,)
+        sprimes, rewards, dones = env.step(current_states, actions) # (num_envs, state_dim), (num_envs,), (num_envs,)
+        agent.update(current_states, sprimes, actions, rewards, dones)
+        current_states = sprimes
+
+        num_completed_episodes = dones.sum()
+        episodes_completed += num_completed_episodes
+        if num_completed_episodes > 0 and not quiet:
+            print(f"Completed {episodes_completed}/{episodes} episodes")

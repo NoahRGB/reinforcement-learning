@@ -19,4 +19,4 @@ Implementations of various RL algorithms
 `results/`, `graph_data/`, `torch_models/` contain various saved experiments for visualising
 
 
-![DQN pong agent](https://github.com/NoahRGB/reinforcement-learning/blob/master/results/videos/dqn_pong_master.gif)
+![DQN pong agent](./results/videos/dqn_pong_master.gif)

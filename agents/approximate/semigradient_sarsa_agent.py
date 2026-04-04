@@ -11,7 +11,8 @@ import numpy as np
 class NN(nn.Module):
     def __init__(self, state_space_dim, action_space_dim):
         super(NN, self).__init__()
-        self.fc1 = nn.Linear(state_space_dim, 32)
+    
+        self.fc1 = nn.Linear(*state_space_dim, 32)
         self.fc2 = nn.Linear(32, 16)
         self.fc3 = nn.Linear(16, action_space_dim)
 
@@ -40,20 +41,20 @@ class SemigradientSarsaAgent(Agent):
         if self.normalise:
             for i in range(len(self.state_space_mins)):
                 s[i] = (s[i] - self.state_space_mins[i]) / (self.state_space_maxs[i] - self.state_space_mins[i])
-        return s 
+        return s
 
     def initialise(self, state_space, action_space, start_state, resume=False):
         self.start_state = start_state
         self.state_space_size = state_space.dimensions 
         self.action_space_size = action_space.dimensions 
-        self.state_space_mins = state_space.min_bound
-        self.state_space_maxs = state_space.max_bound
+        self.state_space_mins = state_space.min_bounds
+        self.state_space_maxs = state_space.max_bounds
         if not resume:
+            print(self.state_space_size)
             self.nn = NN(self.state_space_size, self.action_space_size)
             if self.load_nn_path != None:
                 self.nn.load_state_dict(torch.load(self.load_nn_path))
             self.optimiser = optim.Adam(self.nn.parameters(), lr=self.lr)
-            # self.optimiser = optim.SGD(self.nn.parameters(), lr=0.0001)
             self.reward_history = []
         self.action = self.generate_action(start_state)
         self.current_episode_rewards = 0
