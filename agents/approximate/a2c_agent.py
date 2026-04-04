@@ -12,8 +12,6 @@ class CombinedNN(nn.Module):
     def __init__(self, state_space_dim, action_space_dim):
         super(CombinedNN, self).__init__()
 
-        print(action_space_dim)
-
         self.fc_nn = nn.Sequential(
             nn.Linear(*state_space_dim, 128),
             nn.ReLU(),

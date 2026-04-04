@@ -19,12 +19,12 @@ NUM_ENVS = 50
 # =============== environments =================
 
 # env = VectorisedAtariEnvironment(num_envs=NUM_ENVS, name="ALE/Pong-v5", render_mode=None)
-# env = VectorisedGymEnvironment(num_envs=NUM_ENVS, is_recording=False, name="CartPole-v1", render_mode=None)
+env = VectorisedGymEnvironment(num_envs=NUM_ENVS, is_recording=False, name="CartPole-v1", render_mode=None)
 
 # env = AtariEnvironment("ALE/SpaceInvaders-v5", render_mode=None)
 # env = GymEnvironment("LunarLander-v3", False, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", False, render_mode=None)
-env = GymEnvironment("CartPole-v1", False, render_mode=None)
+# env = GymEnvironment("CartPole-v1", False, render_mode=None)
 # env = GymEnvironment("MountainCar-v0", False, render_mode=None)
 # env = GymEnvironment("Taxi-v3", False, render_mode=None)
 # env = GymEnvironment("FrozenLake-v1", False, is_slippery=True, render_mode=None)
@@ -76,8 +76,8 @@ start = time.perf_counter()
 
 episode_count = 10000
 
-learning_rewards = learn(episode_count, env, agent, eval_period=0, quiet=False)
-# learn_vectorised(10000, env, agent, quiet=False)
+# learning_rewards = learn(episode_count, env, agent, eval_period=0, quiet=False)
+learn_vectorised(episode_count, env, agent, quiet=False)
 
 finished = time.perf_counter()
 print(f"Finished in {round(finished - start, 2)} seconds")

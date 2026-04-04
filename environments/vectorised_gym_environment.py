@@ -28,6 +28,7 @@ class VectorisedGymEnvironment(Environment):
 
     def step(self, s, a):
         sprime, r, is_terminated, is_truncated, info = self.env.step(a)
+        print(sprime.shape, r.shape, is_terminated.shape, is_truncated.shape)
         return sprime, r, (is_terminated|is_truncated)
 
     def reset(self):
