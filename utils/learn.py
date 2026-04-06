@@ -3,20 +3,32 @@ import numpy as np
 from agents.agent import Agent
 from environments.environment import Environment
 from utils.evaluate import evaluate
+from environments.spaces import EnvType
 
 def learn(episodes: int, env: Environment, agent: Agent, eval_period=1, resume=False, quiet=True):
     # check agent-environment compatibility
     state_space = env.get_state_space()
     action_space = env.get_action_space()
+    env_type = env.get_env_type()
     if type(state_space) not in agent.get_supported_state_spaces():
-        print("Envrionment state space not supported by agent")
+        print(f"Environment state space {state_space} not supported by agent")
         return False
     if type(action_space) not in agent.get_supported_action_spaces():
-        print("Envrionment action space not supported by agent")
+        print(f"Environment action space {action_space} not supported by agent")
+        return False
+    if env_type not in agent.get_supported_env_types():
+        print(f"Environment type {env_type} not supported by agent")
         return False
 
+    if env_type == EnvType.VECTORISED:
+        return learn_vectorised(episodes, env, agent, quiet)
+    else:
+        return learn_singular(episodes, env, agent, eval_period, resume, quiet)
+
+
+def learn_singular(episodes: int, env: Environment, agent: Agent, eval_period=1, resume=False, quiet=True):
     # initialise
-    agent.initialise(state_space, action_space, env.get_start_state(), resume=resume)
+    agent.initialise(env.get_state_space(), env.get_action_space(), env.get_start_state(), env.get_num_envs(), resume=resume)
     if not quiet: print(f"Starting learning over {episodes} episodes")
     reward_history = np.empty(episodes)
 
@@ -54,7 +66,7 @@ def learn(episodes: int, env: Environment, agent: Agent, eval_period=1, resume=F
 def learn_vectorised(episodes: int, env: Environment, agent: Agent, quiet=True):
     
     episodes_completed = 0
-    agent.initialise(env.get_state_space(), env.get_action_space(), env.get_start_state())
+    agent.initialise(env.get_state_space(), env.get_action_space(), env.get_start_state(), env.get_num_envs())
 
     current_states = env.get_start_state() # (num_envs, state_dim)
     while episodes_completed < episodes:

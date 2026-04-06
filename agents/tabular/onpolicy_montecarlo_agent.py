@@ -1,5 +1,5 @@
 from agents.agent import Agent
-from environments.spaces import DiscreteSpace
+from environments.spaces import DiscreteSpace, EnvType
 
 import numpy as np
 
@@ -13,21 +13,22 @@ class OnPolicyMonteCarloAgent(Agent):
 
     def run_policy(self, s, t):
         if np.random.random() >= self.epsilon:
-            best_actions = np.where(self.qtable[s, :] == self.qtable[s, :].max())
+            best_actions = np.where(self.qtable[s[0], :] == self.qtable[s[0], :].max())
             return np.random.choice(best_actions[0])
         return np.random.choice([i for i in range(self.action_space_size)])
 
     def update(self, s, sprime, a, r, done):
-        self.current_episode_rewards += r
-        self.episodes.append((s, sprime, a, r))
+        self.current_episode_rewards += r[0]
+        self.episodes.append((s[0], sprime[0], a, r[0]))
         self.time_step += 1
 
-    def initialise(self, state_space, action_space, start_state, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs,resume=False):
         self.episodes = []
         self.visits = set()
         self.state_space_size = state_space.dimensions
         self.action_space_size = action_space.dimensions
         self.current_episode_rewards = 0
+        self.num_envs = num_envs
         self.time_step = 0
         if not resume:
             self.qtable = np.full((self.state_space_size, self.action_space_size), 0.0)
@@ -60,6 +61,9 @@ class OnPolicyMonteCarloAgent(Agent):
         else:
             self.epsilon = self.epsilon_checkpoint
         self.eval = not self.eval
+
+    def get_supported_env_types(self):
+        return [EnvType.SINGULAR]
 
     def get_supported_state_spaces(self):
         return [DiscreteSpace]

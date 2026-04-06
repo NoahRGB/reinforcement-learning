@@ -1,5 +1,5 @@
 from agents.agent import Agent
-from environments.spaces import DiscreteSpace, ContinuousSpace
+from environments.spaces import DiscreteSpace, ContinuousSpace, EnvType
 
 import torch
 import torch.nn as nn
@@ -43,12 +43,13 @@ class SemigradientSarsaAgent(Agent):
                 s[i] = (s[i] - self.state_space_mins[i]) / (self.state_space_maxs[i] - self.state_space_mins[i])
         return s
 
-    def initialise(self, state_space, action_space, start_state, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs, resume=False):
         self.start_state = start_state
         self.state_space_size = state_space.dimensions 
         self.action_space_size = action_space.dimensions 
         self.state_space_mins = state_space.min_bounds
         self.state_space_maxs = state_space.max_bounds
+        self.num_envs = num_envs
         if not resume:
             print(self.state_space_size)
             self.nn = NN(self.state_space_size, self.action_space_size)
@@ -86,20 +87,20 @@ class SemigradientSarsaAgent(Agent):
         return np.random.choice(self.get_all_actions())
 
     def update(self, s, sprime, a, r, done):
-        self.current_episode_rewards += r
+        self.current_episode_rewards += r[0]
 
-        aprime = self.generate_action(sprime) 
+        aprime = self.generate_action(sprime[0]) 
 
         self.optimiser.zero_grad()
 
-        qs = self.nn.forward(self.normalise_state(s))
+        qs = self.nn.forward(self.normalise_state(s[0]))
         qsa = qs[a]
 
-        if done:
-            target = torch.tensor(r)
+        if done[0]:
+            target = torch.tensor(r[0])
         else:
             with torch.no_grad():
-                target = r + self.gamma * self.nn.forward(self.normalise_state(sprime))[aprime]
+                target = r[0] + self.gamma * self.nn.forward(self.normalise_state(sprime[0]))[aprime]
 
         td_err = target - qsa
 
@@ -110,7 +111,7 @@ class SemigradientSarsaAgent(Agent):
 
         self.action = aprime
 
-        if done and self.save_nn_path != None:
+        if done[0] and self.save_nn_path != None:
             torch.save(self.nn.state_dict(), self.save_nn_path)
 
         self.time_step += 1
@@ -122,6 +123,9 @@ class SemigradientSarsaAgent(Agent):
         else:
             self.epsilon = self.epsilon_checkpoint
         self.eval = not self.eval
+
+    def get_supported_env_types(self):
+        return [EnvType.SINGULAR]
 
     def get_supported_state_spaces(self):
         return [ContinuousSpace]

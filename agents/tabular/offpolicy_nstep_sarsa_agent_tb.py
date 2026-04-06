@@ -1,9 +1,7 @@
 from agents.agent import Agent
-from environments.spaces import DiscreteSpace
+from environments.spaces import DiscreteSpace, EnvType
 
-import math
 import numpy as np
-
 
 class OffPolicyNstepSarsaAgentTB(Agent):
     def __init__(self, n, alpha, epsilon, gamma, decay_rate=1.0):
@@ -14,9 +12,10 @@ class OffPolicyNstepSarsaAgentTB(Agent):
         self.gamma = gamma
         self.decay_rate = decay_rate
 
-    def initialise(self, state_space, action_space, start_state, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs, resume=False):
         self.state_space_size = state_space.dimensions
         self.action_space_size = action_space.dimensions
+        self.num_envs = num_envs
         if not resume:
             self.qtable = np.full((self.state_space_size, self.action_space_size), 0.0)
             self.reward_history = []
@@ -86,20 +85,20 @@ class OffPolicyNstepSarsaAgentTB(Agent):
         )
 
     def update(self, s, sprime, a, r, done):
-        self.current_episode_rewards += r
+        self.current_episode_rewards += r[0]
 
         if self.time_step < self.termination_time:
-            self.states[self.time_step+1] = sprime
-            self.rewards[self.time_step+1] = r
-            self.actions[self.time_step+1] = self.generate_action(sprime)
-            if done:
+            self.states[self.time_step+1] = sprime[0]
+            self.rewards[self.time_step+1] = r[0]
+            self.actions[self.time_step+1] = self.generate_action(sprime[0])
+            if done[0]:
                 self.termination_time = self.time_step + 1
 
         time_to_update = self.time_step - self.n + 1
         if time_to_update >= 0:
             self.nstep_update(time_to_update, self.time_step)
 
-        if done:
+        if done[0]:
             # do n-1 extra updates
             extra_time_step = self.time_step
             while time_to_update <= (self.termination_time-1):
@@ -116,6 +115,9 @@ class OffPolicyNstepSarsaAgentTB(Agent):
         else:
             self.epsilon = self.epsilon_checkpoint
         self.eval = not self.eval
+
+    def get_supported_env_types(self):
+        return [EnvType.SINGULAR]
 
     def get_supported_state_spaces(self):
         return [DiscreteSpace]

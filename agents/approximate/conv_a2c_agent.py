@@ -1,5 +1,5 @@
 from agents.agent import Agent
-from environments.spaces import DiscreteSpace, ContinuousSpace
+from environments.spaces import DiscreteSpace, ContinuousSpace, EnvType
 
 import torch
 import torch.nn as nn
@@ -15,42 +15,55 @@ class CombinedNN(nn.Module):
         # one NN with multiple 'heads'
         # PG and SV share the CONV layers
 
+        # self.conv_nn = nn.Sequential(
+        #     nn.Conv2d(4, 16, kernel_size=(8, 8), stride=4),
+        #     nn.ReLU(),
+        #     nn.Conv2d(16, 32, kernel_size=(4, 4), stride=2),
+        #     nn.ReLU(),
+        #     nn.Flatten() # (2592,)
+        # )
+
         self.conv_nn = nn.Sequential(
-            nn.Conv2d(4, 16, kernel_size=(8, 8), stride=4),
+            nn.Conv2d(4, 32, kernel_size=(8, 8), stride=4),
             nn.ReLU(),
-            nn.Conv2d(16, 32, kernel_size=(4, 4), stride=2),
+            nn.Conv2d(32, 64, kernel_size=(4, 4), stride=2),
             nn.ReLU(),
-            nn.Flatten() # (2592,)
+            nn.Conv2d(64, 64, kernel_size=(3, 3), stride=1),
+            nn.ReLU(),
+            nn.Flatten() # (3136,)
         )
 
         self.fc_nn = nn.Sequential(
-            nn.Linear(2592, 256),
+            nn.Linear(3136, 256),
             nn.ReLU()
         )
 
         self.policy_nn = nn.Sequential(
-            nn.Linear(256, action_space_dim),
+            nn.Linear(3136, 512),
+            nn.ReLU(),
+            nn.Linear(512, action_space_dim),
             nn.LogSoftmax(dim=1)
         )
 
         self.state_value_nn = nn.Sequential(
-            nn.Linear(256, 1),
+            nn.Linear(3136, 512),
+            nn.ReLU(),
+            nn.Linear(512, 1),
         )
 
     def forward(self, input):
-        new_input = input / 255.0
+        new_input = input / 255
         conv_out = self.conv_nn(new_input)
-        fc_out = self.fc_nn(conv_out)
-        return self.policy_nn(fc_out), self.state_value_nn(fc_out)
+        return self.policy_nn(conv_out), self.state_value_nn(conv_out)
 
 class ConvA2CAgent(Agent):
-    def __init__(self, device, writer, lr, gamma, tmax, entropy_weight=0.01, num_envs=2,
+    def __init__(self, device, writer, lr, gamma, tmax, entropy_weight=0.01, clip_grad_norm=0.1,
                  save_nn_path=None, load_nn_path=None):
         self.device = device
         self.writer = writer
         self.lr = lr
         self.entropy_weight = entropy_weight
-        self.num_envs = num_envs
+        self.clip_grad_norm = clip_grad_norm
         self.tmax = tmax
         self.eval = False
         self.gamma = gamma
@@ -77,14 +90,15 @@ class ConvA2CAgent(Agent):
             "done":[]
         }
 
-    def initialise(self, state_space, action_space, start_state, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs,resume=False):
         
         self.reset_transitions()
 
         self.state_space_size = state_space.dimensions
         self.action_space_size = action_space.dimensions
-        self.state_space_mins = state_space.min_bound
-        self.state_space_maxs = state_space.max_bound
+        self.state_space_mins = state_space.min_bounds
+        self.state_space_maxs = state_space.max_bounds
+        self.num_envs = num_envs
 
         if not resume:
             self.time_step = 0
@@ -95,6 +109,7 @@ class ConvA2CAgent(Agent):
 
             self.combined_nn = CombinedNN(self.state_space_size, self.action_space_size).to(self.device)
             self.combined_optimiser = optim.Adam(self.combined_nn.parameters(), lr=self.lr)
+            self.combined_optimiser = optim.RMSprop(self.combined_nn.parameters(), lr=self.lr)
 
             # load saved models
             if self.load_nn_path != None:
@@ -157,6 +172,7 @@ class ConvA2CAgent(Agent):
 
         self.combined_optimiser.zero_grad()
         combined_loss.backward()
+        nn.utils.clip_grad_norm_(self.combined_nn.parameters(), self.clip_grad_norm)
         self.combined_optimiser.step()
 
         self.reset_transitions()
@@ -196,6 +212,9 @@ class ConvA2CAgent(Agent):
 
     def toggle_eval(self):
         self.eval = not self.eval
+
+    def get_supported_env_types(self):
+        return [EnvType.SINGULAR, EnvType.VECTORISED]
 
     def get_supported_state_spaces(self):
         return [ContinuousSpace]

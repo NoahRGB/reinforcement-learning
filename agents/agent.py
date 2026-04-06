@@ -24,7 +24,7 @@ class Agent(ABC):
         ...
 
     @abstractmethod
-    def initialise(self, state_space, action_space, start_state, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs, resume=False):
         """
         this method should initialise all relevant structures
         associated with the agent's logic so a new episode can
@@ -39,6 +39,10 @@ class Agent(ABC):
         or learning that needs to be done at the end of an
         episode
         """
+        ...
+
+    @abstractmethod
+    def get_supported_env_types(self) -> list:
         ...
 
     @abstractmethod

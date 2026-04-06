@@ -1,5 +1,5 @@
 from agents.agent import Agent
-from environments.spaces import DiscreteSpace, ContinuousSpace
+from environments.spaces import DiscreteSpace, ContinuousSpace, EnvType
 
 import torch
 import torch.nn as nn
@@ -33,13 +33,12 @@ class CombinedNN(nn.Module):
         return self.policy_nn(out), self.state_value_nn(out)
 
 class A2CAgent(Agent):
-    def __init__(self, device, writer, lr, gamma, tmax, entropy_weight=0.01, num_envs=2,
+    def __init__(self, device, writer, lr, gamma, tmax, entropy_weight=0.01,
                  save_nn_path=None, load_nn_path=None):
         self.device = device
         self.writer = writer
         self.lr = lr
         self.entropy_weight = entropy_weight
-        self.num_envs = num_envs
         self.tmax = tmax
         self.eval = False
         self.gamma = gamma
@@ -66,7 +65,7 @@ class A2CAgent(Agent):
             "done":[]
         }
 
-    def initialise(self, state_space, action_space, start_state, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs,resume=False):
         
         self.reset_transitions()
 
@@ -74,6 +73,7 @@ class A2CAgent(Agent):
         self.action_space_size = action_space.dimensions
         self.state_space_mins = state_space.min_bounds
         self.state_space_maxs = state_space.max_bounds
+        self.num_envs = num_envs
 
         if not resume:
             self.time_step = 0
@@ -180,11 +180,14 @@ class A2CAgent(Agent):
         self.time_step += 1
 
     def finish_episode(self, episode_num):
-        # not used for vectorised agents
+        # not used for agents compatible with vectorised environments
         pass
 
     def toggle_eval(self):
         self.eval = not self.eval
+
+    def get_supported_env_types(self):
+        return [EnvType.SINGULAR, EnvType.VECTORISED]
 
     def get_supported_state_spaces(self):
         return [ContinuousSpace]

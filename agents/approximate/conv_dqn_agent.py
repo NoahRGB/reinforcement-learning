@@ -2,7 +2,7 @@ from collections import deque
 import random
 
 from agents.agent import Agent
-from environments.spaces import DiscreteSpace, ContinuousSpace
+from environments.spaces import DiscreteSpace, ContinuousSpace, EnvType
 
 import torch
 import torch.nn as nn
@@ -57,12 +57,13 @@ class ConvDQNAgent(Agent):
     def clone_qnet(self):
         self.target_dqn.load_state_dict(self.dqn.state_dict())
 
-    def initialise(self, state_space, action_space, start_state, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs, resume=False):
         self.start_state = start_state
         self.state_space_size = state_space.dimensions 
         self.action_space_size = action_space.dimensions 
-        self.state_space_mins = state_space.min_bound
-        self.state_space_maxs = state_space.max_bound
+        self.state_space_mins = state_space.min_bounds
+        self.state_space_maxs = state_space.max_bounds
+        self.num_envs = num_envs
         self.actions = [i for i in range(self.action_space_size)]
         self.current_episode_rewards = 0
         self.episode_start_time = 0
@@ -116,7 +117,7 @@ class ConvDQNAgent(Agent):
 
     def get_best_actions(self, s):
         with torch.no_grad():
-            state = torch.stack([self.process_single_state(s)]).to(self.device)
+            state = self.process_single_state(s).to(self.device)
             qvals = self.dqn.forward(state).cpu().numpy()[0] # (6)
         best = [qvals.argmax()]  
         return best
@@ -163,7 +164,7 @@ class ConvDQNAgent(Agent):
         self.optimiser.step()
 
     def update(self, s, sprime, a, r, done):
-        self.current_episode_rewards += r
+        self.current_episode_rewards += r[0]
 
         # a = self.action
         # a' = aprime
@@ -173,7 +174,7 @@ class ConvDQNAgent(Agent):
         if not self.eval_mode:
 
             self.time_step += 1
-            self.replay.append((s, a, r, sprime, done))
+            self.replay.append((s[0], a, r[0], sprime[0], done[0]))
 
             if len(self.replay) >= self.replay_warmup_length:
 
@@ -194,6 +195,9 @@ class ConvDQNAgent(Agent):
             self.epsilon_checkpoint = self.epsilon
             self.epsilon = 0.05
         self.eval_mode = not self.eval_mode
+
+    def get_supported_env_types(self):
+        return [EnvType.SINGULAR]
 
     def get_supported_state_spaces(self):
         return [ContinuousSpace]

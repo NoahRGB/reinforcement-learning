@@ -20,5 +20,13 @@ class Environment(ABC):
         ...
 
     @abstractmethod
+    def get_env_type(self):
+        ...
+
+    @abstractmethod
+    def get_num_envs(self):
+        ...
+
+    @abstractmethod
     def reset(self):
         ...

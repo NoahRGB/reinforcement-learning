@@ -1,7 +1,7 @@
 import os, warnings
 
 from agents.agent import Agent
-from environments.spaces import DiscreteSpace, ContinuousSpace
+from environments.spaces import DiscreteSpace, ContinuousSpace, EnvType
 
 import torch
 import torch.nn as nn
@@ -38,21 +38,22 @@ class ReinforceAgent(Agent):
 
     def run_policy(self, s, t):
         with torch.no_grad():
-            probs = self.nn.forward(self.process_state(s)).cpu().numpy()
+            probs = self.nn.forward(self.process_state(s[0])).cpu().numpy()
         probs = np.exp(probs) # exp() because output is LOG_softmax (is there a better way to do this?)
         return np.random.choice([i for i in range(self.action_space_size)], p=probs)
         
     def update(self, s, sprime, a, r, done):
-        self.current_episode_rewards += r
-        self.steps.append((s, sprime, a, r))
+        self.current_episode_rewards += r[0]
+        self.steps.append((s[0], sprime[0], a, r[0]))
         self.time_step += 1
 
-    def initialise(self, state_space, action_space, start_state, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs, resume=False):
         self.steps = []
         self.state_space_size = state_space.dimensions
         self.action_space_size = action_space.dimensions
         self.state_space_mins = state_space.min_bounds
         self.state_space_maxs = state_space.max_bounds
+        self.num_envs = num_envs
         self.current_episode_rewards = 0
         self.time_step = 0
         if not resume:
@@ -86,6 +87,9 @@ class ReinforceAgent(Agent):
 
     def toggle_eval(self):
         self.eval = not self.eval
+
+    def get_supported_env_types(self):
+        return [EnvType.SINGULAR]
 
     def get_supported_state_spaces(self):
         return [ContinuousSpace]

@@ -1,5 +1,11 @@
 import gymnasium as gym
 
+from enum import Enum
+
+class EnvType(Enum):
+    SINGULAR = 1
+    VECTORISED = 2
+    
 class DiscreteSpace:
     def __init__(self, dimensions):
         self.dimensions = dimensions

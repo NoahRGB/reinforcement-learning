@@ -2,7 +2,7 @@ from collections import deque
 import random
 
 from agents.agent import Agent
-from environments.spaces import DiscreteSpace, ContinuousSpace
+from environments.spaces import DiscreteSpace, ContinuousSpace, EnvType
 
 import torch
 import torch.nn as nn
@@ -14,7 +14,7 @@ import numpy as np
 class DQN(nn.Module):
     def __init__(self, state_space_dim, action_space_dim):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(state_space_dim, 128)
+        self.fc1 = nn.Linear(*state_space_dim, 128)
         self.fc2 = nn.Linear(128, 64)
         self.fc3 = nn.Linear(64, action_space_dim)
 
@@ -45,12 +45,13 @@ class DQNAgent(Agent):
     def clone_qnet(self):
         self.target_dqn.load_state_dict(self.dqn.state_dict())
 
-    def initialise(self, state_space, action_space, start_state, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs, resume=False):
         self.start_state = start_state
         self.state_space_size = state_space.dimensions 
         self.action_space_size = action_space.dimensions 
-        self.state_space_mins = state_space.min_bound
-        self.state_space_maxs = state_space.max_bound
+        self.state_space_mins = state_space.min_bounds
+        self.state_space_maxs = state_space.max_bounds
+        self.num_envs = num_envs
         self.actions = [i for i in range(self.action_space_size)]
         self.current_episode_rewards = 0
 
@@ -72,7 +73,6 @@ class DQNAgent(Agent):
                 self.optimiser.load_state_dict(checkpoint["optimiser"])
                 self.time_step = checkpoint["time_step"]
                 self.epsilon = checkpoint["epsilon"]
-
 
     def finish_episode(self, episode_num):
         self.reward_history.append(self.current_episode_rewards)
@@ -97,7 +97,7 @@ class DQNAgent(Agent):
         return np.where(qvals == qvals.max())[0]
 
     def run_policy(self, s, t):
-        self.action = self.generate_action(s)
+        self.action = self.generate_action(s[0])
         return self.action
 
     def generate_action(self, s):
@@ -132,11 +132,11 @@ class DQNAgent(Agent):
         self.optimiser.step()
 
     def update(self, s, sprime, a, r, done):
-        self.current_episode_rewards += r
+        self.current_episode_rewards += r[0]
 
         if not self.eval_mode:
 
-            self.replay.append((s, a, r, sprime, done))
+            self.replay.append((s[0], a, r[0], sprime[0], done[0]))
             if len(self.replay) >= self.minibatch_size:
                 self.replay_memory_update()
 
@@ -154,6 +154,9 @@ class DQNAgent(Agent):
             self.time_step_checkpoint = self.time_step
             self.epsilon = 0.0
         self.eval_mode = not self.eval_mode
+
+    def get_supported_env_types(self):
+        return [EnvType.SINGULAR]
 
     def get_supported_state_spaces(self):
         return [ContinuousSpace]

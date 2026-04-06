@@ -1,5 +1,5 @@
 from agents.agent import Agent
-from environments.spaces import DiscreteSpace, ContinuousSpace
+from environments.spaces import DiscreteSpace, ContinuousSpace, EnvType
 
 import torch
 import torch.nn as nn
@@ -55,16 +55,16 @@ class ReinforceBaselineAgent(Agent):
 
     def run_policy(self, s, t):
         with torch.no_grad():
-            probs = self.policy_nn(self.process_state(s)).cpu().numpy()
+            probs = self.policy_nn(self.process_state(s[0])).cpu().numpy()
         probs = np.exp(probs)
         return np.random.choice([i for i in range(self.action_space_size)], p=probs)
         
     def update(self, s, sprime, a, r, done):
-        self.current_episode_rewards += r
-        self.steps.append((s, sprime, a, r))
+        self.current_episode_rewards += r[0]
+        self.steps.append((s[0], sprime, a, r))
         self.time_step += 1
 
-    def initialise(self, state_space, action_space, start_state, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs, resume=False):
         self.steps = []
         self.state_space_size = state_space.dimensions
         self.action_space_size = action_space.dimensions
@@ -72,6 +72,7 @@ class ReinforceBaselineAgent(Agent):
         self.state_space_maxs = state_space.max_bounds
         self.current_episode_rewards = 0
         self.time_step = 0
+        self.num_envs = num_envs
         if not resume:
             self.policy_nn = PolicyNN(self.state_space_size, self.action_space_size).to(self.device)
             self.policy_optimiser = optim.Adam(self.policy_nn.parameters(), lr=self.policy_lr)
@@ -124,6 +125,9 @@ class ReinforceBaselineAgent(Agent):
 
     def toggle_eval(self):
         self.eval = not self.eval
+
+    def get_supported_env_types(self):
+        return [EnvType.SINGULAR]
 
     def get_supported_state_spaces(self):
         return [ContinuousSpace]
