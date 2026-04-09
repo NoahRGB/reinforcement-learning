@@ -124,7 +124,8 @@ class A2CAgent(Agent):
             # (num_envs,) - (num_envs,) = (num_envs,)
             with torch.no_grad():
                 all_advantages = R - all_state_value_predictions.squeeze(1) # (num_envs,)
-
+                all_advantages = (all_advantages - all_advantages.mean()) / (all_advantages.std() + 1e-8) # normalise advantages
+                
             all_log_probs = all_policy_predictions[torch.arange(self.num_envs), all_actions_t] # (num_envs,)
 
             all_policy_loss_total += -(all_advantages * all_log_probs).mean() # scalar
@@ -194,4 +195,3 @@ class A2CAgent(Agent):
 
     def get_supported_action_spaces(self):
         return [DiscreteSpace]
-

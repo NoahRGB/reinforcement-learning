@@ -7,9 +7,10 @@ import gymnasium as gym
 import ale_py
 
 class VectorisedAtariEnvironment(Environment):
-    def __init__(self, num_envs, name, **kwargs):
+    def __init__(self, num_envs, name, seed=None, **kwargs):
 
         self.num_envs = num_envs
+        self.seed = seed
 
         def make_one_env():
             env = gym.make(name, frameskip=1, **kwargs)
@@ -26,10 +27,6 @@ class VectorisedAtariEnvironment(Environment):
         
         self.action_space = detect_space(self.env.single_action_space)
         self.state_space = detect_space(self.env.single_observation_space)
-        # self.action_space = DiscreteSpace(self.env.single_action_space.n)
-        # self.state_space = ContinuousSpace(self.env.observation_space.shape[0], self.env.observation_space.low, self.env.observation_space.high)
-
-        # self.env = RecordVideo(self.env, ".", episode_trigger=lambda x: True)
 
     def __del__(self):
         self.env.close()
@@ -39,10 +36,10 @@ class VectorisedAtariEnvironment(Environment):
         return sprime, r, (is_terminated|is_truncated)
 
     def reset(self):
-        self.env.reset()
+        self.env.reset(seed=self.seed)
 
     def get_start_state(self):
-        start_state, _ = self.env.reset()
+        start_state, _ = self.env.reset(seed=self.seed)
         return start_state
 
     def get_env_type(self):

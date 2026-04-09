@@ -34,27 +34,24 @@ class CombinedNN(nn.Module):
         )
 
         self.fc_nn = nn.Sequential(
-            nn.Linear(3136, 256),
+            nn.Linear(3136, 512),
             nn.ReLU()
         )
 
         self.policy_nn = nn.Sequential(
-            nn.Linear(3136, 512),
-            nn.ReLU(),
             nn.Linear(512, action_space_dim),
             nn.LogSoftmax(dim=1)
         )
 
         self.state_value_nn = nn.Sequential(
-            nn.Linear(3136, 512),
-            nn.ReLU(),
             nn.Linear(512, 1),
         )
 
     def forward(self, input):
-        new_input = input / 255
+        new_input = input / 255.0
         conv_out = self.conv_nn(new_input)
-        return self.policy_nn(conv_out), self.state_value_nn(conv_out)
+        fc_out = self.fc_nn(conv_out)
+        return self.policy_nn(fc_out), self.state_value_nn(fc_out)
 
 class ConvA2CAgent(Agent):
     def __init__(self, device, writer, lr, gamma, tmax, entropy_weight=0.01, clip_grad_norm=0.1,
@@ -109,7 +106,7 @@ class ConvA2CAgent(Agent):
 
             self.combined_nn = CombinedNN(self.state_space_size, self.action_space_size).to(self.device)
             self.combined_optimiser = optim.Adam(self.combined_nn.parameters(), lr=self.lr)
-            self.combined_optimiser = optim.RMSprop(self.combined_nn.parameters(), lr=self.lr)
+            # self.combined_optimiser = optim.RMSprop(self.combined_nn.parameters(), lr=self.lr)
 
             # load saved models
             if self.load_nn_path != None:
@@ -150,6 +147,7 @@ class ConvA2CAgent(Agent):
             # (num_envs,) - (num_envs,) = (num_envs,)
             with torch.no_grad():
                 all_advantages = R - all_state_value_predictions.squeeze(1) # (num_envs,)
+                all_advantages = (all_advantages - all_advantages.mean()) / (all_advantages.std() + 1e-8) # normalise advantages
 
             all_log_probs = all_policy_predictions[torch.arange(self.num_envs), all_actions_t] # (num_envs,)
 
@@ -172,7 +170,8 @@ class ConvA2CAgent(Agent):
 
         self.combined_optimiser.zero_grad()
         combined_loss.backward()
-        nn.utils.clip_grad_norm_(self.combined_nn.parameters(), self.clip_grad_norm)
+        if self.clip_grad_norm is not None:
+            nn.utils.clip_grad_norm_(self.combined_nn.parameters(), self.clip_grad_norm)
         self.combined_optimiser.step()
 
         self.reset_transitions()
@@ -221,4 +220,3 @@ class ConvA2CAgent(Agent):
 
     def get_supported_action_spaces(self):
         return [DiscreteSpace]
-
