@@ -75,7 +75,7 @@ class ConvA2CAgent(Agent):
             probs, _ = self.combined_nn(self.process_state(s)) # (num_envs, 6)
             probs = probs.cpu().numpy() # (num_envs, 6)
         probs = np.exp(probs) # (num_envs, 6)
-        actions = np.array([np.random.choice(6, p=probs[i]) for i in range(probs.shape[0])]) # (num_envs,)
+        actions = np.array([np.random.choice(self.action_space_size, p=probs[i]) for i in range(probs.shape[0])]) # (num_envs,)
         return actions
     
     def reset_transitions(self):
@@ -147,7 +147,7 @@ class ConvA2CAgent(Agent):
             # (num_envs,) - (num_envs,) = (num_envs,)
             with torch.no_grad():
                 all_advantages = R - all_state_value_predictions.squeeze(1) # (num_envs,)
-                all_advantages = (all_advantages - all_advantages.mean()) / (all_advantages.std() + 1e-8) # normalise advantages
+                # all_advantages = (all_advantages - all_advantages.mean()) / (all_advantages.std() + 1e-8) # normalise advantages
 
             all_log_probs = all_policy_predictions[torch.arange(self.num_envs), all_actions_t] # (num_envs,)
 

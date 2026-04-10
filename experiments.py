@@ -14,7 +14,7 @@ device = detect_torch_device()
 writer = create_tensorboard_writer(comment="-a2c-cartpole")
 print(f"using device {device}")
 
-NUM_ENVS = 16
+NUM_ENVS = 64
 
 # =============== environments =================
 
@@ -45,7 +45,7 @@ env = VectorisedAtariEnvironment(name="ALE/Pong-v5", num_envs=NUM_ENVS, render_m
 # agent = DQNAgent(device, writer, lr=0.001, replay_memory_size=10000, C=1000,
 #                  minibatch_size=32, epsilon=0.9, gamma=0.99, decay_rate=0.99)
 
-agent = ConvA2CAgent(device, writer, lr=0.00001, gamma=0.99, tmax=4, entropy_weight=0.01, clip_grad_norm=0.5)
+agent = ConvA2CAgent(device, writer, lr=2.5e-4, gamma=0.99, tmax=256, entropy_weight=0.0, clip_grad_norm=None)
 # agent = A2CAgent(device, writer, lr=0.001, gamma=0.99, tmax=2, entropy_weight=0.0)
 
 # agent = TDLambdaAgent(lambd=0.8, alpha=0.0001, epsilon=1.0, gamma=0.99, decay_rate=0.9) # not working

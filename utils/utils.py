@@ -1,14 +1,21 @@
 import numpy as np
 
 import torch
-from torch.utils.tensorboard import SummaryWriter
+
+tensorboard = True
+try:
+    from torch.utils.tensorboard import SummaryWriter
+except ImportError:
+    tensorboard = False
 
 def detect_torch_device():
     # return torch.device("cpu")
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def create_tensorboard_writer(comment="", flush_secs=5):
-    return SummaryWriter(comment=comment, flush_secs=flush_secs)
+    if tensorboard:
+        return SummaryWriter(comment=comment, flush_secs=flush_secs)
+    return None
 
 def smoothing(vals, factor):
     # https://stackoverflow.com/questions/42281844/what-is-the-mathematics-behind-the-smoothing-parameter-in-tensorboards-scalar
