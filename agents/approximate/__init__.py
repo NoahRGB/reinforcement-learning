@@ -6,6 +6,7 @@ from .conv_dqn_agent import ConvDQNAgent
 from .td_lambda_agent import TDLambdaAgent
 from .a2c_agent import A2CAgent
 from .conv_a2c_agent import ConvA2CAgent
+from .vectorised_conv_dqn_agent import VectorisedConvDQNAgent
 
 __all__ = [
         "ReinforceAgent",
@@ -16,4 +17,5 @@ __all__ = [
         "TDLambdaAgent",
         "A2CAgent",
         "ConvA2CAgent",
+        "VectorisedConvDQNAgent"
 ]
