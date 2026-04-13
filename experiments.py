@@ -11,7 +11,7 @@ from agents.tabular import *
 from agents.approximate import *
 
 device = detect_torch_device()
-writer = create_tensorboard_writer(comment="-a2c-cartpole")
+writer = create_tensorboard_writer(comment="")
 print(f"using device {device}")
 
 NUM_ENVS = 2

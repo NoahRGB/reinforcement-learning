@@ -96,19 +96,17 @@ class VectorisedConvDQNAgent(Agent):
 
     def get_best_actions(self, s):
         with torch.no_grad():
-            state = self.process_single_state(s).to(self.device)
-            qvals = self.dqn.forward(state).cpu().numpy()[0] # (6)
-        best = [qvals.argmax()]  
-        return best
+            qvals = self.dqn.forward(s).cpu().numpy() # (num_envs, 6)
+        return qvals.argmax(axis=1) # (num_envs,)
 
     def run_policy(self, s, t):
-        actions = np.array([self.generate_action(s[i]) for i in range(self.num_envs)])
-        return actions
+        prepared_s = torch.stack([self.process_single_state(s_) for s_ in s]).to(self.device)
+        return self.generate_action(prepared_s)
 
     def generate_action(self, s):
         if np.random.random() >= self.epsilon:
-            return np.random.choice(self.get_best_actions(s))
-        return np.random.choice(self.actions)
+            return self.get_best_actions(s) # (num_envs,)
+        return [np.random.choice(self.actions) for _ in range(self.num_envs)] # (num_envs,)
 
     def replay_memory_update(self):
         minibatch = random.sample(self.replay, self.minibatch_size)
@@ -144,15 +142,17 @@ class VectorisedConvDQNAgent(Agent):
     def update(self, s, sprime, a, r, done):
         self.current_episode_rewards += r
 
-        # a = self.action
-        # a' = aprime
-        # s = s
-        # s' = sprime
+        # s = (num_envs, 4, 84, 84)
+        # sprime = (num_envs, 4, 84, 84)
+        # a = (num_envs,)
+        # r = (num_envs,)
+        # done = (num_envs,)
 
         if not self.eval_mode:
 
             self.time_step += 1
 
+            # self.replay.append((s, a, r, sprime, done))
             for i in range(self.num_envs):
                 self.replay.append((s[i], a[i], r[i], sprime[i], done[i]))
 
