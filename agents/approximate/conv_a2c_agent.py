@@ -105,8 +105,8 @@ class ConvA2CAgent(Agent):
             self.current_episode_rewards = np.zeros((self.num_envs,))
 
             self.combined_nn = CombinedNN(self.state_space_size, self.action_space_size).to(self.device)
-            self.combined_optimiser = optim.Adam(self.combined_nn.parameters(), lr=self.lr)
-            # self.combined_optimiser = optim.RMSprop(self.combined_nn.parameters(), lr=self.lr)
+            # self.combined_optimiser = optim.Adam(self.combined_nn.parameters(), lr=self.lr)
+            self.combined_optimiser = optim.RMSprop(self.combined_nn.parameters(), lr=self.lr)
 
             # load saved models
             if self.load_nn_path != None:
@@ -115,7 +115,7 @@ class ConvA2CAgent(Agent):
     def make_update(self):
         all_policy_loss_total = torch.tensor(0.0, dtype=torch.float32).to(self.device) # scalar (loss)
         all_state_value_loss_total = torch.tensor(0.0, dtype=torch.float32).to(self.device) # scalar (loss)
-        all_entropy_loss_total = torch.tensor(0.0, dtype=torch.float32).to(self.device) # scalar (loss)
+        all_entropy_total = torch.tensor(0.0, dtype=torch.float32).to(self.device) # scalar
 
         # self.transitions["s"] = (t_max, num_envs, 4, 84, 84)
         # self.transitions["sprime"] = (t_max, num_envs, 4, 84, 84)
@@ -147,25 +147,27 @@ class ConvA2CAgent(Agent):
             # (num_envs,) - (num_envs,) = (num_envs,)
             with torch.no_grad():
                 all_advantages = R - all_state_value_predictions.squeeze(1) # (num_envs,)
-                # all_advantages = (all_advantages - all_advantages.mean()) / (all_advantages.std() + 1e-8) # normalise advantages
+                all_advantages = (all_advantages - all_advantages.mean()) / (all_advantages.std() + 1e-8) # normalise advantages
 
             all_log_probs = all_policy_predictions[torch.arange(self.num_envs), all_actions_t] # (num_envs,)
 
             all_policy_loss_total += -(all_advantages * all_log_probs).mean() # scalar
             all_state_value_loss_total += F.mse_loss(all_state_value_predictions.squeeze(1), R) # scalar
-            all_entropy_loss_total += self.entropy_weight * -(torch.exp(all_policy_predictions) * all_policy_predictions).sum(dim=1).mean() # scalar
-
+            all_entropy_total += -(torch.exp(all_policy_predictions) * all_policy_predictions).sum(dim=1).mean() # scalar
+            
         # average losses over tmax steps (reduces scale of loss)
         all_policy_loss_total /= self.tmax
         all_state_value_loss_total /= self.tmax
-        all_entropy_loss_total /= self.tmax
+        
+        all_entropy_mean = all_entropy_total / self.tmax
+        all_entropy_bonus = self.entropy_weight * all_entropy_mean
 
-        combined_loss = all_policy_loss_total + all_state_value_loss_total + all_entropy_loss_total # scalar (loss)
+        combined_loss = all_policy_loss_total + all_state_value_loss_total - all_entropy_bonus # scalar (loss)
 
         if self.writer != None:
             self.writer.add_scalar("policy_loss", all_policy_loss_total.item(), len(self.reward_history) + self.time_step)
             self.writer.add_scalar("state_value_loss", all_state_value_loss_total.item(), len(self.reward_history) + self.time_step)
-            self.writer.add_scalar("entropy_loss", all_entropy_loss_total.item(), len(self.reward_history) + self.time_step)
+            self.writer.add_scalar("mean_policy_entropy", all_entropy_mean.item(), len(self.reward_history) + self.time_step)
             self.writer.add_scalar("combined_loss", combined_loss.item(), len(self.reward_history) + self.time_step)
 
         self.combined_optimiser.zero_grad()

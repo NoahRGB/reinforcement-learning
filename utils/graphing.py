@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 
 from utils import smoothing 
 
-# loc = "./results/bundles/hpc/temps/"
-loc = "./results/bundles/hpc/pong_replay_size/"
+loc = "./results/bundles/hpc/temps/"
+# loc = "./results/bundles/hpc/pong_replay_size/"
 cols = ["red", "blue", "green", "orange", "purple", "cyan", "magenta", "yellow", "black", "brown", "pink", "gray", "olive", "cyan", "navy", "teal", "maroon", "lime", "coral", "gold"]
 data = []
 files = [f for f in os.listdir(loc) if f.endswith(".pkl")]
