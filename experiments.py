@@ -14,15 +14,17 @@ device = detect_torch_device()
 writer = create_tensorboard_writer(comment="")
 print(f"using device {device}")
 
-NUM_ENVS = 50
+NUM_ENVS = 2
 
 # =============== environments =================
 
-env = VectorisedAtariEnvironment(name="ALE/Pong-v5", num_envs=NUM_ENVS, render_mode=None, seed=1)
+# env = VectorisedAtariEnvironment(name="ALE/Pong-v5", num_envs=NUM_ENVS, render_mode=None, seed=1)
 # env = VectorisedGymEnvironment(name="CartPole-v1", num_envs=NUM_ENVS, is_recording=False, render_mode=None)
+env = VectorisedGymEnvironment(name="Pendulum-v1", num_envs=NUM_ENVS, is_recording=False, render_mode=None)
 
 # env = AtariEnvironment("ALE/Pong-v5", render_mode=None)
 # env = AtariEnvironment("ALE/SpaceInvaders-v5", render_mode=None)
+# env = GymEnvironment("Ant-v5", False, render_mode=None)
 # env = GymEnvironment("LunarLander-v3", False, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", False, render_mode=None)
 # env = GymEnvironment("CartPole-v1", False, render_mode=None)
@@ -51,8 +53,11 @@ env = VectorisedAtariEnvironment(name="ALE/Pong-v5", num_envs=NUM_ENVS, render_m
 # agent = DQNAgent(device, writer, lr=0.001, replay_memory_size=10000, C=1000,
 #                  minibatch_size=32, epsilon=0.9, gamma=0.99, decay_rate=0.99)
 
-agent = ConvA2CAgent(device, writer, lr=0.001, gamma=0.99, tmax=4, entropy_weight=0.01, clip_grad_norm=0.1)
-# agent = A2CAgent(device, writer, lr=0.001, gamma=0.99, tmax=2, entropy_weight=0.01)
+# agent = ConvA2CAgent(device, writer, lr=0.001, gamma=0.99, tmax=5, entropy_weight=0.01, clip_grad_norm=0.5)
+agent = A2CAgent(device, writer, lr=0.0001, gamma=0.99, 
+                 tmax=3, entropy_weight=0.02, clip_grad_norm=1.0,
+                 save_nn_path="./torch_models/a2c_pendulum_checkpoint.pt",)
+                #  load_nn_path="./torch_models/a2c_bipedalwalker_checkpoint.pt",)
 
 # agent = TDLambdaAgent(lambd=0.8, alpha=0.0001, epsilon=1.0, gamma=0.99, decay_rate=0.9) # not working
 
@@ -82,7 +87,7 @@ agent = ConvA2CAgent(device, writer, lr=0.001, gamma=0.99, tmax=4, entropy_weigh
 
 start = time.perf_counter()
 
-episode_count = 10000
+episode_count = 500000
 
 learning_rewards = learn(episode_count, env, agent, eval_period=0, quiet=False)
 

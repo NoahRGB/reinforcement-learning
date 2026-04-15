@@ -5,7 +5,7 @@ from environments.environment import Environment
 from utils.evaluate import evaluate
 from environments.spaces import EnvType
 
-def learn(episodes: int, env: Environment, agent: Agent, eval_period=1, resume=False, quiet=True):
+def learn(episodes: int, env: Environment, agent: Agent, eval_period=1, quiet=True):
     # check agent-environment compatibility
     state_space = env.get_state_space()
     action_space = env.get_action_space()
@@ -23,12 +23,12 @@ def learn(episodes: int, env: Environment, agent: Agent, eval_period=1, resume=F
     if env_type == EnvType.VECTORISED:
         return learn_vectorised(episodes, env, agent, quiet)
     else:
-        return learn_singular(episodes, env, agent, eval_period, resume, quiet)
+        return learn_singular(episodes, env, agent, eval_period, quiet)
 
 
-def learn_singular(episodes: int, env: Environment, agent: Agent, eval_period=1, resume=False, quiet=True):
+def learn_singular(episodes: int, env: Environment, agent: Agent, eval_period=1, quiet=True):
     # initialise
-    agent.initialise(env.get_state_space(), env.get_action_space(), env.get_start_state(), env.get_num_envs(), resume=resume)
+    agent.initialise(env.get_state_space(), env.get_action_space(), env.get_start_state(), env.get_num_envs())
     if not quiet: print(f"Starting learning over {episodes} episodes")
     reward_history = np.empty(episodes)
 

@@ -87,7 +87,7 @@ class ConvA2CAgent(Agent):
             "done":[]
         }
 
-    def initialise(self, state_space, action_space, start_state, num_envs,resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs):
         
         self.reset_transitions()
 
@@ -97,20 +97,18 @@ class ConvA2CAgent(Agent):
         self.state_space_maxs = state_space.max_bounds
         self.num_envs = num_envs
 
-        if not resume:
-            self.time_step = 0
+        self.time_step = 0
+        self.total_episodes_completed = 0
+        self.reward_history = []
+        self.current_episode_rewards = np.zeros((self.num_envs,))
 
-            self.total_episodes_completed = 0
-            self.reward_history = []
-            self.current_episode_rewards = np.zeros((self.num_envs,))
+        self.combined_nn = CombinedNN(self.state_space_size, self.action_space_size).to(self.device)
+        # self.combined_optimiser = optim.Adam(self.combined_nn.parameters(), lr=self.lr)
+        self.combined_optimiser = optim.RMSprop(self.combined_nn.parameters(), lr=self.lr)
 
-            self.combined_nn = CombinedNN(self.state_space_size, self.action_space_size).to(self.device)
-            # self.combined_optimiser = optim.Adam(self.combined_nn.parameters(), lr=self.lr)
-            self.combined_optimiser = optim.RMSprop(self.combined_nn.parameters(), lr=self.lr)
-
-            # load saved models
-            if self.load_nn_path != None:
-                self.combined_nn.load_state_dict(torch.load(self.load_nn_path))
+        # load saved models
+        if self.load_nn_path != None:
+            self.combined_nn.load_state_dict(torch.load(self.load_nn_path))
 
     def make_update(self):
         all_policy_loss_total = torch.tensor(0.0, dtype=torch.float32).to(self.device) # scalar (loss)

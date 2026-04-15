@@ -15,9 +15,12 @@ labels = [file[:-4].split("_")[-1] for file in files]
 
 for file_idx, file in enumerate(files):
     with open(loc + file, "rb") as f:
-        new_data = np.array(pickle.load(f))
-        data.append(new_data)
-        plt.plot(smoothing(new_data, 0.99), alpha=0.9, color=cols[file_idx], label=labels[file_idx])
+        try:
+            new_data = np.array(pickle.load(f))
+            data.append(new_data)
+            plt.plot(smoothing(new_data, 0.99), alpha=0.9, color=cols[file_idx], label=labels[file_idx])
+        except Exception as e:
+            print(f"Error loading {file}: {e}")
 
 plt.xlabel("Episode")
 plt.ylabel("Episode reward")

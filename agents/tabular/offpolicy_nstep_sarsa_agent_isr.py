@@ -15,13 +15,13 @@ class OffPolicyNstepSarsaAgentISR(Agent):
         self.expected = expected
         self.decay_rate = decay_rate
 
-    def initialise(self, state_space, action_space, start_state, num_envs, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs):
         self.state_space_size = state_space.dimensions
         self.action_space_size = action_space.dimensions
         self.num_envs = num_envs
-        if not resume:
-            self.qtable = np.full((self.state_space_size, self.action_space_size), 0.0)
-            self.reward_history = []
+
+        self.qtable = np.full((self.state_space_size, self.action_space_size), 0.0)
+        self.reward_history = []
         self.start_state = start_state
         self.states = {0: start_state}
         self.actions = {0: self.generate_action(self.start_state)}

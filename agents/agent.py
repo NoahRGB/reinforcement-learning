@@ -24,7 +24,7 @@ class Agent(ABC):
         ...
 
     @abstractmethod
-    def initialise(self, state_space, action_space, start_state, num_envs, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs):
         """
         this method should initialise all relevant structures
         associated with the agent's logic so a new episode can

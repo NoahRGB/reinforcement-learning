@@ -22,7 +22,7 @@ class OnPolicyMonteCarloAgent(Agent):
         self.episodes.append((s[0], sprime[0], a, r[0]))
         self.time_step += 1
 
-    def initialise(self, state_space, action_space, start_state, num_envs,resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs):
         self.episodes = []
         self.visits = set()
         self.state_space_size = state_space.dimensions
@@ -30,11 +30,11 @@ class OnPolicyMonteCarloAgent(Agent):
         self.current_episode_rewards = 0
         self.num_envs = num_envs
         self.time_step = 0
-        if not resume:
-            self.qtable = np.full((self.state_space_size, self.action_space_size), 0.0)
-            self.returns = np.zeros((self.state_space_size, self.action_space_size))
-            self.visit_count = np.zeros((self.state_space_size, self.action_space_size))
-            self.reward_history = []
+        
+        self.qtable = np.full((self.state_space_size, self.action_space_size), 0.0)
+        self.returns = np.zeros((self.state_space_size, self.action_space_size))
+        self.visit_count = np.zeros((self.state_space_size, self.action_space_size))
+        self.reward_history = []
 
     def finish_episode(self, episode_num):
         G = 0

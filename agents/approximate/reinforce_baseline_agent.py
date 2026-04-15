@@ -64,7 +64,7 @@ class ReinforceBaselineAgent(Agent):
         self.steps.append((s[0], sprime, a, r))
         self.time_step += 1
 
-    def initialise(self, state_space, action_space, start_state, num_envs, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs):
         self.steps = []
         self.state_space_size = state_space.dimensions
         self.action_space_size = action_space.dimensions
@@ -73,16 +73,16 @@ class ReinforceBaselineAgent(Agent):
         self.current_episode_rewards = 0
         self.time_step = 0
         self.num_envs = num_envs
-        if not resume:
-            self.policy_nn = PolicyNN(self.state_space_size, self.action_space_size).to(self.device)
-            self.policy_optimiser = optim.Adam(self.policy_nn.parameters(), lr=self.policy_lr)
-            self.state_value_nn = StateValueNN(self.state_space_size).to(self.device)
-            self.state_value_optimiser = optim.Adam(self.state_value_nn.parameters(), lr=self.state_value_lr)
-            if self.load_policy_nn_path != None:
-                self.policy_nn.load_state_dict(torch.load(self.load_policy_nn_path))
-            if self.load_state_value_nn_path != None:
-                self.state_value_nn.load_state_dict(torch.load(self.load_state_value_nn_path))
-            self.reward_history = []
+
+        self.policy_nn = PolicyNN(self.state_space_size, self.action_space_size).to(self.device)
+        self.policy_optimiser = optim.Adam(self.policy_nn.parameters(), lr=self.policy_lr)
+        self.state_value_nn = StateValueNN(self.state_space_size).to(self.device)
+        self.state_value_optimiser = optim.Adam(self.state_value_nn.parameters(), lr=self.state_value_lr)
+        if self.load_policy_nn_path != None:
+            self.policy_nn.load_state_dict(torch.load(self.load_policy_nn_path))
+        if self.load_state_value_nn_path != None:
+            self.state_value_nn.load_state_dict(torch.load(self.load_state_value_nn_path))
+        self.reward_history = []
 
     def finish_episode(self, episode_num):
 

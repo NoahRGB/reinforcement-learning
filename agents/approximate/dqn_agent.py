@@ -45,7 +45,7 @@ class DQNAgent(Agent):
     def clone_qnet(self):
         self.target_dqn.load_state_dict(self.dqn.state_dict())
 
-    def initialise(self, state_space, action_space, start_state, num_envs, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs):
         self.start_state = start_state
         self.state_space_size = state_space.dimensions 
         self.action_space_size = action_space.dimensions 
@@ -55,24 +55,23 @@ class DQNAgent(Agent):
         self.actions = [i for i in range(self.action_space_size)]
         self.current_episode_rewards = 0
 
-        if not resume:
-            self.time_step = 0
-            self.reward_history = []
+        self.time_step = 0
+        self.reward_history = []
 
-            self.dqn = DQN(self.state_space_size, self.action_space_size).to(self.device)
-            self.target_dqn = DQN(self.state_space_size, self.action_space_size).to(self.device)
-            self.clone_qnet()
+        self.dqn = DQN(self.state_space_size, self.action_space_size).to(self.device)
+        self.target_dqn = DQN(self.state_space_size, self.action_space_size).to(self.device)
+        self.clone_qnet()
 
-            self.optimiser = optim.Adam(self.dqn.parameters(), lr=self.lr)
-            self.replay = deque(maxlen=self.replay_memory_size)
+        self.optimiser = optim.Adam(self.dqn.parameters(), lr=self.lr)
+        self.replay = deque(maxlen=self.replay_memory_size)
 
-            if self.load_nn_path != None:
-                checkpoint = torch.load(self.load_nn_path, weights_only=False)
-                self.dqn.load_state_dict(checkpoint["dqn"])
-                self.target_dqn.load_state_dict(checkpoint["target_dqn"])
-                self.optimiser.load_state_dict(checkpoint["optimiser"])
-                self.time_step = checkpoint["time_step"]
-                self.epsilon = checkpoint["epsilon"]
+        if self.load_nn_path != None:
+            checkpoint = torch.load(self.load_nn_path, weights_only=False)
+            self.dqn.load_state_dict(checkpoint["dqn"])
+            self.target_dqn.load_state_dict(checkpoint["target_dqn"])
+            self.optimiser.load_state_dict(checkpoint["optimiser"])
+            self.time_step = checkpoint["time_step"]
+            self.epsilon = checkpoint["epsilon"]
 
     def finish_episode(self, episode_num):
         self.reward_history.append(self.current_episode_rewards)

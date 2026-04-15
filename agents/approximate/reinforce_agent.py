@@ -47,7 +47,7 @@ class ReinforceAgent(Agent):
         self.steps.append((s[0], sprime[0], a, r[0]))
         self.time_step += 1
 
-    def initialise(self, state_space, action_space, start_state, num_envs, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs):
         self.steps = []
         self.state_space_size = state_space.dimensions
         self.action_space_size = action_space.dimensions
@@ -56,10 +56,10 @@ class ReinforceAgent(Agent):
         self.num_envs = num_envs
         self.current_episode_rewards = 0
         self.time_step = 0
-        if not resume:
-            self.nn = NN(self.state_space_size, self.action_space_size).to(self.device)
-            self.optimiser = optim.Adam(self.nn.parameters(), lr=self.lr)
-            self.reward_history = []
+
+        self.nn = NN(self.state_space_size, self.action_space_size).to(self.device)
+        self.optimiser = optim.Adam(self.nn.parameters(), lr=self.lr)
+        self.reward_history = []
 
     def finish_episode(self, episode_num):
         

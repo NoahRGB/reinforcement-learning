@@ -43,20 +43,19 @@ class SemigradientSarsaAgent(Agent):
                 s[i] = (s[i] - self.state_space_mins[i]) / (self.state_space_maxs[i] - self.state_space_mins[i])
         return s
 
-    def initialise(self, state_space, action_space, start_state, num_envs, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs):
         self.start_state = start_state
         self.state_space_size = state_space.dimensions 
         self.action_space_size = action_space.dimensions 
         self.state_space_mins = state_space.min_bounds
         self.state_space_maxs = state_space.max_bounds
         self.num_envs = num_envs
-        if not resume:
-            print(self.state_space_size)
-            self.nn = NN(self.state_space_size, self.action_space_size)
-            if self.load_nn_path != None:
-                self.nn.load_state_dict(torch.load(self.load_nn_path))
-            self.optimiser = optim.Adam(self.nn.parameters(), lr=self.lr)
-            self.reward_history = []
+
+        self.nn = NN(self.state_space_size, self.action_space_size)
+        if self.load_nn_path != None:
+            self.nn.load_state_dict(torch.load(self.load_nn_path))
+        self.optimiser = optim.Adam(self.nn.parameters(), lr=self.lr)
+        self.reward_history = []
         self.action = self.generate_action(start_state)
         self.current_episode_rewards = 0
         self.time_step = 0

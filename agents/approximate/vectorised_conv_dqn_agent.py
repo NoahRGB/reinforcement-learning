@@ -57,7 +57,7 @@ class VectorisedConvDQNAgent(Agent):
     def clone_qnet(self):
         self.target_dqn.load_state_dict(self.dqn.state_dict())
 
-    def initialise(self, state_space, action_space, start_state, num_envs, resume=False):
+    def initialise(self, state_space, action_space, start_state, num_envs):
         self.start_state = start_state
         self.state_space_size = state_space.dimensions 
         self.action_space_size = action_space.dimensions 
@@ -66,29 +66,28 @@ class VectorisedConvDQNAgent(Agent):
         self.num_envs = num_envs
         self.actions = [i for i in range(self.action_space_size)]
 
-        if not resume:
-            self.current_episode_rewards = np.zeros((self.num_envs,))
-            self.total_episodes_completed = 0
-            self.time_step = 0
-            self.reward_history = []
-            self.all_rewards = []
+        self.current_episode_rewards = np.zeros((self.num_envs,))
+        self.total_episodes_completed = 0
+        self.time_step = 0
+        self.reward_history = []
+        self.all_rewards = []
 
-            self.dqn = DQN(self.state_space_size, self.action_space_size).to(self.device)
-            self.target_dqn = DQN(self.state_space_size, self.action_space_size).to(self.device)
-            self.clone_qnet()
+        self.dqn = DQN(self.state_space_size, self.action_space_size).to(self.device)
+        self.target_dqn = DQN(self.state_space_size, self.action_space_size).to(self.device)
+        self.clone_qnet()
 
-            self.optimiser = optim.Adam(self.dqn.parameters(), lr=self.lr)
-            # self.optimiser = optim.RMSprop(self.dqn.parameters(), lr=self.lr, alpha=0.95, eps=0.01, momentum=0.0, centered=False)
+        self.optimiser = optim.Adam(self.dqn.parameters(), lr=self.lr)
+        # self.optimiser = optim.RMSprop(self.dqn.parameters(), lr=self.lr, alpha=0.95, eps=0.01, momentum=0.0, centered=False)
 
-            self.replay = deque(maxlen=self.replay_memory_size)
+        self.replay = deque(maxlen=self.replay_memory_size)
 
-            if self.load_nn_path != None:
-                checkpoint = torch.load(self.load_nn_path, weights_only=False, map_location=torch.device('cpu'))
-                self.dqn.load_state_dict(checkpoint["dqn"])
-                self.target_dqn.load_state_dict(checkpoint["target_dqn"])
-                self.optimiser.load_state_dict(checkpoint["optimiser"])
-                self.time_step = checkpoint["time_step"]
-                self.epsilon = checkpoint["epsilon"]
+        if self.load_nn_path != None:
+            checkpoint = torch.load(self.load_nn_path, weights_only=False, map_location=torch.device('cpu'))
+            self.dqn.load_state_dict(checkpoint["dqn"])
+            self.target_dqn.load_state_dict(checkpoint["target_dqn"])
+            self.optimiser.load_state_dict(checkpoint["optimiser"])
+            self.time_step = checkpoint["time_step"]
+            self.epsilon = checkpoint["epsilon"]
             
     def finish_episode(self, episode_num):
         # not used for vectorised agents
