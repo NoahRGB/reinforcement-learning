@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from utils import smoothing 
 
 loc = "./results/bundles/hpc/temps/"
-# loc = "./results/bundles/hpc/pong_replay_size/"
+# loc = "./results/bundles/hpc/pong_decay/"
 cols = ["red", "blue", "green", "orange", "purple", "cyan", "magenta", "yellow", "black", "brown", "pink", "gray", "olive", "cyan", "navy", "teal", "maroon", "lime", "coral", "gold"]
 data = []
 files = [f for f in os.listdir(loc) if f.endswith(".pkl")]
@@ -24,5 +24,7 @@ for file_idx, file in enumerate(files):
 
 plt.xlabel("Episode")
 plt.ylabel("Episode reward")
+plt.title("How the number of episodes over which epsilon is decayed affects performance of DQN on Pong")
 plt.legend()
+plt.savefig("./results/bundles/hpc/pong_decay/pong_decay.png", dpi=300, bbox_inches="tight")
 plt.show()

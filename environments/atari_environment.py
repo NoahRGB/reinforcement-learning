@@ -9,41 +9,52 @@ import ale_py
 import numpy as np
 
 class AtariEnvironment(Environment):
-    def __init__(self, name, **kwargs):
+    def __init__(self, name, num_envs,**kwargs):
 
-        self.env = gym.make(name, frameskip=1, **kwargs)
-        self.env = AtariPreprocessing(self.env,
-            noop_max=0, frame_skip=4, terminal_on_life_loss=False,
-            screen_size=84, grayscale_obs=True, grayscale_newaxis=False
-        )
-        self.env = FrameStackObservation(self.env, stack_size=4)
-        # self.env = ClipReward(self.env, -1, 1)
+        self.num_envs = num_envs
 
-        # self.env = RecordVideo(self.env, ".", episode_trigger=lambda x: True)
+        def make_one_env():
+            env = gym.make(name, frameskip=1, **kwargs)
+            env = AtariPreprocessing(env,
+                noop_max=0, frame_skip=4, terminal_on_life_loss=False,
+                screen_size=84, grayscale_obs=True, grayscale_newaxis=False
+            )
+            env = FrameStackObservation(env, stack_size=4)
+            return env
 
-        self.action_space = detect_space(self.env.action_space)
-        self.state_space = detect_space(self.env.observation_space)
-        self.num_envs = 1
+        if self.num_envs == 1:
+            self.env = make_one_env()
+            self.action_space = detect_space(self.env.action_space)
+            self.state_space = detect_space(self.env.observation_space)
+        else:
+            self.env = gym.vector.SyncVectorEnv([make_one_env for _ in range(self.num_envs)])
+            self.action_space = detect_space(self.env.single_action_space)
+            self.state_space = detect_space(self.env.single_observation_space)
 
     def __del__(self):
         self.env.close()
 
     def step(self, s, a):
-        chosen_action = a
-        if type(chosen_action) == np.ndarray:
-            chosen_action = a[0]
-        sprime, r, is_terminated, is_truncated, info = self.env.step(chosen_action)
-        return np.expand_dims(sprime, 0), np.array([r]), np.array([is_terminated or is_truncated])
+        if self.num_envs == 1:
+            # if using a singular environment, add a fake dimension
+            sprime, r, is_terminated, is_truncated, info = self.env.step(a[0])
+            return np.expand_dims(sprime, axis=0), np.array([r]), np.array([is_terminated or is_truncated])
+        else:
+            sprime, r, is_terminated, is_truncated, info = self.env.step(a)
+            return sprime, r, (is_terminated|is_truncated)
 
     def reset(self):
         self.env.reset()
 
     def get_start_state(self):
         start_state, _ = self.env.reset()
-        return np.expand_dims(start_state, 0)
+        if self.num_envs == 1:
+            # add a fake dimension to represent the 1 environment
+            return np.expand_dims(start_state, axis=0)
+        return start_state
     
     def get_env_type(self):
-        return EnvType.SINGULAR
+        return EnvType.SINGULAR if self.num_envs == 1 else EnvType.VECTORISED
 
     def get_state_space(self):
         return self.state_space

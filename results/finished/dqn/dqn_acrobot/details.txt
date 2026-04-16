@@ -1,0 +1,6 @@
+
+agent = DQNAgent(device, writer, lr=0.001, conv=False,
+                         replay_memory_size=1000, replay_warmup_length=0,
+                         C=1000, minibatch_size=32, gamma=0.99,
+                         epsilon_start=0, epsilon_end=0.00, epsilon_decay_steps=10000,
+                         clip_grad_norm=0.5, update_freq=4,)

@@ -54,7 +54,7 @@ class CombinedNN(nn.Module):
             return self.discrete_policy_nn(out), self.state_value_nn(out)
 
 class A2CAgent(Agent):
-    def __init__(self, device, writer, lr, gamma, tmax, entropy_weight=0.01, clip_grad_norm=0.1,
+    def __init__(self, device, writer, lr, gamma, tmax, entropy_weight=0.01, clip_grad_norm=0.1, value_weight=1.0,
                  save_nn_path=None, load_nn_path=None):
         self.device = device
         self.writer = writer
@@ -66,6 +66,7 @@ class A2CAgent(Agent):
         self.gamma = gamma
         self.save_nn_path = save_nn_path
         self.load_nn_path = load_nn_path
+        self.value_weight = value_weight
 
     def process_state(self, s):
         return torch.tensor(s).float().to(self.device)
@@ -131,7 +132,9 @@ class A2CAgent(Agent):
         self.current_episode_rewards = np.zeros((self.num_envs,))
 
         self.combined_nn = CombinedNN(self.state_space_size, self.action_space_size, self.continuous_actions, self.action_space_mins, self.action_space_maxs).to(self.device)
-        self.combined_optimiser = optim.Adam(self.combined_nn.parameters(), lr=self.lr)
+        # self.combined_optimiser = optim.Adam(self.combined_nn.parameters(), lr=self.lr)
+        self.combined_optimiser = optim.RMSprop(self.combined_nn.parameters(), lr=self.lr)
+
 
         if self.load_nn_path != None:
             checkpoint = torch.load(self.load_nn_path, weights_only=False)
@@ -173,7 +176,7 @@ class A2CAgent(Agent):
             # (num_envs,) - (num_envs,) = (num_envs,)
             with torch.no_grad():
                 all_advantages = R - all_state_value_predictions.squeeze(1) # (num_envs,)
-                all_advantages = (all_advantages - all_advantages.mean()) / (all_advantages.std() + 1e-8) # normalise advantages
+                # all_advantages = (all_advantages - all_advantages.mean()) / (all_advantages.std() + 1e-8) # normalise advantages
 
             if not self.continuous_actions:            
                 all_log_probs = all_policy_predictions[torch.arange(self.num_envs), all_actions_t] # (num_envs,)
@@ -208,7 +211,7 @@ class A2CAgent(Agent):
         all_entropy_mean = all_entropy_total / self.tmax
         all_entropy_bonus = self.entropy_weight * all_entropy_mean
 
-        combined_loss = all_policy_loss_total + all_state_value_loss_total - all_entropy_bonus # scalar (loss)
+        combined_loss = all_policy_loss_total + self.value_weight * all_state_value_loss_total - all_entropy_bonus # scalar (loss)
 
         if self.writer != None:
             self.writer.add_scalar("policy_loss", all_policy_loss_total.item(), len(self.reward_history) + self.time_step)

@@ -1,4 +1,4 @@
-import os, time
+import os, time, sys
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3" # shuts tensorflow up
 
 import matplotlib.pyplot as plt
@@ -14,50 +14,38 @@ device = detect_torch_device()
 writer = create_tensorboard_writer(comment="")
 print(f"using device {device}")
 
-NUM_ENVS = 2
+NUM_ENVS = 1
 
 # =============== environments =================
 
-# env = VectorisedAtariEnvironment(name="ALE/Pong-v5", num_envs=NUM_ENVS, render_mode=None, seed=1)
-# env = VectorisedGymEnvironment(name="CartPole-v1", num_envs=NUM_ENVS, is_recording=False, render_mode=None)
-env = VectorisedGymEnvironment(name="Pendulum-v1", num_envs=NUM_ENVS, is_recording=False, render_mode=None)
-
-# env = AtariEnvironment("ALE/Pong-v5", render_mode=None)
-# env = AtariEnvironment("ALE/SpaceInvaders-v5", render_mode=None)
-# env = GymEnvironment("Ant-v5", False, render_mode=None)
-# env = GymEnvironment("LunarLander-v3", False, render_mode=None)
-# env = GymEnvironment("Acrobot-v1", False, render_mode=None)
-# env = GymEnvironment("CartPole-v1", False, render_mode=None)
-# env = GymEnvironment("MountainCar-v0", False, render_mode=None)
-# env = GymEnvironment("Taxi-v3", False, render_mode=None)
-# env = GymEnvironment("FrozenLake-v1", False, is_slippery=True, render_mode=None)
-# env = GymEnvironment("CliffWalking-v1", False, render_mode=None)
+# env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
+# env = AtariEnvironment("ALE/SpaceInvaders-v5", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("Ant-v5", NUM_ENVS, render_mode=None)
+env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode="human")
+# env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode="human")
+# env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("Taxi-v3", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("FrozenLake-v1", NUM_ENVS, is_slippery=True, render_mode=None)
+# env = GymEnvironment("CliffWalking-v1", NUM_ENVS, render_mode=None)
 # env = MazeEnvironment()
 
 # =============== approximate agents =================
 
-# agent = ConvDQNAgent(device, writer, lr=0.0001, 
-#                   replay_memory_size=10000, replay_warmup_length=10000,
-#                   minibatch_size=32, 
-#                   epsilon_start=0.0, epsilon_end=0.0, epsilon_decay_steps=150000,
-#                   C=1000, gamma=0.99,)
-                #   save_nn_path="./torch_models/pong/pong_checkpoint.pt")
-                #   load_nn_path="./results/bundles/hpc/pong_replay_size/RS_20000.pt")
+agent = DQNAgent(device, writer, lr=0.001, conv=False,
+                         replay_memory_size=10000, replay_warmup_length=0,
+                         C=1000, minibatch_size=32, gamma=0.99,
+                         epsilon_start=0.99, epsilon_end=0.00, epsilon_decay_steps=100000,
+                         clip_grad_norm=1.0, update_freq=4,
+                         save_nn_path=None, load_nn_path=None)
 
-# agent = VectorisedConvDQNAgent(device, writer, lr=0.0001, 
-#                   replay_memory_size=10000, replay_warmup_length=10000,
-#                   minibatch_size=32, 
-#                   epsilon_start=1.0, epsilon_end=0.05, epsilon_decay_steps=150000,
-#                   C=1000, gamma=0.99,)
-
-# agent = DQNAgent(device, writer, lr=0.001, replay_memory_size=10000, C=1000,
-#                  minibatch_size=32, epsilon=0.9, gamma=0.99, decay_rate=0.99)
 
 # agent = ConvA2CAgent(device, writer, lr=0.001, gamma=0.99, tmax=5, entropy_weight=0.01, clip_grad_norm=0.5)
-agent = A2CAgent(device, writer, lr=0.0001, gamma=0.99, 
-                 tmax=3, entropy_weight=0.02, clip_grad_norm=1.0,
-                 save_nn_path="./torch_models/a2c_pendulum_checkpoint.pt",)
+# agent = A2CAgent(device, writer, lr=0.001, gamma=0.99, 
+#                  tmax=4, entropy_weight=0.05, clip_grad_norm=10.0, value_weight=1.0,)
+#                  save_nn_path="./torch_models/a2c_cartpole_checkpoint.pt",)
                 #  load_nn_path="./torch_models/a2c_bipedalwalker_checkpoint.pt",)
+
 
 # agent = TDLambdaAgent(lambd=0.8, alpha=0.0001, epsilon=1.0, gamma=0.99, decay_rate=0.9) # not working
 
