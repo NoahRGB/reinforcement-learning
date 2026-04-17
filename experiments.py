@@ -20,8 +20,9 @@ NUM_ENVS = 1
 
 # env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
 # env = AtariEnvironment("ALE/SpaceInvaders-v5", NUM_ENVS, render_mode=None)
+env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=False)
 # env = GymEnvironment("Ant-v5", NUM_ENVS, render_mode=None)
-env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode="human")
 # env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode="human")
 # env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
@@ -32,11 +33,11 @@ env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
 
 # =============== approximate agents =================
 
-agent = DQNAgent(device, writer, lr=0.001, conv=False,
-                         replay_memory_size=10000, replay_warmup_length=0,
+agent = DQNAgent(device, writer, lr=0.001, conv=True,
+                         replay_memory_size=10000, replay_warmup_length=10000,
                          C=1000, minibatch_size=32, gamma=0.99,
-                         epsilon_start=0.99, epsilon_end=0.00, epsilon_decay_steps=100000,
-                         clip_grad_norm=1.0, update_freq=4,
+                         epsilon_start=0.99, epsilon_end=0.05, epsilon_decay_steps=10000,
+                         clip_grad_norm=None, update_freq=4,
                          save_nn_path=None, load_nn_path=None)
 
 

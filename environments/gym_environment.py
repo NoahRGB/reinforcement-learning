@@ -2,17 +2,22 @@ from environments.environment import Environment
 from environments.spaces import detect_space, EnvType
 
 import gymnasium as gym
-from gymnasium.wrappers import RecordVideo
+from gymnasium.wrappers import RecordVideo, GrayscaleObservation, ResizeObservation, ReshapeObservation
 
 import numpy as np
 
 class GymEnvironment(Environment):
-    def __init__(self, name, num_envs, **kwargs):
+    def __init__(self, name, num_envs, image_preprocess=False, **kwargs):
         
         self.num_envs = num_envs
 
         def make_one_env():
-            return gym.make(name, **kwargs)
+            env = gym.make(name, **kwargs)
+            if image_preprocess:
+                env = GrayscaleObservation(env, keep_dim=True)
+                env = ResizeObservation(env, (84, 84))
+                env = ReshapeObservation(env, (1, 84, 84))
+            return env
 
         if self.num_envs == 1:
             # create a single environment

@@ -67,9 +67,10 @@ def learn_vectorised(episodes: int, env: Environment, agent: Agent, quiet=True):
     
     episodes_completed = 0
     agent.initialise(env.get_state_space(), env.get_action_space(), env.get_start_state(), env.get_num_envs())
-
     current_states = env.get_start_state() # (num_envs, state_dim)
+
     while episodes_completed < episodes:
+
         actions = agent.run_policy(current_states, -1) # (num_envs,)
         sprimes, rewards, dones = env.step(current_states, actions) # (num_envs, state_dim), (num_envs,), (num_envs,)
         agent.update(current_states, sprimes, actions, rewards, dones)

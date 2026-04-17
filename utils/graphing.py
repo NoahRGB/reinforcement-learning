@@ -24,7 +24,7 @@ for file_idx, file in enumerate(files):
 
 plt.xlabel("Episode")
 plt.ylabel("Episode reward")
-plt.title("How the number of episodes over which epsilon is decayed affects performance of DQN on Pong")
+# plt.title("How the number of episodes over which epsilon is decayed affects performance of DQN on Pong")
 plt.legend()
-plt.savefig("./results/bundles/hpc/pong_decay/pong_decay.png", dpi=300, bbox_inches="tight")
+# plt.savefig("./results/bundles/hpc/pong_decay/pong_decay.png", dpi=300, bbox_inches="tight")
 plt.show()

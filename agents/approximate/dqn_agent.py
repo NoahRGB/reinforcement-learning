@@ -15,9 +15,9 @@ class DQN(nn.Module):
     def __init__(self, conv, state_space_dim, action_space_dim):
         super(DQN, self).__init__()
         self.conv = conv
-        
+
         self.conv_dqn = nn.Sequential(
-            nn.Conv2d(4, 32, kernel_size=(8, 8), stride=4),
+            nn.Conv2d(state_space_dim[0], 32, kernel_size=(8, 8), stride=4),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=(4, 4), stride=2),
             nn.ReLU(),
@@ -152,21 +152,22 @@ class DQNAgent(Agent):
         # draw a sample of minibatch_size transitions from replay memory and process them
         minibatch = random.sample(self.replay, self.minibatch_size)
         all_s, all_a, all_r, all_sprime, all_done = zip(*minibatch)
-        all_s = torch.stack([self.process_state(s_) for s_ in all_s]).to(self.device)
-        all_a = torch.tensor(all_a, dtype=torch.int32).to(self.device)
-        all_r = torch.tensor(all_r, dtype=torch.float32).to(self.device)
-        all_sprime = torch.stack([self.process_state(s_) for s_ in all_sprime]).to(self.device)
-        all_done = torch.tensor(all_done, dtype=torch.float32).to(self.device)
-        chosen_q_vals = self.dqn(all_s).gather(1, all_a.unsqueeze(1)).squeeze(1)
-        avg_q_val = chosen_q_vals.mean().item()
+        all_s = torch.stack([self.process_state(s_) for s_ in all_s]).to(self.device) # (minibatch_size, state_space_dim,)
+        all_a = torch.tensor(all_a, dtype=torch.int64).to(self.device) # (minibatch_size,)
+        all_r = torch.tensor(all_r, dtype=torch.float32).to(self.device) # (minibatch_size,)
+        all_sprime = torch.stack([self.process_state(s_) for s_ in all_sprime]).to(self.device) # (minibatch_size, state_space_dim,)
+        all_done = torch.tensor(all_done, dtype=torch.float32).to(self.device) # (minibatch_size,)
+
+        q_vals = self.dqn(all_s) # (minibatch_size, action_space_dim,)
+        chosen_q_vals = q_vals.gather(1, all_a.unsqueeze(1)).squeeze(1) # (minibatch_size,)
 
         # compute the target values (using the target DQN)
         with torch.no_grad():
-            targets = all_r + self.gamma * self.target_dqn(all_sprime).max(1)[0] * (1 - all_done)
+            targets = all_r + self.gamma * self.target_dqn(all_sprime).max(1)[0] * (1 - all_done) # (minibatch_size,)
 
         # zero grads, calculate loss, backprop, optimiser step
         self.optimiser.zero_grad()
-        loss = F.smooth_l1_loss(chosen_q_vals, targets)
+        loss = F.smooth_l1_loss(chosen_q_vals, targets) # scalar
         loss.backward()
         if self.clip_grad_norm is not None:
             torch.nn.utils.clip_grad_norm_(self.dqn.parameters(), self.clip_grad_norm)
@@ -175,7 +176,7 @@ class DQNAgent(Agent):
         # log losses/qvals
         if self.writer is not None:
             self.writer.add_scalar("loss", loss.item(), len(self.reward_history) + self.time_step)
-            self.writer.add_scalar("avg_qval", avg_q_val, len(self.reward_history) + self.time_step)
+            self.writer.add_scalar("avg_qval", chosen_q_vals.mean().item(), len(self.reward_history) + self.time_step)
 
     def update(self, s, sprime, a, r, done):
         # s = (num_envs, state_space_dim,)
