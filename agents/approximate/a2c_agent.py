@@ -54,19 +54,20 @@ class CombinedNN(nn.Module):
             return self.discrete_policy_nn(out), self.state_value_nn(out)
 
 class A2CAgent(Agent):
-    def __init__(self, device, writer, lr, gamma, tmax, entropy_weight=0.01, clip_grad_norm=0.1, value_weight=1.0,
+    def __init__(self, device, writer, lr, gamma, tmax, 
+                 entropy_weight=0.01, value_weight=1.0, clip_grad_norm=0.1,
                  save_nn_path=None, load_nn_path=None):
         self.device = device
         self.writer = writer
         self.lr = lr
         self.entropy_weight = entropy_weight
+        self.value_weight = value_weight
         self.clip_grad_norm = clip_grad_norm
         self.tmax = tmax
         self.eval = False
         self.gamma = gamma
         self.save_nn_path = save_nn_path
         self.load_nn_path = load_nn_path
-        self.value_weight = value_weight
 
     def process_state(self, s):
         return torch.tensor(s).float().to(self.device)

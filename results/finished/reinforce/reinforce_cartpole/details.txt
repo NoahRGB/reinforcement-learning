@@ -1,0 +1,2 @@
+agent = ReinforceAgent(device, writer, use_baseline=True, 
+                               policy_lr=0.001, state_value_lr=0.01, gamma=0.99,)

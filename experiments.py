@@ -18,13 +18,13 @@ NUM_ENVS = 1
 
 # =============== environments =================
 
-# env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
+env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
 # env = AtariEnvironment("ALE/SpaceInvaders-v5", NUM_ENVS, render_mode=None)
-env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=False)
+# env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=False)
 # env = GymEnvironment("Ant-v5", NUM_ENVS, render_mode=None)
-# env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
-# env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode="human")
-# env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode="human")
+# env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Taxi-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("FrozenLake-v1", NUM_ENVS, is_slippery=True, render_mode=None)
@@ -33,13 +33,16 @@ env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preproces
 
 # =============== approximate agents =================
 
-agent = DQNAgent(device, writer, lr=0.001, conv=True,
-                         replay_memory_size=10000, replay_warmup_length=10000,
-                         C=1000, minibatch_size=32, gamma=0.99,
-                         epsilon_start=0.99, epsilon_end=0.05, epsilon_decay_steps=10000,
-                         clip_grad_norm=None, update_freq=4,
-                         save_nn_path=None, load_nn_path=None)
+# agent = DQNAgent(device, writer, lr=0.001, conv=True,
+#                          replay_memory_size=1000, replay_warmup_length=1000,
+#                          C=1000, minibatch_size=32, gamma=0.99,
+#                          epsilon_start=0.99, epsilon_end=0.05, epsilon_decay_steps=1000,
+#                          clip_grad_norm=None, update_freq=4,
+#                          load_nn_path=None, save_nn_path=None)
 
+agent = CombinedA2CAgent(device, writer, lr=0.0001, gamma=0.99, conv=True,
+                         tmax=4, entropy_weight=0.01, value_weight=1.0, clip_grad_norm=0.1, 
+                         save_path=None, load_path=None,)
 
 # agent = ConvA2CAgent(device, writer, lr=0.001, gamma=0.99, tmax=5, entropy_weight=0.01, clip_grad_norm=0.5)
 # agent = A2CAgent(device, writer, lr=0.001, gamma=0.99, 
@@ -50,8 +53,10 @@ agent = DQNAgent(device, writer, lr=0.001, conv=True,
 
 # agent = TDLambdaAgent(lambd=0.8, alpha=0.0001, epsilon=1.0, gamma=0.99, decay_rate=0.9) # not working
 
-# agent = ReinforceBaselineAgent(device, writer, policy_lr=0.001, state_value_lr=0.01, gamma=0.99, normalise=True)
-# agent = ReinforceAgent(device, writer, lr=0.001, gamma=0.99, normalise=False)
+# agent = ReinforceAgent(device, writer, use_baseline=True, 
+#                                policy_lr=0.001, state_value_lr=0.01, gamma=0.99,
+#                                save_path="torch_models/reinforce_lunarlander_checkpoint.pt", load_path=None)
+
 # agent = SemigradientSarsaAgent(device, writer, normalise=False, lr=0.001, epsilon=0.9, gamma=0.99, decay_rate=0.99)
 
 
