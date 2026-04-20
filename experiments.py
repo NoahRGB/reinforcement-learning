@@ -14,13 +14,13 @@ device = detect_torch_device()
 writer = create_tensorboard_writer(comment="")
 print(f"using device {device}")
 
-NUM_ENVS = 1
+NUM_ENVS = 3
 
 # =============== environments =================
 
-env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
+# env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
 # env = AtariEnvironment("ALE/SpaceInvaders-v5", NUM_ENVS, render_mode=None)
-# env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=False)
+env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=False)
 # env = GymEnvironment("Ant-v5", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode=None)
@@ -41,7 +41,7 @@ env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
 #                          load_nn_path=None, save_nn_path=None)
 
 agent = CombinedA2CAgent(device, writer, lr=0.0001, gamma=0.99, conv=True,
-                         tmax=4, entropy_weight=0.01, value_weight=1.0, clip_grad_norm=0.1, 
+                         tmax=4, entropy_weight=0.05, value_weight=1.0, clip_grad_norm=None, 
                          save_path=None, load_path=None,)
 
 # agent = ConvA2CAgent(device, writer, lr=0.001, gamma=0.99, tmax=5, entropy_weight=0.01, clip_grad_norm=0.5)
