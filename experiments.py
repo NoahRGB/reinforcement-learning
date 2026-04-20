@@ -14,7 +14,7 @@ device = detect_torch_device()
 writer = create_tensorboard_writer(comment="")
 print(f"using device {device}")
 
-NUM_ENVS = 3
+NUM_ENVS = 64
 
 # =============== environments =================
 
@@ -40,16 +40,9 @@ env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preproces
 #                          clip_grad_norm=None, update_freq=4,
 #                          load_nn_path=None, save_nn_path=None)
 
-agent = CombinedA2CAgent(device, writer, lr=0.0001, gamma=0.99, conv=True,
-                         tmax=4, entropy_weight=0.05, value_weight=1.0, clip_grad_norm=None, 
+agent = A2CAgent(device, writer, lr=0.001, gamma=0.99, conv=True, tmax=5,
+                         entropy_weight=0.01, value_weight=1.0, clip_grad_norm=1.0, 
                          save_path=None, load_path=None,)
-
-# agent = ConvA2CAgent(device, writer, lr=0.001, gamma=0.99, tmax=5, entropy_weight=0.01, clip_grad_norm=0.5)
-# agent = A2CAgent(device, writer, lr=0.001, gamma=0.99, 
-#                  tmax=4, entropy_weight=0.05, clip_grad_norm=10.0, value_weight=1.0,)
-#                  save_nn_path="./torch_models/a2c_cartpole_checkpoint.pt",)
-                #  load_nn_path="./torch_models/a2c_bipedalwalker_checkpoint.pt",)
-
 
 # agent = TDLambdaAgent(lambd=0.8, alpha=0.0001, epsilon=1.0, gamma=0.99, decay_rate=0.9) # not working
 
