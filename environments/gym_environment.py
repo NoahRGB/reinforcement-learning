@@ -7,9 +7,10 @@ from gymnasium.wrappers import RecordVideo, GrayscaleObservation, ResizeObservat
 import numpy as np
 
 class GymEnvironment(Environment):
-    def __init__(self, name, num_envs, image_preprocess=False, **kwargs):
+    def __init__(self, name, num_envs, image_preprocess=False, seed=None, **kwargs):
         
         self.num_envs = num_envs
+        self.seed = seed
 
         def make_one_env():
             env = gym.make(name, **kwargs)
@@ -44,10 +45,10 @@ class GymEnvironment(Environment):
             return sprime, r, (is_terminated|is_truncated)
 
     def reset(self):
-        self.env.reset()
+        self.env.reset(seed=self.seed)
 
     def get_start_state(self):
-        start_state, _ = self.env.reset()
+        start_state, _ = self.env.reset(seed=self.seed)
         if self.num_envs == 1:
             # add a fake dimension to represent the 1 environment
             return np.expand_dims(start_state, axis=0)

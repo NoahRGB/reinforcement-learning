@@ -23,38 +23,35 @@ class NN(nn.Module):
         return output
 
 class SemigradientSarsaAgent(Agent):
-    def __init__(self, device, writer, normalise, lr, epsilon, gamma, decay_rate=1.0, 
-                 load_nn_path=None, save_nn_path=None):
+    def __init__(self, device, writer, lr, epsilon, gamma, decay_rate=1.0, 
+                 load_path=None, save_path=None):
         self.device = device
         self.writer = writer
-        self.normalise = normalise
         self.lr = lr
         self.eval = False
         self.epsilon = epsilon
         self.gamma = gamma
         self.decay_rate = decay_rate
-        self.load_nn_path = load_nn_path
-        self.save_nn_path = save_nn_path
+        self.load_path = load_path
+        self.save_path = save_path
 
-    def normalise_state(self, s):
-        s = torch.from_numpy(s).float().clone()
-        if self.normalise:
-            for i in range(len(self.state_space_mins)):
-                s[i] = (s[i] - self.state_space_mins[i]) / (self.state_space_maxs[i] - self.state_space_mins[i])
-        return s
+    def prepare_state(self, s):
+        return torch.as_tensor(s, dtype=torch.float32).to(self.device)
 
     def initialise(self, state_space, action_space, start_state, num_envs):
         self.start_state = start_state
         self.state_space_size = state_space.dimensions 
         self.action_space_size = action_space.dimensions 
-        self.state_space_mins = state_space.min_bounds
-        self.state_space_maxs = state_space.max_bounds
         self.num_envs = num_envs
 
-        self.nn = NN(self.state_space_size, self.action_space_size)
-        if self.load_nn_path != None:
-            self.nn.load_state_dict(torch.load(self.load_nn_path))
+        self.nn = NN(self.state_space_size, self.action_space_size).to(self.device)
         self.optimiser = optim.Adam(self.nn.parameters(), lr=self.lr)
+
+        if self.load_path is not None:
+            checkpoint = torch.load(self.load_path)
+            self.nn.load_state_dict(checkpoint["nn"])
+            self.optimiser.load_state_dict(checkpoint["optimiser"])
+
         self.reward_history = []
         self.action = self.generate_action(start_state)
         self.current_episode_rewards = 0
@@ -63,7 +60,7 @@ class SemigradientSarsaAgent(Agent):
     def finish_episode(self, episode_num):
         self.reward_history.append(self.current_episode_rewards)
         self.action = self.generate_action(self.start_state)
-        if self.writer != None:
+        if self.writer is not None:
             self.writer.add_scalar("episode_reward", self.current_episode_rewards, episode_num)
         self.current_episode_rewards = 0
         self.epsilon *= self.decay_rate
@@ -71,47 +68,48 @@ class SemigradientSarsaAgent(Agent):
     def get_all_actions(self):
         return [i for i in range(self.action_space_size)]
 
-    def get_best_actions(self, s):
+    def get_best_action(self, s):
         with torch.no_grad():
-            qvals = self.nn.forward(self.normalise_state(s)).numpy()
-        best = np.where(qvals == qvals.max())[0]
-        return best 
+            qvals = self.nn.forward(self.prepare_state(s)).cpu().numpy()
+        return qvals.argmax()
 
     def run_policy(self, s, t):
-        return self.action
+        return [self.action]
 
     def generate_action(self, s):
         if np.random.random() >= self.epsilon:
-            return np.random.choice(self.get_best_actions(s))
+            return self.get_best_action(s)
         return np.random.choice(self.get_all_actions())
 
     def update(self, s, sprime, a, r, done):
         self.current_episode_rewards += r[0]
 
-        aprime = self.generate_action(sprime[0]) 
+        aprime = self.generate_action(self.prepare_state(sprime[0])) 
 
         self.optimiser.zero_grad()
 
-        qs = self.nn.forward(self.normalise_state(s[0]))
+        qs = self.nn.forward(self.prepare_state(s[0]))
         qsa = qs[a]
 
         if done[0]:
-            target = torch.tensor(r[0])
+            target = torch.tensor(r[0]).to(self.device)
         else:
             with torch.no_grad():
-                target = r[0] + self.gamma * self.nn.forward(self.normalise_state(sprime[0]))[aprime]
+                target = r[0] + self.gamma * self.nn.forward(self.prepare_state(sprime[0]))[aprime]
 
         td_err = target - qsa
 
         loss = 0.5 * td_err.pow(2)
-        # loss = -td_err * qsa
         loss.backward()
         self.optimiser.step()
 
         self.action = aprime
 
-        if done[0] and self.save_nn_path != None:
-            torch.save(self.nn.state_dict(), self.save_nn_path)
+        if done[0] and self.save_path is not None:
+            torch.save({
+                "nn": self.nn.state_dict(),
+                "optimiser": self.optimiser.state_dict(),
+            }, self.save_path)
 
         self.time_step += 1
 

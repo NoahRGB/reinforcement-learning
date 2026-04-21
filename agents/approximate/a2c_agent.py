@@ -79,9 +79,9 @@ class A2CAgent(Agent):
 
     def run_policy(self, s, t):
         with torch.no_grad():
-            probs, _ = self.combined_nn(self.process_state(s)) # (num_envs, 6)
-            probs = probs.cpu().numpy() # (num_envs, 6)
-        probs = np.exp(probs) # (num_envs, 6)
+            probs, _ = self.combined_nn(self.process_state(s)) # (num_envs, action_space_dim)
+            probs = probs.cpu().numpy() # (num_envs, action_space_dim)
+        probs = np.exp(probs) # (num_envs, action_space_dim)
         actions = np.array([
             np.random.choice(self.action_space_size, p=probs[i]) for i in range(self.num_envs)
         ]) # (num_envs,)
@@ -161,7 +161,7 @@ class A2CAgent(Agent):
         if self.writer != None:
             self.writer.add_scalar("policy_loss", policy_loss_total.item(), len(self.reward_history) + self.time_step)
             self.writer.add_scalar("state_value_loss", state_value_loss_total.item(), len(self.reward_history) + self.time_step)
-            self.writer.add_scalar("mean_policy_entropy", entropy_total.item(), len(self.reward_history) + self.time_step)
+            self.writer.add_scalar("policy_entropy", entropy_total.item(), len(self.reward_history) + self.time_step)
             self.writer.add_scalar("combined_loss", combined_loss.item(), len(self.reward_history) + self.time_step)
 
         self.combined_optimiser.zero_grad()
