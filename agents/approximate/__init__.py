@@ -4,7 +4,7 @@ from .td_lambda_agent import TDLambdaAgent
 from .reinforce_agent import ReinforceAgent
 from .a2c_agent import A2CAgent
 from .ppo_agent import PPOAgent
-from .a2c_test import A2CTestAgent
+from .a2c_single_agent import A2CSingleAgent
 
 __all__ = [
         "SemigradientSarsaAgent",
@@ -13,5 +13,5 @@ __all__ = [
         "ReinforceAgent",
         "A2CAgent",
         "PPOAgent",
-        "A2CTestAgent",
+        "A2CSingleAgent",
 ]

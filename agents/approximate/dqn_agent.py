@@ -101,7 +101,7 @@ class DQNAgent(Agent):
 
         # load relevant models if necessary
         if self.load_nn_path is not None:
-            checkpoint = torch.load(self.load_nn_path, weights_only=False)
+            checkpoint = torch.load(self.load_nn_path, weights_only=False, map_location=self.device)
             self.dqn.load_state_dict(checkpoint["dqn"])
             self.target_dqn.load_state_dict(checkpoint["target_dqn"])
             self.optimiser.load_state_dict(checkpoint["optimiser"])
