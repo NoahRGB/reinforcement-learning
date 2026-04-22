@@ -18,7 +18,7 @@ for file_idx, file in enumerate(files):
         try:
             new_data = np.array(pickle.load(f))
             data.append(new_data)
-            plt.plot(smoothing(new_data, 0.95), alpha=0.9, color=cols[file_idx], label=labels[file_idx])
+            plt.plot(smoothing(new_data, 0.99), alpha=0.9, color=cols[file_idx], label=labels[file_idx])
         except Exception as e:
             print(f"Error loading {file}: {e}")
 

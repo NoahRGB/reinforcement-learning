@@ -59,14 +59,16 @@ class CombinedNN(nn.Module):
 
 class A2CSingleAgent(Agent):
     def __init__(self, device, writer, lr, gamma, conv,
-                 tmax, entropy_weight=0.01, value_weight=1.0, clip_grad_norm=None,
+                 tmax, entropy_weight, value_weight=1.0, decay_steps=None, clip_grad_norm=None,
                  save_path=None, load_path=None):
         self.device = device
         self.writer = writer
         self.lr = lr
+        self.decay = 1.0
         self.gamma = gamma
         self.conv = conv
         self.tmax = tmax
+        self.decay_steps = decay_steps
         self.entropy_weight = entropy_weight
         self.value_weight = value_weight
         self.clip_grad_norm = clip_grad_norm
@@ -109,7 +111,9 @@ class A2CSingleAgent(Agent):
         self.current_episode_rewards = 0.0
 
         self.combined_nn = CombinedNN(self.state_space_size, self.action_space_size, self.conv).to(self.device)
-        self.combined_optimiser = optim.Adam(self.combined_nn.parameters(), lr=self.lr)
+        # self.combined_optimiser = optim.Adam(self.combined_nn.parameters(), lr=self.lr)
+        self.combined_optimiser = optim.RMSprop(self.combined_nn.parameters(), lr=self.lr)
+
 
         # load saved models
         if self.load_path is not None:
@@ -118,18 +122,15 @@ class A2CSingleAgent(Agent):
             self.combined_optimiser.load_state_dict(checkpoint["optimiser"])
 
     def make_a2c_update(self):
-
-        # policy_loss = torch.tensor(0.0, dtype=torch.float32).to(self.device)
-        # state_value_loss = torch.tensor(0.0, dtype=torch.float32).to(self.device)
         
-        s = torch.tensor(self.transitions["s"], dtype=torch.float32).to(self.device) # (tmax, state_space_dim)
-        a = torch.tensor(self.transitions["a"], dtype=torch.int64).to(self.device) # (tmax,)
-        r = torch.tensor(self.transitions["r"], dtype=torch.float32).to(self.device) # (tmax,)
-        sprime = torch.tensor(self.transitions["sprime"], dtype=torch.float32).to(self.device) # (tmax, state_space_dim)
-        done = torch.tensor(self.transitions["done"], dtype=torch.float32).to(self.device) # (tmax,)
+        s = torch.tensor(np.array(self.transitions["s"]), dtype=torch.float32).to(self.device) # (tmax, state_space_dim)
+        a = torch.tensor(np.array(self.transitions["a"]), dtype=torch.int64).to(self.device) # (tmax,)
+        r = torch.tensor(np.array(self.transitions["r"]), dtype=torch.float32).to(self.device) # (tmax,)
+        sprime = torch.tensor(np.array(self.transitions["sprime"]), dtype=torch.float32).to(self.device) # (tmax, state_space_dim)
+        done = torch.tensor(np.array(self.transitions["done"]), dtype=torch.float32).to(self.device) # (tmax,)
 
         is_terminal = done[-1]
-        _, last_state_value = self.combined_nn(self.process_state(sprime[-1]).unsqueeze(0))
+        _, last_state_value = self.combined_nn(sprime[-1].unsqueeze(0))
         last_state_value = last_state_value.squeeze(0)
         R = last_state_value * (1 - is_terminal)
 
@@ -142,7 +143,7 @@ class A2CSingleAgent(Agent):
             R = r[t] * self.gamma + R * (1 - done[t])
             returns[t] = R
 
-            log_probs, state_value = self.combined_nn(self.process_state(s[t]).unsqueeze(0)) # (1, action_space_dim), (1, 1)
+            log_probs, state_value = self.combined_nn(s[t].unsqueeze(0)) # (1, action_space_dim), (1, 1)
             state_value = state_value.squeeze(0)
             chosen_log_prob = log_probs[0, a[t]]
             advantage = R - state_value
@@ -151,18 +152,25 @@ class A2CSingleAgent(Agent):
             chosen_log_probs[t] = chosen_log_prob
             advantages[t] = advantage
         
-        entropy_bonus = self.entropy_weight * (-torch.exp(log_probs) * log_probs).sum(dim=1).mean()
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-        policy_loss = -(chosen_log_probs * advantages.detach()).mean() - entropy_bonus
+        entropy_sum = -torch.exp(chosen_log_probs) * chosen_log_probs # (tmax,)
+        entropy_bonus = self.entropy_weight * entropy_sum.sum()
+
+        policy_loss = -(chosen_log_probs * advantages.detach()).sum()
         state_value_loss = self.value_weight * F.mse_loss(state_values, returns)
 
-        combined_loss = policy_loss + state_value_loss
+        combined_loss = policy_loss - entropy_bonus + state_value_loss
 
         self.combined_optimiser.zero_grad()
         combined_loss.backward()
         if self.clip_grad_norm is not None:
             nn.utils.clip_grad_norm_(self.combined_nn.parameters(), self.clip_grad_norm)
         self.combined_optimiser.step()
+
+        if self.writer is not None:
+            self.writer.add_scalar("policy_loss", policy_loss.item(), len(self.reward_history) + self.time_step)
+            self.writer.add_scalar("state_value_loss", state_value_loss.item(), len(self.reward_history) + self.time_step)
+            self.writer.add_scalar("combined_loss", combined_loss.item(), len(self.reward_history) + self.time_step)
+            self.writer.add_scalar("entropy", entropy_sum.item(), len(self.reward_history) + self.time_step)
         
         self.reset_transitions()
 
@@ -177,6 +185,13 @@ class A2CSingleAgent(Agent):
 
         self.current_episode_rewards += r
         self.time_step += 1
+
+        if self.decay_steps is not None:
+            self.decay = max(0.0, 1.0 - (self.time_step / self.decay_steps))
+            self.entropy_weight *= self.decay
+        
+        if self.writer is not None:
+            self.writer.add_scalar("entropy_weight", self.entropy_weight, len(self.reward_history) + self.time_step)
 
         self.transitions["s"].append(s[0])
         self.transitions["a"].append(a[0])
