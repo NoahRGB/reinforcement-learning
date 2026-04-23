@@ -72,7 +72,6 @@ class A2CSingleAgent(Agent):
         self.entropy_weight = entropy_weight
         self.value_weight = value_weight
         self.clip_grad_norm = clip_grad_norm
-        self.eval = False
         self.save_path = save_path
         self.load_path = load_path
 
@@ -152,8 +151,8 @@ class A2CSingleAgent(Agent):
             chosen_log_probs[t] = chosen_log_prob
             advantages[t] = advantage
         
-        entropy_sum = -torch.exp(chosen_log_probs) * chosen_log_probs # (tmax,)
-        entropy_bonus = self.entropy_weight * entropy_sum.sum()
+        entropy_sum = (-torch.exp(chosen_log_probs) * chosen_log_probs).sum() # (tmax,)
+        entropy_bonus = self.entropy_weight * entropy_sum
 
         policy_loss = -(chosen_log_probs * advantages.detach()).sum()
         state_value_loss = self.value_weight * F.mse_loss(state_values, returns)
@@ -173,7 +172,6 @@ class A2CSingleAgent(Agent):
             self.writer.add_scalar("entropy", entropy_sum.item(), len(self.reward_history) + self.time_step)
         
         self.reset_transitions()
-
 
     def update(self, s, sprime, a, r, done):
 
@@ -220,9 +218,6 @@ class A2CSingleAgent(Agent):
 
     def finish_episode(self, episode_num):
         pass
-
-    def toggle_eval(self):
-        self.eval = not self.eval
 
     def get_supported_env_types(self):
         return [EnvType.SINGULAR]

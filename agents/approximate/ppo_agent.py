@@ -72,7 +72,6 @@ class PPOAgent(Agent):
         self.entropy_weight = entropy_weight
         self.value_weight = value_weight
         self.clip_grad_norm = clip_grad_norm
-        self.eval = False
         self.save_path = save_path
         self.load_path = load_path
 
@@ -230,9 +229,6 @@ class PPOAgent(Agent):
 
     def finish_episode(self, episode_num):
         pass
-
-    def toggle_eval(self):
-        self.eval = not self.eval
 
     def get_supported_env_types(self):
         return [EnvType.SINGULAR, EnvType.VECTORISED]

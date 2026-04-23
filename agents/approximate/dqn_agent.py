@@ -72,7 +72,6 @@ class DQNAgent(Agent):
 
         self.load_nn_path = load_nn_path
         self.save_nn_path = save_nn_path
-        self.eval_mode = False
 
     def process_state(self, s):
         return torch.tensor(s).to(self.device)
@@ -212,18 +211,6 @@ class DQNAgent(Agent):
         # clone the dqn every C time steps
         if self.time_step % self.C == 0:
             self.clone_qnet()
-
-    def toggle_eval(self):
-        if self.eval_mode:
-            # restore epsilon/time step
-            self.epsilon = self.epsilon_checkpoint
-            self.time_step = self.time_step_checkpoint
-        else:
-            # save epsilon/time step, set epsilon to 0
-            self.epsilon_checkpoint = self.epsilon
-            self.time_step_checkpoint = self.time_step
-            self.epsilon = 0.0
-        self.eval_mode = not self.eval_mode
 
     def get_supported_env_types(self):
         return [EnvType.SINGULAR, EnvType.VECTORISED]

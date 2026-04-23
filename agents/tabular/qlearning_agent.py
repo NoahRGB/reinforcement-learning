@@ -8,7 +8,6 @@ class QLearningAgent(Agent):
         self.alpha = alpha
         self.epsilon = epsilon
         self.gamma = gamma
-        self.eval = False 
         self.decay_rate = decay_rate
 
     def initialise(self, state_space, action_space, start_state, num_envs):
@@ -37,14 +36,6 @@ class QLearningAgent(Agent):
         update_target = r[0] + self.gamma * self.qtable[sprime[0], :].max()
         self.qtable[s[0], a] += self.alpha * (update_target - self.qtable[s[0], a])
         self.time_step += 1
-
-    def toggle_eval(self):
-        if not self.eval:
-            self.epsilon_checkpoint = self.epsilon
-            self.epsilon = 0.0
-        else:
-            self.epsilon = self.epsilon_checkpoint
-        self.eval = not self.eval
 
     def get_supported_env_types(self):
         return [EnvType.SINGULAR]

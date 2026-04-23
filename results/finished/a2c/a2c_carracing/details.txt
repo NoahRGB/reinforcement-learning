@@ -1,0 +1,4 @@
+
+ 49 agent = A2CSingleAgent(device, writer, lr=0.0001, gamma=0.99, conv=True, tmax=16, decay_steps=None,
+ 50                          entropy_weight=0.01,  value_weight=0.5, clip_grad_norm=0.2,
+ 51                          save_path=None, load_path=None,)

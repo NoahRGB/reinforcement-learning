@@ -8,7 +8,6 @@ class OffPolicyNstepSarsaAgentTB(Agent):
         self.n = n
         self.alpha = alpha
         self.epsilon = epsilon
-        self.eval = False
         self.gamma = gamma
         self.decay_rate = decay_rate
 
@@ -107,14 +106,6 @@ class OffPolicyNstepSarsaAgentTB(Agent):
                 self.nstep_update(time_to_update, extra_time_step)
 
         self.time_step += 1
-
-    def toggle_eval(self):
-        if not self.eval:
-            self.epsilon_checkpoint = self.epsilon
-            self.epsilon = 0.0
-        else:
-            self.epsilon = self.epsilon_checkpoint
-        self.eval = not self.eval
 
     def get_supported_env_types(self):
         return [EnvType.SINGULAR]

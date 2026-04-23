@@ -1,4 +1,4 @@
-import pickle, os
+import pickle, os, sys
 
 import pandas as pd 
 import numpy as np
@@ -6,8 +6,10 @@ import matplotlib.pyplot as plt
 
 from utils import smoothing 
 
-loc = "./results/bundles/hpc/temps/"
-# loc = "./results/bundles/hpc/pong_decay/"
+smooting = float(sys.argv[1]) if len(sys.argv) > 1 else 0.99
+
+loc = "./results/temps/data/"
+# loc = "./results/experiments/pong_decay/"
 cols = ["red", "blue", "green", "orange", "purple", "cyan", "magenta", "yellow", "black", "brown", "pink", "gray", "olive", "cyan", "navy", "teal", "maroon", "lime", "coral", "gold"]
 data = []
 files = [f for f in os.listdir(loc) if f.endswith(".pkl")]
@@ -18,7 +20,7 @@ for file_idx, file in enumerate(files):
         try:
             new_data = np.array(pickle.load(f))
             data.append(new_data)
-            plt.plot(smoothing(new_data, 0.99), alpha=0.9, color=cols[file_idx], label=labels[file_idx])
+            plt.plot(smoothing(new_data, smooting), alpha=0.9, color=cols[file_idx], label=labels[file_idx])
         except Exception as e:
             print(f"Error loading {file}: {e}")
 

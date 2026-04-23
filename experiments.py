@@ -20,11 +20,11 @@ NUM_ENVS = 1
 
 # env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
 # env = AtariEnvironment("ALE/CrazyClimber-v5", NUM_ENVS, render_mode="human")
-env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=False)
+# env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=False)
 # env = GymEnvironment("Ant-v5", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode=None)
-# env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None)
+env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Taxi-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("FrozenLake-v1", NUM_ENVS, is_slippery=True, render_mode=None)
@@ -40,13 +40,17 @@ env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preproces
 #                          clip_grad_norm=None, update_freq=4,
 #                          load_nn_path="results/finished/dqn/dqn_crazyclimber/cc_dqn_lr_0.0001.pt", save_nn_path=None)
 
+agent = PPOSingleAgent(device, writer, lr=0.001, gamma=0.99, conv=False, tmax=4, epsilon=0.5, epochs=1,
+                         entropy_weight=0.01, value_weight=1.0, clip_grad_norm=0.1, 
+                         save_path=None, load_path=None,)
+
 # agent = PPOAgent(device, writer, lr=0.0001, gamma=0.99, conv=False, tmax=16, epsilon=0.4, epochs=4,
 #                          entropy_weight=0.0, value_weight=1.0, clip_grad_norm=None, 
 #                          save_path=None, load_path=None,)
 
-agent = A2CSingleAgent(device, writer, lr=0.0001, gamma=0.99, conv=True, tmax=16, decay_steps=None,
-                         entropy_weight=0.01, value_weight=0.5, clip_grad_norm=0.5,
-                         save_path=None, load_path=None,)
+# agent = A2CSingleAgent(device, writer, lr=0.0001, gamma=0.99, conv=True, tmax=16, decay_steps=None,
+#                          entropy_weight=0.01, value_weight=0.5, clip_grad_norm=0.5,
+#                          save_path=None, load_path=None,)
 
 # agent = A2CAgent(device, writer, lr=0.001, gamma=0.99, conv=False, tmax=16,
 #                          entropy_weight=0.05, value_weight=1.0, clip_grad_norm=0.5, 
@@ -86,7 +90,7 @@ start = time.perf_counter()
 
 episode_count = 500000
 
-learning_rewards = learn(episode_count, env, agent, eval_period=0, quiet=False)
+learning_rewards = learn(episode_count, env, agent, quiet=False)
 
 finished = time.perf_counter()
 print(f"Finished in {round(finished - start, 2)} seconds")

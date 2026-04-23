@@ -2,10 +2,9 @@ import numpy as np
 
 from agents.agent import Agent
 from environments.environment import Environment
-from utils.evaluate import evaluate
 from environments.spaces import EnvType
 
-def learn(episodes: int, env: Environment, agent: Agent, eval_period=1, quiet=True):
+def learn(episodes: int, env: Environment, agent: Agent, quiet=True):
     # check agent-environment compatibility
     state_space = env.get_state_space()
     action_space = env.get_action_space()
@@ -23,10 +22,10 @@ def learn(episodes: int, env: Environment, agent: Agent, eval_period=1, quiet=Tr
     if env_type == EnvType.VECTORISED:
         return learn_vectorised(episodes, env, agent, quiet)
     else:
-        return learn_singular(episodes, env, agent, eval_period, quiet)
+        return learn_singular(episodes, env, agent, quiet)
 
 
-def learn_singular(episodes: int, env: Environment, agent: Agent, eval_period=1, quiet=True):
+def learn_singular(episodes: int, env: Environment, agent: Agent, quiet=True):
     # initialise
     agent.initialise(env.get_state_space(), env.get_action_space(), env.get_start_state(), env.get_num_envs())
     if not quiet: print(f"Starting learning over {episodes} episodes")
@@ -51,10 +50,6 @@ def learn_singular(episodes: int, env: Environment, agent: Agent, eval_period=1,
             total_reward += r
             t += 1
         agent.finish_episode(episode_num)
-
-        # after X episodes, run an eval episode
-        if eval_period > 0 and episode_num % eval_period == 0:
-            evaluate(agent, env, True)
 
         # log progress + reward
         if not quiet: print(f"Episode {episode_num} reward: {total_reward}")

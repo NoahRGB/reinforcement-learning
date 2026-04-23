@@ -45,7 +45,6 @@ class ReinforceAgent(Agent):
         self.use_baseline = use_baseline
         self.policy_lr = policy_lr
         self.state_value_lr = state_value_lr
-        self.eval = False
         self.gamma = gamma
         self.save_path = save_path
         self.load_path = load_path
@@ -150,9 +149,6 @@ class ReinforceAgent(Agent):
 
     def finish_episode(self, episode_num):
         pass
-
-    def toggle_eval(self):
-        self.eval = not self.eval
 
     def get_supported_env_types(self):
         return [EnvType.SINGULAR, EnvType.VECTORISED]

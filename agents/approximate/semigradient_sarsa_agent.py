@@ -28,7 +28,6 @@ class SemigradientSarsaAgent(Agent):
         self.device = device
         self.writer = writer
         self.lr = lr
-        self.eval = False
         self.epsilon = epsilon
         self.gamma = gamma
         self.decay_rate = decay_rate
@@ -112,14 +111,6 @@ class SemigradientSarsaAgent(Agent):
             }, self.save_path)
 
         self.time_step += 1
-
-    def toggle_eval(self):
-        if not self.eval:
-            self.epsilon_checkpoint = self.epsilon
-            self.epsilon = 0.0
-        else:
-            self.epsilon = self.epsilon_checkpoint
-        self.eval = not self.eval
 
     def get_supported_env_types(self):
         return [EnvType.SINGULAR]
