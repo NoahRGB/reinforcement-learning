@@ -1,22 +1,35 @@
-# Reinforcement Learning
-Implementations of various RL algorithms
+## RL algorithms
 
-`experiments.py` is where the current agent/environment is imported and learning is started
+- [x] Semigradient SARSA
+- [x] REINFORCE
+- [x] DQN
+- [x] A2C
+- [x] PPO
+- [ ] TRPO
 
+<br/>
 
-`agents/` contains the base class `Agent` as well as various tabular or approximate implementations of algorithms as subclasses `agents/approximate/`, `agents/tabular/`
+- [x] Tabular on/off policy (nstep) SARSA
+- [x] Tabular Q-learning
+- [x] Tabular Monte Carlo
 
+<br/>
 
-`environments/` contains the base class `Environment` as well as various implementations of different environments as subclasses (e.g. `environments/gym_environment.py`)
+| Environment       | DQN | A2C | REINFORCE | Semigradient SARSA | PPO |
+|------------------|:---:|:---:|:---------:|:------------------:|:---:|
+| Acrobot          |  ✓  |    |          |                   |    |
+| CartPole         |  ✓  |  ✓  |     ✓     |         ✓          |    |
+| Mountain Car     |     |    |          |                   |    |
+| Pendulum         |     |    |          |                   |    |
+| Bipedal Walker   |     |    |          |                   |    |
+| Car Racing       |  ✓  |  ✓  |          |                   |    |
+| Lunar Lander     |  ✓  |    |          |                   |    |
 
-
-`utils/` contains files imported by `experiments.py` that facilitate agent-environment interactions (e.g. `utils/learn.py`)
-
-
-`archive/` contains older experiments like K-armed bandits (`archive/bandits/`) or maze-based learning (`archive/mazelearning/`)
-
-
-`results/`, `graph_data/`, `torch_models/` contain various saved experiments for visualising
-
+<br/>
+<br/>
+<br/>
 
 ![DQN pong agent](./results/finished/dqn/dqn_pong/dqn_pong_master.gif)
+
+
+![DQN car racing agent](./results/finished/dqn/dqn_carracing/dqn_carracing.gif)
