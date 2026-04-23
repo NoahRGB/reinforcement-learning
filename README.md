@@ -1,4 +1,5 @@
-## RL algorithms
+From scratch implementations of various reinforcement learning algorithms using NumPy and PyTorch
+## Algorithms implemented
 
 - [x] Semigradient SARSA
 - [x] REINFORCE
@@ -13,21 +14,48 @@
 - [x] Tabular Q-learning
 - [x] Tabular Monte Carlo
 
-<br/>
 
+## [Classic control](https://gymnasium.farama.org/environments/classic_control/) environments
 | Environment       | DQN | A2C | REINFORCE | Semigradient SARSA | PPO |
 |------------------|:---:|:---:|:---------:|:------------------:|:---:|
-| Acrobot          |  ✓  |    |          |                   |    |
+| Acrobot          |  ✓  |  ✓  |          |                   |    |
 | CartPole         |  ✓  |  ✓  |     ✓     |         ✓          |    |
 | Mountain Car     |     |    |          |                   |    |
 | Pendulum         |     |    |          |                   |    |
+
+
+## [Box2D (physics control)](https://gymnasium.farama.org/environments/box2d/) environments
+| Environment       | DQN | A2C | REINFORCE | Semigradient SARSA | PPO |
+|------------------|:---:|:---:|:---------:|:------------------:|:---:|
 | Bipedal Walker   |     |    |          |                   |    |
 | Car Racing       |  ✓  |  ✓  |          |                   |    |
 | Lunar Lander     |  ✓  |    |          |                   |    |
 
+## [MuJoCo (Multi-Joint dynamics with Contact)](https://gymnasium.farama.org/environments/mujoco/) environments
+| Environment            | A2C | REINFORCE | PPO |
+| ---------------------- | :-: | :-------: | :-: |
+| Ant                    |     |           |     |
+| HalfCheetah            |     |           |     |
+| Hopper                 |     |           |     |
+| Humanoid               |     |           |     |
+| HumanoidStandup        |     |           |     |
+| InvertedDoublePendulum |     |           |     |
+| InvertedPendulum       |     |           |     |
+| Pusher                 |     |           |     |
+| Reacher                |     |           |     |
+| Swimmer                |     |           |     |
+| Walker2D               |     |           |     |
+
+
+## [Atari](https://ale.farama.org/environments/) environments
+| Environment    | DQN | A2C | PPO |
+| -------------- | :-: | :-: | :-: |
+| Pong           |  ✓  |     |     |
+| Space Invaders |  ✓  |     |     |
+
 <br/>
-<br/>
-<br/>
+
+## Examples
 
 ![DQN pong agent](./results/finished/dqn/dqn_pong/dqn_pong_master.gif)
 
