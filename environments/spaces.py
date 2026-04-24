@@ -9,6 +9,7 @@ class EnvType(Enum):
 class DiscreteSpace:
     def __init__(self, dimensions):
         self.dimensions = dimensions
+        self.num = 1
 
 class ContinuousSpace:
     def __init__(self, dimensions, min_bounds, max_bounds, dtype):
@@ -16,6 +17,7 @@ class ContinuousSpace:
         self.min_bounds = min_bounds
         self.max_bounds = max_bounds
         self.dtype = dtype
+        self.num = len(dimensions)
 
 def detect_space(space):
 

@@ -2,12 +2,9 @@ from .semigradient_sarsa_agent import SemigradientSarsaAgent
 from .dqn_agent import DQNAgent
 from .td_lambda_agent import TDLambdaAgent
 from .reinforce_agent import ReinforceAgent
-from .a2c_agent import A2CAgent
 from .ppo_agent import PPOAgent
-from .a2c_single_agent import A2CSingleAgent
-from .a2c_single_continuous_agent import A2CSingleContinuousAgent
 from .ppo_single_agent import PPOSingleAgent
-from .new_a2c_tests import A2CTests
+from .a2c_agent import A2CAgent
 
 __all__ = [
         "SemigradientSarsaAgent",
@@ -16,8 +13,5 @@ __all__ = [
         "ReinforceAgent",
         "A2CAgent",
         "PPOAgent",
-        "A2CSingleAgent",
         "PPOSingleAgent",
-        "A2CSingleContinuousAgent",
-        "A2CTests",
 ]

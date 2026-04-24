@@ -18,10 +18,10 @@ NUM_ENVS = 1
 
 # =============== environments =================
 
-# env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode="human")
+env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
 # env = AtariEnvironment("ALE/Krull-v5", NUM_ENVS, render_mode="human")
 # env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=True)
-env = GymEnvironment("Ant-v5", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("Ant-v5", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode=None)
@@ -54,24 +54,10 @@ env = GymEnvironment("Ant-v5", NUM_ENVS, render_mode=None)
 
 
 
-# agent = A2CSingleContinuousAgent(device, writer, lr=0.001, gamma=0.99, lam=0.97,
-#                                  conv=False, cont=True, tmax=16, decay_steps=None, decay_rate=None,
-#                                  entropy_weight=0.0, value_weight=1.0, clip_grad_norm=0.1,
-#                                  save_path=None, load_path=None,)
-
-agent = A2CTests(device, writer, lr=0.0001, gamma=0.99, lam=0.96, conv=True, tmax=12, decay_steps=None, decay_rate=None,
-                         entropy_weight=0.03, value_weight=1.0, clip_grad_norm=0.5,
-                         save_path=None, load_path=None,)
-
-# agent = A2CSingleAgent(device, writer, lr=0.0001, gamma=0.99, lam=0.96, conv=True, tmax=12, decay_steps=None, decay_rate=None,
-#                          entropy_weight=0.03, value_weight=1.0, clip_grad_norm=0.5,
-#                          save_path=None, load_path=None,)
-
-# agent = A2CAgent(device, writer, lr=0.001, gamma=0.99, conv=False, tmax=16,
-#                          entropy_weight=0.05, value_weight=1.0, clip_grad_norm=0.5, 
-#                          save_path=None, load_path=None,)
-
-
+agent = A2CAgent(device, writer, lr=0.0001, gamma=0.99, lam=0.96, conv=True, 
+                 cont=False, tmax=16, decay_steps=None, decay_rate=None,
+                 entropy_weight=0.01, value_weight=0.5, clip_grad_norm=0.1,
+                 save_path=None, load_path=None,)
 
 
 # agent = TDLambdaAgent(lambd=0.8, alpha=0.0001, epsilon=1.0, gamma=0.99, decay_rate=0.9) # not working
