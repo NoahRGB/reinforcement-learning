@@ -97,7 +97,7 @@ class A2CSingleContinuousAgent(Agent):
         self.load_path = load_path
 
     def process_state(self, s):
-        return torch.tensor(s).to(self.device)
+        return torch.tensor(s, dtype=torch.float32).to(self.device)
 
     def run_policy(self, s, t):
         if self.cont:

@@ -61,3 +61,5 @@ From scratch implementations of various reinforcement learning algorithms using 
 
 
 ![DQN car racing agent](./results/finished/dqn/dqn_carracing/dqn_carracing.gif)
+
+![DQN boxing agent](./results/finished/dqn/dqn_boxing/dqn_boxing.gif)

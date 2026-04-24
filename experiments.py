@@ -19,9 +19,9 @@ NUM_ENVS = 1
 # =============== environments =================
 
 # env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode="human")
-# env = AtariEnvironment("ALE/CrazyClimber-v5", NUM_ENVS, render_mode="human")
-env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=True)
-# env = GymEnvironment("Ant-v5", NUM_ENVS, render_mode=None)
+# env = AtariEnvironment("ALE/Krull-v5", NUM_ENVS, render_mode="human")
+# env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=True)
+env = GymEnvironment("Ant-v5", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode=None)
@@ -37,22 +37,31 @@ env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preproces
 # agent = DQNAgent(device, writer, lr=0.001, conv=True,
 #                          replay_memory_size=1000, replay_warmup_length=1000,
 #                          C=1000, minibatch_size=32, gamma=0.99,
-#                          epsilon_start=0.0, epsilon_end=0.0, epsilon_decay_steps=1000,
+#                          epsilon_start=0.05, epsilon_end=0.05, epsilon_decay_steps=1000,
 #                          clip_grad_norm=None, update_freq=4,
-#                          load_nn_path=None, save_nn_path=None)
+#                          load_nn_path="results/temps/models/model.pt", save_nn_path=None)
+
+
 
 # agent = PPOSingleAgent(device, writer, lr=0.00025, gamma=0.99, conv=False, tmax=12, epsilon=0.2, epochs=3,
-#                          entropy_weight=10.0, value_weight=0.8, clip_grad_norm=None, 
+#                          entropy_weight=10.0, value_weight=0.8, clip_grad_norm=None, c:\Program Files (x86)\Mobatek\MobaXterm\MobaXterm.exe
 #                          save_path="results/temps/models/ppo_carracing.pt", load_path=None,)
 
 # agent = PPOAgent(device, writer, lr=0.0001, gamma=0.99, conv=False, tmax=16, epsilon=0.4, epochs=4,
 #                          entropy_weight=0.0, value_weight=1.0, clip_grad_norm=None, 
 #                          save_path=None, load_path=None,)
 
-agent = A2CSingleContinuousAgent(device, writer, lr=0.0001, gamma=0.99, lam=0.99,
-                                 conv=True, cont=True, tmax=16, decay_steps=None, decay_rate=None,
-                                 entropy_weight=0.01, value_weight=0.5, clip_grad_norm=0.2,
-                                 save_path=None, load_path=None,)
+
+
+
+# agent = A2CSingleContinuousAgent(device, writer, lr=0.001, gamma=0.99, lam=0.97,
+#                                  conv=False, cont=True, tmax=16, decay_steps=None, decay_rate=None,
+#                                  entropy_weight=0.0, value_weight=1.0, clip_grad_norm=0.1,
+#                                  save_path=None, load_path=None,)
+
+agent = A2CTests(device, writer, lr=0.0001, gamma=0.99, lam=0.96, conv=True, tmax=12, decay_steps=None, decay_rate=None,
+                         entropy_weight=0.03, value_weight=1.0, clip_grad_norm=0.5,
+                         save_path=None, load_path=None,)
 
 # agent = A2CSingleAgent(device, writer, lr=0.0001, gamma=0.99, lam=0.96, conv=True, tmax=12, decay_steps=None, decay_rate=None,
 #                          entropy_weight=0.03, value_weight=1.0, clip_grad_norm=0.5,
@@ -61,6 +70,9 @@ agent = A2CSingleContinuousAgent(device, writer, lr=0.0001, gamma=0.99, lam=0.99
 # agent = A2CAgent(device, writer, lr=0.001, gamma=0.99, conv=False, tmax=16,
 #                          entropy_weight=0.05, value_weight=1.0, clip_grad_norm=0.5, 
 #                          save_path=None, load_path=None,)
+
+
+
 
 # agent = TDLambdaAgent(lambd=0.8, alpha=0.0001, epsilon=1.0, gamma=0.99, decay_rate=0.9) # not working
 
