@@ -231,3 +231,20 @@ class A2CSingleAgent(Agent):
 
     def get_supported_action_spaces(self):
         return [DiscreteSpace]
+    
+    def get_dump(self):
+        return f"""
+        device={self.device}
+        lr={self.lr}
+        lambda={self.lam}
+        gamma={self.gamma}
+        conv={self.conv}
+        tmax={self.tmax}
+        decay_steps={self.decay_steps}
+        decay_rate={self.decay_rate}
+        entropy_weight={self.entropy_weight}
+        value_weight={self.value_weight}
+        clip_grad_norm={self.clip_grad_norm}
+        save_path={self.save_path}
+        load_path={self.load_path}
+        """

@@ -5,6 +5,7 @@ from .reinforce_agent import ReinforceAgent
 from .a2c_agent import A2CAgent
 from .ppo_agent import PPOAgent
 from .a2c_single_agent import A2CSingleAgent
+from .a2c_single_continuous_agent import A2CSingleContinuousAgent
 from .ppo_single_agent import PPOSingleAgent
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
         "A2CAgent",
         "PPOAgent",
         "A2CSingleAgent",
-        "PPOSingleAgent"
+        "PPOSingleAgent",
+        "A2CSingleContinuousAgent"
 ]

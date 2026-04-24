@@ -220,3 +220,23 @@ class DQNAgent(Agent):
 
     def get_supported_action_spaces(self):
         return [DiscreteSpace]
+    
+    def get_dump(self):
+        return f"""
+        epsilon: {self.epsilon}
+        time_step: {self.time_step}
+        replay_memory_size: {len(self.replay)}/{self.replay_memory_size}
+        conv: {self.conv}
+        lr: {self.lr}
+        replay_warmup_length: {self.replay_warmup_length}
+        C: {self.C}
+        minibatch_size: {self.minibatch_size}
+        gamma: {self.gamma}
+        epsilon_start: {self.epsilon_start}
+        epsilon_end: {self.epsilon_end}
+        epsilon_decay_steps: {self.epsilon_decay_steps}
+        clip_grad_norm: {self.clip_grad_norm}
+        update_freq: {self.update_freq}
+        load_nn_path: {self.load_nn_path}
+        save_nn_path: {self.save_nn_path}
+        """

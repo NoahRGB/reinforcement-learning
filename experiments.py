@@ -11,7 +11,7 @@ from agents.tabular import *
 from agents.approximate import *
 
 device = detect_torch_device()
-writer = create_tensorboard_writer(comment=f"-tmax=16,cgn=0.5,entropy=0.05,value=0.8")
+writer = create_tensorboard_writer(comment=f"")
 print(f"using device {device}")
 
 NUM_ENVS = 1
@@ -20,9 +20,10 @@ NUM_ENVS = 1
 
 # env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode="human")
 # env = AtariEnvironment("ALE/CrazyClimber-v5", NUM_ENVS, render_mode="human")
-# env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=False)
+env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=True)
 # env = GymEnvironment("Ant-v5", NUM_ENVS, render_mode=None)
-env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
@@ -48,9 +49,14 @@ env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None)
 #                          entropy_weight=0.0, value_weight=1.0, clip_grad_norm=None, 
 #                          save_path=None, load_path=None,)
 
-agent = A2CSingleAgent(device, writer, lr=0.0001, gamma=0.99, lam=0.5, conv=False, tmax=64, decay_steps=10, decay_rate=0.99,
-                         entropy_weight=0.50, value_weight=1.0, clip_grad_norm=None,
-                         save_path=None, load_path=None,)
+agent = A2CSingleContinuousAgent(device, writer, lr=0.0001, gamma=0.99, lam=0.99,
+                                 conv=True, cont=True, tmax=16, decay_steps=None, decay_rate=None,
+                                 entropy_weight=0.01, value_weight=0.5, clip_grad_norm=0.2,
+                                 save_path=None, load_path=None,)
+
+# agent = A2CSingleAgent(device, writer, lr=0.0001, gamma=0.99, lam=0.96, conv=True, tmax=12, decay_steps=None, decay_rate=None,
+#                          entropy_weight=0.03, value_weight=1.0, clip_grad_norm=0.5,
+#                          save_path=None, load_path=None,)
 
 # agent = A2CAgent(device, writer, lr=0.001, gamma=0.99, conv=False, tmax=16,
 #                          entropy_weight=0.05, value_weight=1.0, clip_grad_norm=0.5, 

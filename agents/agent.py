@@ -60,3 +60,7 @@ class Agent(ABC):
         that the agent supports for environment action spaces
         """
         ...
+
+    @abstractmethod
+    def get_dump(self) -> str:
+        ...
