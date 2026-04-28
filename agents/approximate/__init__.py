@@ -5,6 +5,7 @@ from .reinforce_agent import ReinforceAgent
 from .ppo_agent import PPOAgent
 from .ppo_single_agent import PPOSingleAgent
 from .a2c_agent import A2CAgent
+from .a2c_new import A2Cnew
 
 __all__ = [
         "SemigradientSarsaAgent",
@@ -14,4 +15,5 @@ __all__ = [
         "A2CAgent",
         "PPOAgent",
         "PPOSingleAgent",
+        "A2Cnew",
 ]

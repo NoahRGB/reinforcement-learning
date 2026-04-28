@@ -9,39 +9,21 @@ import torch.optim as optim
 import numpy as np
 
 class CombinedNN(nn.Module):
-    def __init__(self, state_space_dim, action_space_dim, conv, cont):
+    def __init__(self, state_space_dim, action_space_dim, cont):
         super(CombinedNN, self).__init__()
-        self.conv = conv
         self.cont = cont
 
-        if self.conv:
-            self.conv_nn = nn.Sequential(
-                nn.Conv2d(state_space_dim[0], 32, kernel_size=(8, 8), stride=4),
-                nn.ReLU(),
-                nn.Conv2d(32, 64, kernel_size=(4, 4), stride=2),
-                nn.ReLU(),
-                nn.Conv2d(64, 64, kernel_size=(3, 3), stride=1),
-                nn.ReLU(),
-                nn.Flatten() # (3136,)
-            )
-
-            self.conv_fc_nn = nn.Sequential(
-                nn.Linear(3136, 512),
-                nn.ReLU(),
-                nn.Linear(512, 64),
-                nn.ReLU()
-            )
-        else:
-            self.non_conv_fc_nn = nn.Sequential(
-                nn.Linear(state_space_dim[0], 128),
-                nn.ReLU(),
-                nn.Linear(128, 64),
-                nn.ReLU()
-            )
+        self.fc_nn = nn.Sequential(
+            nn.Linear(state_space_dim[0], 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
+            nn.ReLU()
+        )
 
         if self.cont:
             self.mu_nn = nn.Sequential(
                 nn.Linear(64, *action_space_dim),
+                # nn.Tanh(),
             )
 
             self.sigma_nn = nn.Sequential(
@@ -58,25 +40,16 @@ class CombinedNN(nn.Module):
         )
 
     def forward(self, input):
-        if self.conv:
-            new_input = input / 255.0
-            conv_out = self.conv_nn(new_input)
-            fc_out = self.conv_fc_nn(conv_out)
-            if self.cont:
-                mu = self.mu_nn(fc_out)
-                sigma = self.sigma_nn(fc_out)
-                return (mu, sigma), self.state_value_nn(fc_out)
-            return self.policy_nn(fc_out), self.state_value_nn(fc_out)
-        else:
-            fc_out = self.non_conv_fc_nn(input)
-            if self.cont:
-                mu = self.mu_nn(fc_out)
-                sigma = self.sigma_nn(fc_out)
-                return (mu, sigma), self.state_value_nn(fc_out)
-            return self.policy_nn(fc_out), self.state_value_nn(fc_out)
+        fc_out = self.fc_nn(input)
+        if self.cont:
+            mu = self.mu_nn(fc_out)
+            sigma = self.sigma_nn(fc_out)
+            sigma = torch.clamp(sigma, min=1e-3, max=1.0)
+            return (mu, sigma), self.state_value_nn(fc_out)
+        return self.policy_nn(fc_out), self.state_value_nn(fc_out)
 
 class A2CAgent(Agent):
-    def __init__(self, device, writer, lr, gamma, lam, conv, cont,
+    def __init__(self, device, writer, lr, gamma, lam, cont,
                  tmax, entropy_weight, value_weight=1.0, decay_steps=None, decay_rate=0.99, 
                  clip_grad_norm=None, save_path=None, load_path=None):
         self.device = device
@@ -84,7 +57,6 @@ class A2CAgent(Agent):
         self.lr = lr
         self.lam = lam
         self.gamma = gamma
-        self.conv = conv
         self.cont = cont
         self.tmax = tmax
         self.decay_steps = decay_steps
@@ -96,7 +68,7 @@ class A2CAgent(Agent):
         self.load_path = load_path
 
     def process_state(self, s):
-        return torch.tensor(s).to(self.device)
+        return torch.tensor(s, dtype=torch.float32).to(self.device)
 
     def run_policy(self, s, t):
         # s is (num_envs, state_space_dim)
@@ -130,9 +102,9 @@ class A2CAgent(Agent):
         self.reward_history = []
         self.current_episode_rewards = np.zeros(num_envs)
 
-        self.combined_nn = CombinedNN(self.state_space_size, self.action_space_size, self.conv, self.cont).to(self.device)
-        # self.combined_optimiser = optim.Adam(self.combined_nn.parameters(), lr=self.lr)
-        self.combined_optimiser = optim.RMSprop(self.combined_nn.parameters(), lr=self.lr)
+        self.combined_nn = CombinedNN(self.state_space_size, self.action_space_size, self.cont).to(self.device)
+        self.combined_optimiser = optim.Adam(self.combined_nn.parameters(), lr=self.lr)
+        # self.combined_optimiser = optim.RMSprop(self.combined_nn.parameters(), lr=self.lr)
         # self.scheduler = optim.lr_scheduler.StepLR(self.combined_optimiser, step_size=self.decay_steps, gamma=self.decay_rate)
 
         # load saved models
@@ -153,32 +125,44 @@ class A2CAgent(Agent):
 
         # gather logprobs and pluck out chosen actions
         if not self.cont:
-            logits, state_values = self.combined_nn(s) # (tmax, num_envs, action_space_dim), (tmax, num_envs, 1)
+            logits = torch.zeros(self.tmax, self.num_envs, self.action_space_size, dtype=torch.float32).to(self.device)
+            state_values = torch.zeros(self.tmax, self.num_envs, dtype=torch.float32).to(self.device)
+            for t in range(self.tmax):
+                t_logits, t_state_values = self.combined_nn(s[t])
+                logits[t] = t_logits
+                state_values[t] = t_state_values.squeeze(-1)
+            # logits, state_values = self.combined_nn(s) # (tmax, num_envs, action_space_dim), (tmax, num_envs, 1)
             log_probs = F.log_softmax(logits, dim=-1) # (tmax, num_envs, action_space_dim)
             chosen_log_probs = log_probs.gather(-1, a.unsqueeze(-1)).squeeze(-1) # (tmax, num_envs)
         else:
-            (mu, sigma), state_values = self.combined_nn(s) # (tmax, num_envs, action_space_dim), (tmax, num_envs, 1)
+            mu = torch.zeros(self.tmax, self.num_envs, *self.action_space_size, dtype=torch.float32).to(self.device)
+            sigma = torch.zeros(self.tmax, self.num_envs, *self.action_space_size, dtype=torch.float32).to(self.device)
+            state_values = torch.zeros(self.tmax, self.num_envs, dtype=torch.float32).to(self.device)
+            for t in range(self.tmax):
+                (t_mu, t_sigma), t_state_values = self.combined_nn(s[t])
+                mu[t] = t_mu
+                sigma[t] = t_sigma
+                state_values[t] = t_state_values.squeeze(-1)
+            # (mu, sigma), state_values = self.combined_nn(s) # (tmax, num_envs, action_space_dim), (tmax, num_envs, 1)
             dist = torch.distributions.Normal(mu, sigma)
             chosen_log_probs = dist.log_prob(a).sum(-1) # (tmax, num_envs)
         
-        state_values = state_values.squeeze(-1) # (tmax, num_envs)
-
         # calculate advantages/GAE over T timesteps
         advantages = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
         GAE = torch.zeros(self.num_envs, dtype=torch.float32).to(self.device) # (num_envs,)
         for t in reversed(range(self.tmax - 1)):
             delta = r[t] + self.gamma * state_values[t+1] * masks[t] - state_values[t]
-            GAE = delta + self.gamma * self.lam * masks[t] + GAE
+            GAE = delta + self.gamma * self.lam * masks[t] * GAE
             advantages[t] = GAE
 
         # calculate state value loss, policy loss and entropybonus
-        state_value_loss = advantages.pow(2).mean()
-        policy_loss = -(chosen_log_probs * advantages.detach()).mean()
+        state_value_loss = F.mse_loss(state_values, R) # (tmax, num_envs)
+        policy_loss = -(chosen_log_probs * advantages).mean()
         if not self.cont:
             entropy_bonus = torch.distributions.Categorical(logits=logits).entropy().mean()
         else:
             entropy_bonus = dist.entropy().mean()
-        combined_loss = policy_loss - (self.entropy_weight * entropy_bonus ) + (self.value_weight * state_value_loss)
+        combined_loss = policy_loss - (self.entropy_weight * entropy_bonus) + (self.value_weight * state_value_loss)
 
         # backprop + (optionally) clip
         self.combined_optimiser.zero_grad()

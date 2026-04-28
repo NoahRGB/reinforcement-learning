@@ -18,12 +18,13 @@ NUM_ENVS = 1
 
 # =============== environments =================
 
-env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
+# env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
 # env = AtariEnvironment("ALE/Krull-v5", NUM_ENVS, render_mode="human")
 # env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=True)
 # env = GymEnvironment("Ant-v5", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
+env = GymEnvironment("Pendulum-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
@@ -52,12 +53,15 @@ env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
 #                          save_path=None, load_path=None,)
 
 
+agent = A2Cnew(device, writer, actor_lr=0.001, critic_lr=0.005, gamma=0.99, cont=True,
+               tmax=128, decay_steps=None, decay_rate=None,
+               entropy_weight=0.05, clip_grad_norm=None,
+               save_path=None, load_path=None,)
 
-
-agent = A2CAgent(device, writer, lr=0.0001, gamma=0.99, lam=0.96, conv=True, 
-                 cont=False, tmax=16, decay_steps=None, decay_rate=None,
-                 entropy_weight=0.01, value_weight=0.5, clip_grad_norm=0.1,
-                 save_path=None, load_path=None,)
+# agent = A2CAgent(device, writer, lr=0.001, gamma=0.99, lam=0.96,
+#                  cont=False, tmax=32, decay_steps=None, decay_rate=None,
+#                  entropy_weight=0.0, value_weight=1.0, clip_grad_norm=None,
+#                  save_path=None, load_path=None,)
 
 
 # agent = TDLambdaAgent(lambd=0.8, alpha=0.0001, epsilon=1.0, gamma=0.99, decay_rate=0.9) # not working
