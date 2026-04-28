@@ -154,8 +154,10 @@ class A2CAgent(Agent):
         # load saved models
         if self.load_path is not None:
             checkpoint = torch.load(self.load_path)
-            self.combined_nn.load_state_dict(checkpoint["nn"])
-            self.combined_optimiser.load_state_dict(checkpoint["optimiser"])
+            self.actor.load_state_dict(checkpoint["actor_nn"])
+            self.actor_optimiser.load_state_dict(checkpoint["actor_optimiser"])
+            self.critic.load_state_dict(checkpoint["critic_nn"])
+            self.critic_optimiser.load_state_dict(checkpoint["critic_optimiser"])
 
     def make_a2c_update(self):
         
@@ -251,8 +253,10 @@ class A2CAgent(Agent):
 
                 if self.save_path is not None:
                     torch.save({
-                        "nn": self.combined_nn.state_dict(),
-                        "optimiser": self.combined_optimiser.state_dict(),
+                        "actor_nn": self.actor.state_dict(),
+                        "actor_optimiser": self.actor_optimiser.state_dict(),
+                        "critic_nn": self.critic.state_dict(),
+                        "critic_optimiser": self.critic_optimiser.state_dict(),
                     }, self.save_path)
         
     def finish_episode(self, episode_num):

@@ -52,6 +52,7 @@ From scratch implementations of various reinforcement learning algorithms using 
 | -------------- | :-: | :-: | :-: |
 | Pong           |  ✓  |     |     |
 | Space Invaders |  ✓  |     |     |
+| Boxing |  ✓  |     |     |
 
 <br/>
 
