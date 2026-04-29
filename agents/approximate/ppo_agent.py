@@ -173,6 +173,17 @@ class PPOAgent(Agent):
         old_log_probs = torch.as_tensor(np.array(self.transitions["log_probs"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
         masks = 1 - done # (tmax, num_envs)
 
+        R = self.critic(sprime[-1]).squeeze(-1) * masks[-1]
+        returns = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
+        for t in reversed(range(len(r))):
+            R = r[t] + self.gamma * R * masks[t]
+            returns[t] = R
+
+        old_log_probs = old_log_probs.view(self.tmax * self.num_envs) # (tmax * num_envs,)
+        returns = returns.view(self.tmax * self.num_envs) # (tmax * num_envs,)
+        s = s.view(self.tmax * self.num_envs, *s.shape[2:]) # (tmax * num_envs, state_space_dim)
+        a = a.view(self.tmax * self.num_envs, *a.shape[2:]) # (tmax * num_envs, action_space_dim)
+
         if self.cont:
             mu, sigma = self.actor(s) # (tmax, num_envs, action_space_dim)
             dist = torch.distributions.Normal(mu, sigma)
@@ -183,13 +194,6 @@ class PPOAgent(Agent):
             chosen_log_probs = log_probs.gather(-1, a.unsqueeze(-1)).squeeze(-1) # (tmax, num_envs)
 
         state_values = self.critic(s).squeeze(-1) # (tmax, num_envs)
-
-        R = self.critic(sprime[-1].unsqueeze(0)).squeeze(-1) * masks[-1]
-        returns = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
-        for t in reversed(range(len(r))):
-            R = r[t] + self.gamma * R * masks[t]
-            returns[t] = R
-
 
         advantages = (returns - state_values).detach() # (tmax, num_envs)
 

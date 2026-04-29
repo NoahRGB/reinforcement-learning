@@ -171,6 +171,16 @@ class A2CAgent(Agent):
         done = torch.tensor(np.array(self.transitions["done"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
         masks = 1 - done # (tmax, num_envs)
 
+        R = self.critic(sprime[-1]).squeeze(-1) * masks[-1]
+        returns = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
+        for t in reversed(range(len(r))):
+            R = r[t] + self.gamma * R * masks[t]
+            returns[t] = R
+
+        returns = returns.view(self.tmax * self.num_envs) # (tmax * num_envs,)
+        s = s.view(self.tmax * self.num_envs, *s.shape[2:]) # (tmax * num_envs, state_space_dim)
+        a = a.view(self.tmax * self.num_envs, *a.shape[2:]) # (tmax * num_envs, action_space_dim)
+
         if self.cont:
             mu, sigma = self.actor(s) # (tmax, num_envs, action_space_dim)
             dist = torch.distributions.Normal(mu, sigma)
@@ -181,12 +191,6 @@ class A2CAgent(Agent):
             chosen_log_probs = log_probs.gather(-1, a.unsqueeze(-1)).squeeze(-1) # (tmax, num_envs)
 
         state_values = self.critic(s).squeeze(-1) # (tmax, num_envs)
-
-        R = self.critic(sprime[-1].unsqueeze(0)).squeeze(-1) * masks[-1]
-        returns = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
-        for t in reversed(range(len(r))):
-            R = r[t] + self.gamma * R * masks[t]
-            returns[t] = R
 
         advantages = (returns - state_values).detach() # (tmax, num_envs)
 
@@ -238,7 +242,7 @@ class A2CAgent(Agent):
         self.time_step += 1
         self.current_episode_rewards += r
 
-        if self.time_step % self.tmax == 0 or done[0]:
+        if self.time_step % self.tmax == 0:
             self.make_a2c_update()
             self.reset_transitions()
 
