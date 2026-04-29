@@ -29,7 +29,7 @@ From scratch implementations of various reinforcement learning algorithms using 
 |------------------|:---:|:---:|:---------:|:------------------:|:---:|
 | Bipedal Walker   |     |  ✓  |          |                    |    |
 | Car Racing       |  ✓  |  ✓  |          |                    |    |
-| Lunar Lander     |  ✓  |     |          |                    |    |
+| Lunar Lander     |  ✓  |  ✓  |          |                    |    |
 
 ## [MuJoCo (Multi-Joint dynamics with Contact)](https://gymnasium.farama.org/environments/mujoco/) environments
 | Environment            | A2C | REINFORCE | PPO |

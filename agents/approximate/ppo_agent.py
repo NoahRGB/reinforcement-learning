@@ -165,38 +165,38 @@ class PPOAgent(Agent):
     def make_ppo_update(self):
         
         # unpack T timesteps
-        s = torch.tensor(np.array(self.transitions["s"]), dtype=torch.float32).to(self.device) # (tmax, state_space_dim)
-        a = torch.tensor(np.array(self.transitions["a"]), dtype=torch.float32 if self.cont else torch.int64).to(self.device) # (tmax,)
-        r = torch.tensor(np.array(self.transitions["r"]), dtype=torch.float32).to(self.device) # (tmax)
-        sprime = torch.tensor(np.array(self.transitions["sprime"]), dtype=torch.float32).to(self.device) # (tmax, state_space_dim)
-        done = torch.tensor(np.array(self.transitions["done"]), dtype=torch.float32).to(self.device) # (tmax)
-        old_log_probs = torch.as_tensor(np.array(self.transitions["log_probs"]), dtype=torch.float32).to(self.device) # (tmax,)
-        masks = 1 - done # (tmax)
+        s = torch.tensor(np.array(self.transitions["s"]), dtype=torch.float32).to(self.device) # (tmax, num_envs, state_space_dim)
+        a = torch.tensor(np.array(self.transitions["a"]), dtype=torch.float32 if self.cont else torch.int64).to(self.device) # (tmax, num_envs)
+        r = torch.tensor(np.array(self.transitions["r"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
+        sprime = torch.tensor(np.array(self.transitions["sprime"]), dtype=torch.float32).to(self.device) # (tmax, num_envs, state_space_dim)
+        done = torch.tensor(np.array(self.transitions["done"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
+        old_log_probs = torch.as_tensor(np.array(self.transitions["log_probs"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
+        masks = 1 - done # (tmax, num_envs)
 
         if self.cont:
-            mu, sigma = self.actor(s) # (tmax, action_space_dim)
+            mu, sigma = self.actor(s) # (tmax, num_envs, action_space_dim)
             dist = torch.distributions.Normal(mu, sigma)
-            chosen_log_probs = dist.log_prob(a).sum(-1) # (tmax,)
+            chosen_log_probs = dist.log_prob(a).sum(-1) # (tmax, num_envs)
         else:
-            logits = self.actor(s)
-            log_probs = F.log_softmax(logits, dim=-1) # (tmax, num_action_choices,)
-            chosen_log_probs = log_probs.gather(-1, a.unsqueeze(-1)).squeeze(-1) # (tmax,)
+            logits = self.actor(s) # (tmax, num_envs, num_action_choices)
+            log_probs = F.log_softmax(logits, dim=-1) # (tmax, num_envs, num_action_choices)
+            chosen_log_probs = log_probs.gather(-1, a.unsqueeze(-1)).squeeze(-1) # (tmax, num_envs)
 
-        state_values = self.critic(s).squeeze(-1)
-        last_state_value = self.critic(sprime[-1].unsqueeze(0)).squeeze(-1)
+        state_values = self.critic(s).squeeze(-1) # (tmax, num_envs)
 
-        R = last_state_value * masks[-1]
-        returns = torch.zeros_like(r).to(self.device)
+        R = self.critic(sprime[-1].unsqueeze(0)).squeeze(-1) * masks[-1]
+        returns = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
         for t in reversed(range(len(r))):
-            R = r[t] + self.gamma * R
+            R = r[t] + self.gamma * R * masks[t]
             returns[t] = R
 
-        advantages = (returns - state_values).detach()
 
-        ratios = torch.exp(chosen_log_probs - old_log_probs) # (tmax,)
-        clipped_ratios = torch.clamp(ratios, 1 - self.epsilon, 1 + self.epsilon) # (tmax,)
-        surrogate_obj = ratios * advantages # (tmax,)
-        clipped_surrogate_obj = clipped_ratios * advantages # (tmax,)
+        advantages = (returns - state_values).detach() # (tmax, num_envs)
+
+        ratios = torch.exp(chosen_log_probs - old_log_probs) # (tmax, num_envs)
+        clipped_ratios = torch.clamp(ratios, 1 - self.epsilon, 1 + self.epsilon) # (tmax, num_envs)
+        surrogate_obj = ratios * advantages # (tmax, num_envs)
+        clipped_surrogate_obj = clipped_ratios * advantages # (tmax, num_envs)
 
         if self.cont:
             entropy_bonus = dist.entropy().mean()
@@ -237,26 +237,27 @@ class PPOAgent(Agent):
         # sprime is (num_envs, state_space_dim)
         # done is (num_envs,)
 
-        self.transitions["s"].append(s[0])
-        self.transitions["a"].append(a[0])
-        self.transitions["r"].append(r[0])
-        self.transitions["sprime"].append(sprime[0])
-        self.transitions["done"].append(done[0])
+        self.transitions["s"].append(s)
+        self.transitions["a"].append(a)
+        self.transitions["r"].append(r)
+        self.transitions["sprime"].append(sprime)
+        self.transitions["done"].append(done)
 
         with torch.no_grad():
             if self.cont:
-                mu, sigma = self.actor(self.process_state(s[0]).unsqueeze(0))
-                dist = torch.distributions.Normal(mu.squeeze(0), sigma.squeeze(0))
-                self.transitions["log_probs"].append(dist.log_prob(self.process_state(a[0])).sum(-1).cpu().detach())
+                mu, sigma = self.actor(self.process_state(s)) # (num_envs, action_space_dim)
+                dist = torch.distributions.Normal(mu, sigma)
+                chosen_log_probs = dist.log_prob(self.process_state(a)).sum(-1) # (num_envs,)
+                self.transitions["log_probs"].append(chosen_log_probs.cpu().detach())
             else:
-                log_probs = self.actor(self.process_state(s[0]).unsqueeze(0))
-                log_probs = log_probs[0, a[0]] # (1,)
-                self.transitions["log_probs"].append(log_probs.cpu().detach()) 
+                log_probs = self.actor(self.process_state(s)) # (num_envs, action_space_dim)
+                chosen_log_probs = log_probs[torch.arange(self.num_envs), a] # (num_envs,)
+                self.transitions["log_probs"].append(chosen_log_probs.cpu().detach()) 
 
         self.time_step += 1
         self.current_episode_rewards += r
 
-        if self.time_step % self.tmax == 0 or done[0]:
+        if self.time_step % self.tmax == 0:
             for epoch in range(self.epochs):
                 self.make_ppo_update()
             self.reset_transitions()

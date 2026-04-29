@@ -1,0 +1,9 @@
+agent = A2CAgent(device, writer, actor_lr=0.001, critic_lr=0.001, gamma=0.99, 
+               conv=False, cont=False, tmax=64, decay_steps=None, decay_rate=None,
+               entropy_weight=0.0, clip_grad_norm=0.5,
+               save_path=None, load_path="results/temps/models/a2c_lunarlander.pt")
+
+NUM_ENVS = 4
+
+
+env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None, continuous=False)
