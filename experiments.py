@@ -21,10 +21,10 @@ NUM_ENVS = 1
 # env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
 # env = AtariEnvironment("ALE/Krull-v5", NUM_ENVS, render_mode="human")
 # env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=True)
-# env = GymEnvironment("Ant-v5", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("Reacher-v5", NUM_ENVS, render_mode="human")
 # env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None, continuous=True)
-env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
-# env = GymEnvironment("Pendulum-v1", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("Pendulum-v1", NUM_ENVS, render_mode="human")
 # env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
@@ -43,15 +43,16 @@ env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
 #                          load_nn_path="results/temps/models/model.pt", save_nn_path=None)
 
 
-agent = PPOAgent(device, writer, actor_lr=0.0001, critic_lr=0.0005, gamma=0.99, 
-               conv=False, cont=True, tmax=4, epsilon=0.2, epochs=4, decay_steps=None, decay_rate=None,
-               entropy_weight=0.0, clip_grad_norm=None,
-               save_path=None, load_path=None,)
-
-# agent = A2CAgent(device, writer, actor_lr=0.001, critic_lr=0.005, gamma=0.99, 
-#                conv=True, cont=True, tmax=32, decay_steps=None, decay_rate=None,
-#                entropy_weight=0.001, clip_grad_norm=0.5,
+# agent = PPOAgent(device, writer, actor_lr=0.0001, critic_lr=0.005, gamma=0.99, 
+#                conv=False, cont=True, tmax=32, epsilon=0.2, epochs=3, decay_steps=None, decay_rate=None,
+#                entropy_weight=0.0, clip_grad_norm=None,
 #                save_path=None, load_path=None,)
+
+
+agent = A2CAgent(device, writer, actor_lr=0.0003, critic_lr=0.0003, gamma=0.99, 
+               conv=False, cont=True, tmax=64, decay_steps=None, decay_rate=None,
+               entropy_weight=0.01, clip_grad_norm=0.1,
+               load_path=None, save_path=None,)
 
 
 

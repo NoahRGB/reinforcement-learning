@@ -247,7 +247,7 @@ class PPOAgent(Agent):
             if self.cont:
                 mu, sigma = self.actor(self.process_state(s[0]).unsqueeze(0))
                 dist = torch.distributions.Normal(mu.squeeze(0), sigma.squeeze(0))
-                self.transitions["log_probs"].append(dist.log_prob(self.process_state(a[0])).sum(-1))
+                self.transitions["log_probs"].append(dist.log_prob(self.process_state(a[0])).sum(-1).cpu().detach())
             else:
                 log_probs = self.actor(self.process_state(s[0]).unsqueeze(0))
                 log_probs = log_probs[0, a[0]] # (1,)

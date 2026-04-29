@@ -150,6 +150,8 @@ class A2CAgent(Agent):
         self.critic = Critic(self.state_space_size, self.action_space_size, self.conv).to(self.device)
         self.actor_optimiser = optim.Adam(self.actor.parameters(), lr=self.actor_lr)
         self.critic_optimiser = optim.Adam(self.critic.parameters(), lr=self.critic_lr)
+        # self.actor_optimiser = optim.RMSprop(self.actor.parameters(), lr=self.actor_lr)
+        # self.critic_optimiser = optim.RMSprop(self.critic.parameters(), lr=self.critic_lr)
 
         # load saved models
         if self.load_path is not None:
@@ -162,32 +164,31 @@ class A2CAgent(Agent):
     def make_a2c_update(self):
         
         # unpack T timesteps
-        s = torch.tensor(np.array(self.transitions["s"]), dtype=torch.float32).to(self.device) # (tmax, state_space_dim)
-        a = torch.tensor(np.array(self.transitions["a"]), dtype=torch.float32 if self.cont else torch.int64).to(self.device) # (tmax,)
-        r = torch.tensor(np.array(self.transitions["r"]), dtype=torch.float32).to(self.device) # (tmax)
-        sprime = torch.tensor(np.array(self.transitions["sprime"]), dtype=torch.float32).to(self.device) # (tmax, state_space_dim)
-        done = torch.tensor(np.array(self.transitions["done"]), dtype=torch.float32).to(self.device) # (tmax)
-        masks = 1 - done # (tmax)
+        s = torch.tensor(np.array(self.transitions["s"]), dtype=torch.float32).to(self.device) # (tmax, num_envs, state_space_dim)
+        a = torch.tensor(np.array(self.transitions["a"]), dtype=torch.float32 if self.cont else torch.int64).to(self.device) # (tmax, num_envs)
+        r = torch.tensor(np.array(self.transitions["r"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
+        sprime = torch.tensor(np.array(self.transitions["sprime"]), dtype=torch.float32).to(self.device) # (tmax, num_envs, state_space_dim)
+        done = torch.tensor(np.array(self.transitions["done"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
+        masks = 1 - done # (tmax, num_envs)
 
         if self.cont:
-            mu, sigma = self.actor(s) # (tmax, action_space_dim)
+            mu, sigma = self.actor(s) # (tmax, num_envs, action_space_dim)
             dist = torch.distributions.Normal(mu, sigma)
-            chosen_log_probs = dist.log_prob(a).sum(-1) # (tmax,)
+            chosen_log_probs = dist.log_prob(a).sum(-1) # (tmax, num_envs)
         else:
             logits = self.actor(s)
-            log_probs = F.log_softmax(logits, dim=-1) # (tmax, num_action_choices,)
-            chosen_log_probs = log_probs.gather(-1, a.unsqueeze(-1)).squeeze(-1) # (tmax,)
+            log_probs = F.log_softmax(logits, dim=-1) # (tmax, num_envs, num_action_choices,)
+            chosen_log_probs = log_probs.gather(-1, a.unsqueeze(-1)).squeeze(-1) # (tmax, num_envs)
 
-        state_values = self.critic(s).squeeze(-1)
-        last_state_value = self.critic(sprime[-1].unsqueeze(0)).squeeze(-1)
+        state_values = self.critic(s).squeeze(-1) # (tmax, num_envs)
 
-        R = last_state_value * masks[-1]
-        returns = torch.zeros_like(r).to(self.device)
+        R = self.critic(sprime[-1].unsqueeze(0)).squeeze(-1) * masks[-1]
+        returns = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
         for t in reversed(range(len(r))):
-            R = r[t] + self.gamma * R
+            R = r[t] + self.gamma * R * masks[t]
             returns[t] = R
 
-        advantages = (returns - state_values).detach()
+        advantages = (returns - state_values).detach() # (tmax, num_envs)
 
         if self.cont:
             entropy_bonus = dist.entropy().mean()
@@ -218,7 +219,7 @@ class A2CAgent(Agent):
             self.writer.add_scalar("policy_loss", policy_loss.item(), len(self.reward_history) + self.time_step)
             self.writer.add_scalar("state_value_loss", state_value_loss.item(), len(self.reward_history) + self.time_step)
             self.writer.add_scalar("entropy", entropy_bonus.item(), len(self.reward_history) + self.time_step)
-
+            if self.cont:self.writer.add_scalar("sigma", sigma.mean().item(), len(self.reward_history) + self.time_step)
         
     def update(self, s, sprime, a, r, done):
 
@@ -228,11 +229,11 @@ class A2CAgent(Agent):
         # sprime is (num_envs, state_space_dim)
         # done is (num_envs,)
 
-        self.transitions["s"].append(s[0])
-        self.transitions["a"].append(a[0])
-        self.transitions["r"].append(r[0])
-        self.transitions["sprime"].append(sprime[0])
-        self.transitions["done"].append(done[0])
+        self.transitions["s"].append(s)
+        self.transitions["a"].append(a)
+        self.transitions["r"].append(r)
+        self.transitions["sprime"].append(sprime)
+        self.transitions["done"].append(done)
 
         self.time_step += 1
         self.current_episode_rewards += r

@@ -19,17 +19,17 @@ From scratch implementations of various reinforcement learning algorithms using 
 | Environment       | DQN | A2C | REINFORCE | Semigradient SARSA | PPO |
 |------------------|:---:|:---:|:---------:|:------------------:|:---:|
 | Acrobot          |  ✓  |  ✓  |          |                   |    |
-| CartPole         |  ✓  |  ✓  |     ✓     |         ✓          |    |
-| Mountain Car     |     |    |          |                   |    |
-| Pendulum         |     |    |          |                   |    |
+| CartPole         |  ✓  |  ✓  |     ✓    |         ✓        |    |
+| Mountain Car     |     |      |          |                   |    |
+| Pendulum         |     |  ✓   |          |                   |    |
 
 
 ## [Box2D (physics control)](https://gymnasium.farama.org/environments/box2d/) environments
 | Environment       | DQN | A2C | REINFORCE | Semigradient SARSA | PPO |
 |------------------|:---:|:---:|:---------:|:------------------:|:---:|
-| Bipedal Walker   |     |    |          |                   |    |
-| Car Racing       |  ✓  |  ✓  |          |                   |    |
-| Lunar Lander     |  ✓  |    |          |                   |    |
+| Bipedal Walker   |     |  ✓  |          |                    |    |
+| Car Racing       |  ✓  |  ✓  |          |                    |    |
+| Lunar Lander     |  ✓  |     |          |                    |    |
 
 ## [MuJoCo (Multi-Joint dynamics with Contact)](https://gymnasium.farama.org/environments/mujoco/) environments
 | Environment            | A2C | REINFORCE | PPO |
@@ -40,7 +40,7 @@ From scratch implementations of various reinforcement learning algorithms using 
 | Humanoid               |     |           |     |
 | HumanoidStandup        |     |           |     |
 | InvertedDoublePendulum |     |           |     |
-| InvertedPendulum       |     |           |     |
+| InvertedPendulum       |  ✓  |           |     |
 | Pusher                 |     |           |     |
 | Reacher                |     |           |     |
 | Swimmer                |     |           |     |
@@ -52,7 +52,7 @@ From scratch implementations of various reinforcement learning algorithms using 
 | -------------- | :-: | :-: | :-: |
 | Pong           |  ✓  |     |     |
 | Space Invaders |  ✓  |     |     |
-| Boxing |  ✓  |     |     |
+| Boxing         |  ✓  |     |     |
 
 <br/>
 
@@ -60,7 +60,8 @@ From scratch implementations of various reinforcement learning algorithms using 
 
 ![DQN pong agent](./results/finished/dqn/dqn_pong/dqn_pong_master.gif)
 
-
 ![DQN car racing agent](./results/finished/dqn/dqn_carracing/dqn_carracing.gif)
+
+![A2C bipedal walker](./results/finished/a2c/a2c_bipedalwalker/a2c_bipedalwalker.gif)
 
 ![DQN boxing agent](./results/finished/dqn/dqn_boxing/dqn_boxing.gif)
