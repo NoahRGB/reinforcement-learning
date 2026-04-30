@@ -18,18 +18,18 @@ From scratch implementations of various reinforcement learning algorithms using 
 ## [Classic control](https://gymnasium.farama.org/environments/classic_control/) environments
 | Environment       | DQN | A2C | REINFORCE | Semigradient SARSA | PPO |
 |------------------|:---:|:---:|:---------:|:------------------:|:---:|
-| Acrobot          |  ✓  |  ✓  |          |                   |    |
-| CartPole         |  ✓  |  ✓  |     ✓    |         ✓        |    |
+| Acrobot          |  ✓  |  ✓  |          |                   |  ✓  |
+| CartPole         |  ✓  |  ✓  |     ✓    |         ✓        |  ✓  |
 | Mountain Car     |     |      |          |                   |    |
-| Pendulum         |     |  ✓   |          |                   |    |
+| Pendulum         |     |  ✓   |          |                   | ✓  |
 
 
 ## [Box2D (physics control)](https://gymnasium.farama.org/environments/box2d/) environments
 | Environment       | DQN | A2C | REINFORCE | Semigradient SARSA | PPO |
 |------------------|:---:|:---:|:---------:|:------------------:|:---:|
-| Bipedal Walker   |     |  ✓  |          |                    |    |
+| Bipedal Walker   |     |  ✓  |          |                    |  ✓  |
 | Car Racing       |  ✓  |  ✓  |          |                    |    |
-| Lunar Lander     |  ✓  |  ✓  |          |                    |    |
+| Lunar Lander     |  ✓  |  ✓  |          |                    | ✓   |
 
 ## [MuJoCo (Multi-Joint dynamics with Contact)](https://gymnasium.farama.org/environments/mujoco/) environments
 | Environment            | A2C | REINFORCE | PPO |

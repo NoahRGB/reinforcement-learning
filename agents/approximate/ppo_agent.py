@@ -91,7 +91,7 @@ class Critic(nn.Module):
         return self.fc_nn(input)
 
 class PPOAgent(Agent):
-    def __init__(self, device, writer, actor_lr, critic_lr, gamma, conv,cont,
+    def __init__(self, device, writer, actor_lr, critic_lr, gamma, conv, cont,
                  epsilon, epochs, tmax, entropy_weight, decay_steps=None, decay_rate=0.99, 
                  clip_grad_norm=None, save_path=None, load_path=None):
         self.device = device
