@@ -14,17 +14,17 @@ device = detect_torch_device()
 writer = create_tensorboard_writer(comment=f"")
 print(f"using device {device}")
 
-NUM_ENVS = 2
+NUM_ENVS = 32
 
 # =============== environments =================
 
-env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
+# env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
 # env = AtariEnvironment("ALE/Krull-v5", NUM_ENVS, render_mode="human")
 # env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=True)
-# env = GymEnvironment("Reacher-v5", NUM_ENVS, render_mode="human")
-# env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None, continuous=False)
+# env = GymEnvironment("InvertedDoublePendulum-v5", NUM_ENVS, render_mode=None)
+env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None, continuous=True)
 # env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
-# env = GymEnvironment("Pendulum-v1", NUM_ENVS, render_mode="human")
+# env = GymEnvironment("Pendulum-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
@@ -42,23 +42,21 @@ env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
 #                          clip_grad_norm=None, update_freq=4,
 #                          load_nn_path="results/temps/models/model.pt", save_nn_path=None)
 
-agent = PPOAgent(device, writer, actor_lr=0.001, critic_lr=0.001, gamma=0.99, 
-               conv=True, cont=False, tmax=16, epsilon=0.2, epochs=6, decay_steps=None, decay_rate=None,
-               entropy_weight=0.01, clip_grad_norm=None,
-               save_path=None, load_path=None,)
+# agent = PPOAgent(device, writer, actor_lr=0.0001, critic_lr=0.001, gamma=0.99, 
+#                conv=False, cont=True, tmax=16, epsilon=0.2, epochs=4, decay_steps=None, decay_rate=None,
+#                entropy_weight=0.01, clip_grad_norm=None,
+#                save_path="results/temps/models/ppo_bipedalwalker.pt", load_path=None,)
 
-# agent = A2CAgent(device, writer, actor_lr=0.001, critic_lr=0.001, gamma=0.99, 
-#                conv=True, cont=False, tmax=4, decay_steps=None, decay_rate=None,
-#                entropy_weight=0.5, clip_grad_norm=0.5,
-#                save_path=None, load_path=None)
-
-
+agent = A2CAgent(device, writer, actor_lr=0.001, critic_lr=0.001, gamma=0.99, lam=0.96,
+               conv=False, cont=True, tmax=32, decay_steps=None, decay_rate=None,
+               entropy_weight=0.01, clip_grad_norm=0.5,
+               save_path=None, load_path=None)
 
 # agent = TDLambdaAgent(lambd=0.8, alpha=0.0001, epsilon=1.0, gamma=0.99, decay_rate=0.9) # not working
 
 # agent = ReinforceAgent(device, writer, use_baseline=True, 
-#                                policy_lr=0.001, state_value_lr=0.01, gamma=0.99,
-#                                save_path="torch_models/reinforce_lunarlander_checkpoint.pt", load_path=None)
+#                                policy_lr=0.0003, state_value_lr=0.01, gamma=0.99,
+#                                save_path=None, load_path=None)
 
 # agent = SemigradientSarsaAgent(device, writer, lr=0.001, 
 #                                epsilon=0.01, gamma=0.99, decay_rate=0.0,

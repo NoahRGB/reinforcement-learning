@@ -195,7 +195,9 @@ class PPOAgent(Agent):
 
         state_values = self.critic(s).squeeze(-1) # (tmax, num_envs)
 
-        advantages = (returns - state_values).detach() # (tmax, num_envs)
+        advantages = returns - state_values # (tmax, num_envs)
+        # advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+        advantages = advantages.detach()
 
         ratios = torch.exp(chosen_log_probs - old_log_probs) # (tmax, num_envs)
         clipped_ratios = torch.clamp(ratios, 1 - self.epsilon, 1 + self.epsilon) # (tmax, num_envs)
@@ -207,7 +209,7 @@ class PPOAgent(Agent):
         else:
             entropy_bonus = torch.distributions.Categorical(logits=logits).entropy().mean()
 
-        policy_loss = -torch.min(surrogate_obj.mean(), clipped_surrogate_obj.mean()) - (self.entropy_weight * entropy_bonus)
+        policy_loss = -torch.min(surrogate_obj, clipped_surrogate_obj).mean() - (self.entropy_weight * entropy_bonus)
         state_value_loss = F.mse_loss(state_values, returns)
 
         self.actor_optimiser.zero_grad()
@@ -231,7 +233,7 @@ class PPOAgent(Agent):
             self.writer.add_scalar("policy_loss", policy_loss.item(), len(self.reward_history) + self.time_step)
             self.writer.add_scalar("state_value_loss", state_value_loss.item(), len(self.reward_history) + self.time_step)
             self.writer.add_scalar("entropy", entropy_bonus.item(), len(self.reward_history) + self.time_step)
-
+            if self.cont:self.writer.add_scalar("sigma", sigma.mean().item(), len(self.reward_history) + self.time_step)
         
     def update(self, s, sprime, a, r, done):
 
@@ -254,7 +256,8 @@ class PPOAgent(Agent):
                 chosen_log_probs = dist.log_prob(self.process_state(a)).sum(-1) # (num_envs,)
                 self.transitions["log_probs"].append(chosen_log_probs.cpu().detach())
             else:
-                log_probs = self.actor(self.process_state(s)) # (num_envs, action_space_dim)
+                logits = self.actor(self.process_state(s)) # (num_envs, action_space_dim)
+                log_probs = F.log_softmax(logits, dim=-1) # (tmax, num_envs, num_action_choices)
                 chosen_log_probs = log_probs[torch.arange(self.num_envs), a] # (num_envs,)
                 self.transitions["log_probs"].append(chosen_log_probs.cpu().detach()) 
 

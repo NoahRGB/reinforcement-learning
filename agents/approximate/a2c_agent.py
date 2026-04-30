@@ -39,7 +39,7 @@ class Actor(nn.Module):
         if self.cont:
             self.mu_nn = nn.Sequential(
                 nn.Linear(self.fc_input_dim, *action_space_dim),
-                # nn.Tanh(),
+                nn.Tanh(),
             )
 
             self.sigma_nn = nn.Sequential(
@@ -91,7 +91,7 @@ class Critic(nn.Module):
         return self.fc_nn(input)
 
 class A2CAgent(Agent):
-    def __init__(self, device, writer, actor_lr, critic_lr, gamma, conv,cont,
+    def __init__(self, device, writer, actor_lr, critic_lr, gamma, lam, conv, cont,
                  tmax, entropy_weight, decay_steps=None, decay_rate=0.99, 
                  clip_grad_norm=None, save_path=None, load_path=None):
         self.device = device
@@ -99,6 +99,7 @@ class A2CAgent(Agent):
         self.actor_lr = actor_lr
         self.critic_lr = critic_lr
         self.gamma = gamma
+        self.lam = lam
         self.tmax = tmax
         self.conv = conv
         self.cont = cont
@@ -171,15 +172,21 @@ class A2CAgent(Agent):
         done = torch.tensor(np.array(self.transitions["done"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
         masks = 1 - done # (tmax, num_envs)
 
-        R = self.critic(sprime[-1]).squeeze(-1) * masks[-1]
-        returns = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
-        for t in reversed(range(len(r))):
-            R = r[t] + self.gamma * R * masks[t]
-            returns[t] = R
+        state_values = self.critic(s).squeeze(-1) # (tmax, num_envs)
+        next_state_values = self.critic(sprime).squeeze(-1) # (tmax, num_envs)
 
-        returns = returns.view(self.tmax * self.num_envs) # (tmax * num_envs,)
+        gae = 0.0
+        advantages = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
+        for t in reversed(range(len(r))):
+            delta = r[t] + self.gamma * next_state_values[t] * masks[t] - state_values[t]
+            gae = delta + self.gamma * self.lam * masks[t] * gae
+            advantages[t] = gae
+
+        advantages = advantages.view(self.tmax * self.num_envs).detach() # (tmax * num_envs,)
         s = s.view(self.tmax * self.num_envs, *s.shape[2:]) # (tmax * num_envs, state_space_dim)
         a = a.view(self.tmax * self.num_envs, *a.shape[2:]) # (tmax * num_envs, action_space_dim)
+        state_values = state_values.view(self.tmax * self.num_envs) # (tmax * num_envs,)
+        returns = (advantages + self.critic(s).squeeze(-1)).detach() # (tmax * num_envs,)
 
         if self.cont:
             mu, sigma = self.actor(s) # (tmax, num_envs, action_space_dim)
@@ -189,10 +196,6 @@ class A2CAgent(Agent):
             logits = self.actor(s)
             log_probs = F.log_softmax(logits, dim=-1) # (tmax, num_envs, num_action_choices,)
             chosen_log_probs = log_probs.gather(-1, a.unsqueeze(-1)).squeeze(-1) # (tmax, num_envs)
-
-        state_values = self.critic(s).squeeze(-1) # (tmax, num_envs)
-
-        advantages = (returns - state_values).detach() # (tmax, num_envs)
 
         if self.cont:
             entropy_bonus = dist.entropy().mean()

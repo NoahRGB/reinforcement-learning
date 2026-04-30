@@ -158,3 +158,8 @@ class ReinforceAgent(Agent):
 
     def get_supported_action_spaces(self):
         return [DiscreteSpace]
+
+    def get_dump(self):
+        return f"""
+
+        """
