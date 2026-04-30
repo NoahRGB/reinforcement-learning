@@ -21,7 +21,7 @@ NUM_ENVS = 8
 # env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
 # env = AtariEnvironment("ALE/Krull-v5", NUM_ENVS, render_mode="human")
 # env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=True)
-env = GymEnvironment("InvertedDoublePendulum-v5", NUM_ENVS, render_mode=None)
+env = GymEnvironment("Walker2d-v5", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None, continuous=True)
 # env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Pendulum-v1", NUM_ENVS, render_mode=None)
@@ -42,15 +42,10 @@ env = GymEnvironment("InvertedDoublePendulum-v5", NUM_ENVS, render_mode=None)
 #                          clip_grad_norm=None, update_freq=4,
 #                          load_nn_path="results/temps/models/model.pt", save_nn_path=None)
 
-agent = PPOTest(device, writer, actor_lr=0.0003, critic_lr=0.0003, gamma=0.99, lam=0.95,
+agent = PPOAgent(device, writer, actor_lr=0.0003, critic_lr=0.0003, gamma=0.99, lam=0.95,
                conv=False, cont=True, tmax=256, epsilon=0.2, epochs=10, minibatch_size=64, 
                decay_steps=None, decay_rate=None, entropy_weight=0.0, clip_grad_norm=None,
-               save_path="results/temps/models/ppo_inverted_double_pendulum.pt", load_path=None,)
-
-# agent = PPOAgent(device, writer, actor_lr=0.0001, critic_lr=0.001, gamma=0.99, 
-#                conv=False, cont=True, tmax=16, epsilon=0.2, epochs=4, decay_steps=None, decay_rate=None,
-#                entropy_weight=0.01, clip_grad_norm=None,
-#                save_path=None, load_path=None,)
+               save_path=None, load_path=None,)
 
 # agent = A2CAgent(device, writer, actor_lr=0.001, critic_lr=0.001, gamma=0.99, lam=0.96,
 #                conv=False, cont=True, tmax=32, decay_steps=None, decay_rate=None,

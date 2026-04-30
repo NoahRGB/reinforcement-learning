@@ -28,11 +28,11 @@ class Actor(nn.Module):
                 nn.ReLU(),
             )
         else:
-            self.fc_input_dim = 64
+            self.fc_input_dim = 256
             self.main_body = nn.Sequential(
-                nn.Linear(state_space_dim[0], 128),
+                nn.Linear(state_space_dim[0], 256),
                 nn.ReLU(),
-                nn.Linear(128, 64),
+                nn.Linear(256, 256),
                 nn.ReLU(),
             )
 
@@ -91,16 +91,18 @@ class Critic(nn.Module):
         return self.fc_nn(input)
 
 class PPOAgent(Agent):
-    def __init__(self, device, writer, actor_lr, critic_lr, gamma, conv, cont,
-                 epsilon, epochs, tmax, entropy_weight, decay_steps=None, decay_rate=0.99, 
+    def __init__(self, device, writer, actor_lr, critic_lr, gamma, lam, conv, cont,
+                 epsilon, epochs, minibatch_size, tmax, entropy_weight, decay_steps=None, decay_rate=0.99, 
                  clip_grad_norm=None, save_path=None, load_path=None):
         self.device = device
         self.writer = writer
         self.actor_lr = actor_lr
         self.critic_lr = critic_lr
         self.gamma = gamma
+        self.lam = lam
         self.epsilon = epsilon
         self.epochs = epochs
+        self.minibatch_size = minibatch_size
         self.tmax = tmax
         self.conv = conv
         self.cont = cont
@@ -143,6 +145,8 @@ class PPOAgent(Agent):
         self.num_action_choices = action_space.num
 
         self.time_step = 0
+        self.update_count = 0
+        self.reward_record = -np.inf
         
         self.reset_transitions()
         
@@ -162,47 +166,42 @@ class PPOAgent(Agent):
             self.critic.load_state_dict(checkpoint["critic_nn"])
             self.critic_optimiser.load_state_dict(checkpoint["critic_optimiser"])
 
-    def make_ppo_update(self):
-        
-        # unpack T timesteps
+    def calculate_advantages(self):
         s = torch.tensor(np.array(self.transitions["s"]), dtype=torch.float32).to(self.device) # (tmax, num_envs, state_space_dim)
-        a = torch.tensor(np.array(self.transitions["a"]), dtype=torch.float32 if self.cont else torch.int64).to(self.device) # (tmax, num_envs)
         r = torch.tensor(np.array(self.transitions["r"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
         sprime = torch.tensor(np.array(self.transitions["sprime"]), dtype=torch.float32).to(self.device) # (tmax, num_envs, state_space_dim)
         done = torch.tensor(np.array(self.transitions["done"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
-        old_log_probs = torch.as_tensor(np.array(self.transitions["log_probs"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
         masks = 1 - done # (tmax, num_envs)
 
-        R = self.critic(sprime[-1]).squeeze(-1) * masks[-1]
-        returns = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
-        for t in reversed(range(len(r))):
-            R = r[t] + self.gamma * R * masks[t]
-            returns[t] = R
+        # state_values = self.critic(s).squeeze(-1) # (tmax, num_envs)
+        # next_state_values = self.critic(sprime).squeeze(-1) # (tmax, num_envs)
 
-        old_log_probs = old_log_probs.view(self.tmax * self.num_envs) # (tmax * num_envs,)
-        returns = returns.view(self.tmax * self.num_envs) # (tmax * num_envs,)
-        s = s.view(self.tmax * self.num_envs, *s.shape[2:]) # (tmax * num_envs, state_space_dim)
-        a = a.view(self.tmax * self.num_envs, *a.shape[2:]) # (tmax * num_envs, action_space_dim)
+        gae = 0.0
+        advantages = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
+        for t in reversed(range(len(r))):
+            delta = r[t] + self.gamma * self.critic(sprime[t]).squeeze(-1) * masks[t] - self.critic(s[t]).squeeze(-1)
+            gae = delta + self.gamma * self.lam * masks[t] * gae
+            advantages[t] = gae
+
+        advantages = advantages.view(self.tmax * self.num_envs).detach() # (tmax * num_envs,)
+        # state_values = state_values.view(self.tmax * self.num_envs) # (tmax * num_envs,)
+        return advantages
+
+    def make_ppo_update(self, s, a, old_log_probs, advantages, returns):
 
         if self.cont:
-            mu, sigma = self.actor(s) # (tmax, num_envs, action_space_dim)
+            mu, sigma = self.actor(s) # (tmax*num_envs, action_space_dim)
             dist = torch.distributions.Normal(mu, sigma)
-            chosen_log_probs = dist.log_prob(a).sum(-1) # (tmax, num_envs)
+            chosen_log_probs = dist.log_prob(a).sum(-1) # (tmax*num_envs)
         else:
-            logits = self.actor(s) # (tmax, num_envs, num_action_choices)
-            log_probs = F.log_softmax(logits, dim=-1) # (tmax, num_envs, num_action_choices)
-            chosen_log_probs = log_probs.gather(-1, a.unsqueeze(-1)).squeeze(-1) # (tmax, num_envs)
+            logits = self.actor(s) # (tmax*num_envs, num_action_choices)
+            log_probs = F.log_softmax(logits, dim=-1) # (tmax*num_envs, num_action_choices)
+            chosen_log_probs = log_probs.gather(-1, a.unsqueeze(-1)).squeeze(-1) # (tmax*num_envs)
 
-        state_values = self.critic(s).squeeze(-1) # (tmax, num_envs)
-
-        advantages = returns - state_values # (tmax, num_envs)
-        # advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-        advantages = advantages.detach()
-
-        ratios = torch.exp(chosen_log_probs - old_log_probs) # (tmax, num_envs)
-        clipped_ratios = torch.clamp(ratios, 1 - self.epsilon, 1 + self.epsilon) # (tmax, num_envs)
-        surrogate_obj = ratios * advantages # (tmax, num_envs)
-        clipped_surrogate_obj = clipped_ratios * advantages # (tmax, num_envs)
+        ratios = torch.exp(chosen_log_probs - old_log_probs) # (tmax*num_envs)
+        clipped_ratios = torch.clamp(ratios, 1 - self.epsilon, 1 + self.epsilon) # (tmax*num_envs)
+        surrogate_obj = ratios * advantages # (tmax*num_envs)
+        clipped_surrogate_obj = clipped_ratios * advantages # (tmax*num_envs)
 
         if self.cont:
             entropy_bonus = dist.entropy().mean()
@@ -210,6 +209,8 @@ class PPOAgent(Agent):
             entropy_bonus = torch.distributions.Categorical(logits=logits).entropy().mean()
 
         policy_loss = -torch.min(surrogate_obj, clipped_surrogate_obj).mean() - (self.entropy_weight * entropy_bonus)
+
+        state_values = self.critic(s).squeeze(-1) # (tmax*num_envs)
         state_value_loss = F.mse_loss(state_values, returns)
 
         self.actor_optimiser.zero_grad()
@@ -230,11 +231,12 @@ class PPOAgent(Agent):
                 self.entropy_weight *= self.decay_rate
 
         if self.writer is not None:
-            self.writer.add_scalar("policy_loss", policy_loss.item(), len(self.reward_history) + self.time_step)
-            self.writer.add_scalar("state_value_loss", state_value_loss.item(), len(self.reward_history) + self.time_step)
-            self.writer.add_scalar("entropy", entropy_bonus.item(), len(self.reward_history) + self.time_step)
-            if self.cont:self.writer.add_scalar("sigma", sigma.mean().item(), len(self.reward_history) + self.time_step)
-        
+            self.writer.add_scalar("policy_loss", policy_loss.item(), self.update_count)
+            self.writer.add_scalar("state_value_loss", state_value_loss.item(), self.update_count)
+            self.writer.add_scalar("entropy", entropy_bonus.item(), self.update_count)
+            if self.cont:self.writer.add_scalar("sigma", sigma.mean().item(), self.update_count)
+        self.update_count += 1
+
     def update(self, s, sprime, a, r, done):
 
         # s is (num_envs, state_space_dim)
@@ -265,28 +267,59 @@ class PPOAgent(Agent):
         self.current_episode_rewards += r
 
         if self.time_step % self.tmax == 0:
+            # for epoch in range(self.epochs):
+            #     self.make_ppo_update(0)
+            # self.reset_transitions()
+
+            advantages = self.calculate_advantages()
+
+            s = torch.tensor(np.array(self.transitions["s"]), dtype=torch.float32).to(self.device) # (tmax, num_envs, state_space_dim)
+            a = torch.tensor(np.array(self.transitions["a"]), dtype=torch.float32 if self.cont else torch.int64).to(self.device) # (tmax, num_envs)
+            old_log_probs = torch.as_tensor(np.array(self.transitions["log_probs"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
+            old_log_probs = old_log_probs.view(self.tmax * self.num_envs) # (tmax * num_envs,)
+            s = s.view(self.tmax * self.num_envs, *s.shape[2:]) # (tmax * num_envs, state_space_dim)
+            a = a.view(self.tmax * self.num_envs, *a.shape[2:]) # (tmax * num_envs, action_space_dim)
+
+            state_values = self.critic(s).squeeze(-1) # (tmax * num_envs,)
+            returns = (advantages + state_values).detach() # (tmax * num_envs,)
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+
+            total_batch_size = self.tmax * self.num_envs
+            transition_indices = np.arange(total_batch_size, dtype=np.int32)
+
             for epoch in range(self.epochs):
-                self.make_ppo_update()
+                np.random.shuffle(transition_indices)
+                for minibatch_start_index in range(0, total_batch_size, self.minibatch_size):
+                    minibatch_indices = transition_indices[minibatch_start_index : minibatch_start_index + self.minibatch_size]
+                    self.make_ppo_update(
+                        s[minibatch_indices], 
+                        a[minibatch_indices], 
+                        old_log_probs[minibatch_indices],
+                        advantages[minibatch_indices],
+                        returns[minibatch_indices],
+                    )
+
             self.reset_transitions()
 
         for env_idx in range(self.num_envs):
             if done[env_idx]:
                 # if terminal, save/log/reset rewards, save model
                 self.reward_history.append(self.current_episode_rewards[env_idx])
-
+                mean_recent_reward = np.mean(self.reward_history[-100:])
                 if self.writer is not None:
-                    self.writer.add_scalar("mean_episode_reward", np.mean(self.reward_history[-100:]), len(self.reward_history))
+                    self.writer.add_scalar("mean_episode_reward", mean_recent_reward, len(self.reward_history))
                     self.writer.add_scalar("episode_reward", self.current_episode_rewards[env_idx], len(self.reward_history))
                 self.current_episode_rewards[env_idx] = 0.0
 
-                if self.save_path is not None:
+                if self.save_path is not None and mean_recent_reward > self.reward_record:
                     torch.save({
                         "actor_nn": self.actor.state_dict(),
                         "actor_optimiser": self.actor_optimiser.state_dict(),
                         "critic_nn": self.critic.state_dict(),
                         "critic_optimiser": self.critic_optimiser.state_dict(),
                     }, self.save_path)
-        
+                    self.reward_record = mean_recent_reward
+                    
     def finish_episode(self, episode_num):
         pass
 

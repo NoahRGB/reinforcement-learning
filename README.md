@@ -39,7 +39,7 @@ From scratch implementations of various reinforcement learning algorithms using 
 | Hopper                 |     |           |     |
 | Humanoid               |     |           |     |
 | HumanoidStandup        |     |           |     |
-| InvertedDoublePendulum |     |           |     |
+| InvertedDoublePendulum |     |           |  ✓  |
 | InvertedPendulum       |  ✓  |           |     |
 | Pusher                 |     |           |     |
 | Reacher                |     |           |     |
