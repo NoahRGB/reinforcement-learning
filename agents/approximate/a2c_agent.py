@@ -1,3 +1,5 @@
+import pickle
+
 from agents.agent import Agent
 from environments.spaces import DiscreteSpace, ContinuousSpace, EnvType
 
@@ -91,11 +93,12 @@ class Critic(nn.Module):
         return self.fc_nn(input)
 
 class A2CAgent(Agent):
-    def __init__(self, device, writer, actor_lr, critic_lr, gamma, lam, conv, cont,
+    def __init__(self, device, logger, actor_lr, critic_lr, gamma, lam, conv, cont,
                  tmax, entropy_weight, decay_steps=None, decay_rate=0.99, 
-                 clip_grad_norm=None, save_path=None, load_path=None):
+                 clip_grad_norm=None, save_nn=False, load_path=None, job_title="a2c"):
         self.device = device
-        self.writer = writer
+        self.logger = logger
+        self.job_title = job_title
         self.actor_lr = actor_lr
         self.critic_lr = critic_lr
         self.gamma = gamma
@@ -107,7 +110,7 @@ class A2CAgent(Agent):
         self.decay_rate = decay_rate
         self.entropy_weight = entropy_weight
         self.clip_grad_norm = clip_grad_norm
-        self.save_path = save_path
+        self.save_nn = save_nn
         self.load_path = load_path
 
     def process_state(self, s):
@@ -225,11 +228,10 @@ class A2CAgent(Agent):
             if self.time_step % self.decay_steps == 0:
                 self.entropy_weight *= self.decay_rate
 
-        if self.writer is not None:
-            self.writer.add_scalar("policy_loss", policy_loss.item(), len(self.reward_history) + self.time_step)
-            self.writer.add_scalar("state_value_loss", state_value_loss.item(), len(self.reward_history) + self.time_step)
-            self.writer.add_scalar("entropy", entropy_bonus.item(), len(self.reward_history) + self.time_step)
-            if self.cont:self.writer.add_scalar("sigma", sigma.mean().item(), len(self.reward_history) + self.time_step)
+        self.logger.log("policy_loss", policy_loss.item(), step=len(self.reward_history) + self.time_step)
+        self.logger.log("state_value_loss", state_value_loss.item(), step=len(self.reward_history) + self.time_step)
+        self.logger.log("entropy", entropy_bonus.item(), step=len(self.reward_history) + self.time_step)
+        if self.cont:self.logger.log("sigma", sigma.mean().item(), step=len(self.reward_history) + self.time_step)
         
     def update(self, s, sprime, a, r, done):
 
@@ -251,25 +253,26 @@ class A2CAgent(Agent):
         if self.time_step % self.tmax == 0:
             self.make_a2c_update()
             self.reset_transitions()
+            self.logger.save_logs()
 
         for env_idx in range(self.num_envs):
             if done[env_idx]:
                 # if terminal, save/log/reset rewards, save model
                 self.reward_history.append(self.current_episode_rewards[env_idx])
                 mean_recent_reward = np.mean(self.reward_history[-100:])
-                if self.writer is not None:
-                    self.writer.add_scalar("mean_episode_reward", mean_recent_reward, len(self.reward_history))
-                    self.writer.add_scalar("episode_reward", self.current_episode_rewards[env_idx], len(self.reward_history))
+                self.logger.log("mean_episode_reward", mean_recent_reward, step=len(self.reward_history))
+                self.logger.log("episode_reward", self.current_episode_rewards[env_idx], step=len(self.reward_history))
                 self.current_episode_rewards[env_idx] = 0.0
 
-                if self.save_path is not None and mean_recent_reward > self.reward_record:
-                    torch.save({
+                if self.save_nn and mean_recent_reward > self.reward_record:
+                    self.reward_record = mean_recent_reward
+                    self.logger.save_torch({
                         "actor_nn": self.actor.state_dict(),
                         "actor_optimiser": self.actor_optimiser.state_dict(),
                         "critic_nn": self.critic.state_dict(),
                         "critic_optimiser": self.critic_optimiser.state_dict(),
-                    }, self.save_path)
-                    self.reward_record = mean_recent_reward
+                    }, f"{self.job_title}_model")
+                self.logger.save_logs()
 
     def finish_episode(self, episode_num):
         pass

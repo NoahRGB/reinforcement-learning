@@ -10,18 +10,18 @@ from environments import *
 from agents.tabular import *
 from agents.approximate import *
 
-device = detect_torch_device()
-writer = create_tensorboard_writer(comment=f"")
-print(f"using device {device}")
+experiment_title = "sarsa_cartpole"
+device = detect_torch_device(quiet=False)
+logger = Logger(use_normal_logs=True, use_tensorboard_logs=True, parent_dir=f"results/temps/{experiment_title}")
 
-NUM_ENVS = 8
+NUM_ENVS = 1
 
 # =============== environments =================
 
 # env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
 # env = AtariEnvironment("ALE/Boxing-v5", NUM_ENVS, render_mode="human")
 # env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=True)
-env = GymEnvironment("Walker2d-v5", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("Walker2d-v5", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None, continuous=True)
 # env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Pendulum-v1", NUM_ENVS, render_mode=None)
@@ -35,32 +35,30 @@ env = GymEnvironment("Walker2d-v5", NUM_ENVS, render_mode=None)
 
 # =============== approximate agents =================
 
-# agent = DQNAgent(device, writer, lr=0.001, conv=True,
-#                          replay_memory_size=1000, replay_warmup_length=1000,
-#                          C=1000, minibatch_size=32, gamma=0.99,
-#                          epsilon_start=0.05, epsilon_end=0.05, epsilon_decay_steps=1000,
-#                          clip_grad_norm=None, update_freq=4,
-#                          load_nn_path="results/temps/models/model.pt", save_nn_path=None)
+# agent = DQNAgent(device, logger, job_title=experiment_title, lr=0.001, conv=False,
+#                  replay_memory_size=1000, replay_warmup_length=0,
+#                  C=1000, minibatch_size=32, gamma=0.99,
+#                  epsilon_start=1.0, epsilon_end=0.00, epsilon_decay_steps=10000,
+#                  clip_grad_norm=0.5, update_freq=4,
+#                  save_nn=True, load_nn_path=None)
 
-agent = PPOAgent(device, writer, actor_lr=0.0003, critic_lr=0.0003, gamma=0.99, lam=0.95,
-               conv=False, cont=True, tmax=256, epsilon=0.2, epochs=10, minibatch_size=64, 
-               decay_steps=None, decay_rate=None, entropy_weight=0.0, clip_grad_norm=None,
-               save_path="results/temps/models/ppo_walker2d.pt", load_path=None,)
+# agent = PPOAgent(device, logger, job_title=experiment_title, actor_lr=0.0005, critic_lr=0.0005, gamma=0.99, lam=0.95,
+#                conv=False, cont=False, tmax=256, epsilon=0.2, epochs=10, minibatch_size=64, 
+#                decay_steps=None, decay_rate=None, entropy_weight=0.01, clip_grad_norm=None,
+#                save_nn=True, load_path=None,)
 
-# agent = A2CAgent(device, writer, actor_lr=0.00001, critic_lr=0.00001, gamma=0.99, lam=0.96,
-#                conv=True, cont=False, tmax=64, decay_steps=None, decay_rate=None,
+# agent = A2CAgent(device, logger, job_title=experiment_title, actor_lr=0.00001, critic_lr=0.00001, gamma=0.99, lam=0.96,
+#                conv=False, cont=False, tmax=64, decay_steps=None, decay_rate=None,
 #                entropy_weight=0.0, clip_grad_norm=0.1,
-#                save_path=None, load_path=None)
+#                save_nn=True, load_path=None)
 
-# agent = TDLambdaAgent(lambd=0.8, alpha=0.0001, epsilon=1.0, gamma=0.99, decay_rate=0.9) # not working
+# agent = ReinforceAgent(device, logger, job_title=experiment_title, use_baseline=True, 
+#                                policy_lr=0.001, state_value_lr=0.01, gamma=0.99,
+#                                save_nn=True, load_path=None)
 
-# agent = ReinforceAgent(device, writer, use_baseline=True, 
-#                                policy_lr=0.0003, state_value_lr=0.01, gamma=0.99,
-#                                save_path=None, load_path=None)
-
-# agent = SemigradientSarsaAgent(device, writer, lr=0.001, 
-#                                epsilon=0.01, gamma=0.99, decay_rate=0.0,
-#                                load_path=None, save_path=None)
+# agent = SemigradientSarsaAgent(device, logger, job_title=experiment_title, lr=0.001, 
+#                                epsilon=0.99, gamma=0.99, decay_rate=0.99,
+#                                save_nn=True, load_path=None)
 
 
 

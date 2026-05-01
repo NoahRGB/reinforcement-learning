@@ -8,9 +8,10 @@ try:
 except ImportError:
     tensorboard = False
 
-def detect_torch_device():
-    # return torch.device("cpu")
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def detect_torch_device(quiet=True):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if not quiet: print(f"using device {device}")
+    return device
 
 def create_tensorboard_writer(comment="", flush_secs=5):
     if tensorboard:

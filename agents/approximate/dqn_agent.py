@@ -46,14 +46,15 @@ class DQN(nn.Module):
             return self.regular_dqn(input)
 
 class DQNAgent(Agent):
-    def __init__(self, device, writer, lr, conv, replay_memory_size, replay_warmup_length,
+    def __init__(self, device, logger, lr, conv, replay_memory_size, replay_warmup_length,
                  C, minibatch_size, gamma, 
                  epsilon_start, epsilon_end, epsilon_decay_steps, 
                  clip_grad_norm, update_freq, 
-                 load_nn_path=None, save_nn_path=None):
+                 load_nn_path=None, save_nn=False, job_title="dqn"):
         
         self.device = device
-        self.writer = writer
+        self.logger = logger
+        self.job_title = job_title
         self.lr = lr
         self.conv = conv
         self.replay_memory_size = replay_memory_size
@@ -71,7 +72,7 @@ class DQNAgent(Agent):
         self.epsilon_decay_steps = epsilon_decay_steps 
 
         self.load_nn_path = load_nn_path
-        self.save_nn_path = save_nn_path
+        self.save_nn = save_nn
 
     def process_state(self, s):
         return torch.tensor(s).to(self.device)
@@ -109,19 +110,19 @@ class DQNAgent(Agent):
 
     def episode_terminated(self, env_idx):
         self.reward_history.append(self.current_episode_rewards[env_idx])
-        if self.writer is not None:
-            self.writer.add_scalar("mean_episode_reward", np.mean(self.reward_history[-100:]), len(self.reward_history))
-            self.writer.add_scalar("episode_reward", self.current_episode_rewards[env_idx], len(self.reward_history))
+        self.logger.log("mean_episode_reward", np.mean(self.reward_history[-100:]), len(self.reward_history))
+        self.logger.log("episode_reward", self.current_episode_rewards[env_idx], len(self.reward_history))
         self.current_episode_rewards[env_idx] = 0.0
 
-        if self.save_nn_path is not None:
-            torch.save({
+        if self.save_nn:
+            self.logger.save_torch({
                 "dqn": self.dqn.state_dict(),
                 "target_dqn": self.target_dqn.state_dict(),
                 "optimiser": self.optimiser.state_dict(),
                 "time_step": self.time_step,
                 "epsilon": self.epsilon,
-            }, self.save_nn_path)
+            }, f"{self.job_title}_model")
+        self.logger.save_logs()
 
     def finish_episode(self, episode_num):
         # self.episode_terminated(0)
@@ -173,9 +174,9 @@ class DQNAgent(Agent):
         self.optimiser.step()
 
         # log losses/qvals
-        if self.writer is not None:
-            self.writer.add_scalar("loss", loss.item(), len(self.reward_history) + self.time_step)
-            self.writer.add_scalar("avg_qval", chosen_q_vals.mean().item(), len(self.reward_history) + self.time_step)
+        self.logger.log("loss", loss.item(), len(self.reward_history) + self.time_step)
+        self.logger.log("avg_qval", chosen_q_vals.mean().item(), len(self.reward_history) + self.time_step)
+        self.logger.save_logs()
 
     def update(self, s, sprime, a, r, done):
         # s = (num_envs, state_space_dim,)
@@ -203,6 +204,7 @@ class DQNAgent(Agent):
             self.epsilon = (self.epsilon_end + (self.epsilon_start - self.epsilon_end) *
                             (1 - ((self.time_step - self.replay_warmup_length) / self.epsilon_decay_steps)))
             self.epsilon = max(self.epsilon, self.epsilon_end)
+            self.logger.log("epsilon", self.epsilon, self.time_step)
 
             # every update_freq time steps perform an update from replay memory
             if self.time_step % self.update_freq == 0:
@@ -223,6 +225,7 @@ class DQNAgent(Agent):
     
     def get_dump(self):
         return f"""
+        title: {self.job_title}
         epsilon: {self.epsilon}
         time_step: {self.time_step}
         replay_memory_size: {len(self.replay)}/{self.replay_memory_size}
@@ -238,5 +241,5 @@ class DQNAgent(Agent):
         clip_grad_norm: {self.clip_grad_norm}
         update_freq: {self.update_freq}
         load_nn_path: {self.load_nn_path}
-        save_nn_path: {self.save_nn_path}
+        save_nn: {self.save_nn}
         """

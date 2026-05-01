@@ -23,17 +23,18 @@ class NN(nn.Module):
         return output
 
 class SemigradientSarsaAgent(Agent):
-    def __init__(self, device, writer, lr, epsilon, gamma, decay_rate=1.0, 
-                 load_path=None, save_path=None):
+    def __init__(self, device, logger, lr, epsilon, gamma, decay_rate=1.0, 
+                 save_nn=False, load_path=None, job_title="semigradient_sarsa"):
         self.device = device
-        self.writer = writer
+        self.logger = logger
         self.lr = lr
         self.epsilon = epsilon
         self.gamma = gamma
         self.decay_rate = decay_rate
         self.load_path = load_path
-        self.save_path = save_path
-
+        self.save_nn = save_nn
+        self.job_title = job_title
+        
     def prepare_state(self, s):
         return torch.as_tensor(s, dtype=torch.float32).to(self.device)
 
@@ -59,10 +60,12 @@ class SemigradientSarsaAgent(Agent):
     def finish_episode(self, episode_num):
         self.reward_history.append(self.current_episode_rewards)
         self.action = self.generate_action(self.start_state)
-        if self.writer is not None:
-            self.writer.add_scalar("episode_reward", self.current_episode_rewards, episode_num)
-        self.current_episode_rewards = 0
         self.epsilon *= self.decay_rate
+
+        self.logger.log("episode_reward", self.current_episode_rewards, episode_num)
+        self.logger.log("mean_episode_reward", np.mean(self.reward_history[-100:]), episode_num)
+        self.logger.save_logs()
+        self.current_episode_rewards = 0
 
     def get_all_actions(self):
         return [i for i in range(self.action_space_size)]
@@ -104,11 +107,11 @@ class SemigradientSarsaAgent(Agent):
 
         self.action = aprime
 
-        if done[0] and self.save_path is not None:
-            torch.save({
+        if done[0] and self.save_nn:
+            self.logger.save_torch({
                 "nn": self.nn.state_dict(),
                 "optimiser": self.optimiser.state_dict(),
-            }, self.save_path)
+            }, f"{self.job_title}_model")
 
         self.time_step += 1
 
@@ -121,3 +124,7 @@ class SemigradientSarsaAgent(Agent):
     def get_supported_action_spaces(self):
         return [DiscreteSpace, ContinuousSpace]
 
+    def get_dump(self):
+        return f"""
+
+        """

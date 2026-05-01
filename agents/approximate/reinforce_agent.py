@@ -37,17 +37,18 @@ class PolicyNN(nn.Module):
         return output
 
 class ReinforceAgent(Agent):
-    def __init__(self, device, writer, use_baseline, 
+    def __init__(self, device, logger, use_baseline, 
                  policy_lr, state_value_lr, gamma,
-                 save_path=None, load_path=None):
+                 save_nn=False, load_path=None, job_title="reinforce"):
         self.device = device
-        self.writer = writer
+        self.logger = logger
         self.use_baseline = use_baseline
         self.policy_lr = policy_lr
         self.state_value_lr = state_value_lr
         self.gamma = gamma
-        self.save_path = save_path
+        self.save_nn = save_nn
         self.load_path = load_path
+        self.job_title = job_title
 
     def process_state(self, s):
         return torch.tensor(s).to(self.device)
@@ -96,18 +97,18 @@ class ReinforceAgent(Agent):
                 self.reinforce_update(env_idx)
                 self.transitions[env_idx] = []
                 self.reward_history.append(self.current_episode_rewards[env_idx])
-                if self.writer is not None:
-                    self.writer.add_scalar("mean_episode_reward", np.mean(self.reward_history[-100:]), len(self.reward_history))
-                    self.writer.add_scalar("episode_reward", self.current_episode_rewards[env_idx], len(self.reward_history))
+                self.logger.log("mean_episode_reward", np.mean(self.reward_history[-100:]), len(self.reward_history))
+                self.logger.log("episode_reward", self.current_episode_rewards[env_idx], len(self.reward_history))
                 self.current_episode_rewards[env_idx] = 0
             
-                if self.save_path is not None:
-                    torch.save({
+                if self.save_nn:
+                    self.logger.save_torch({
                         "policy_nn": self.policy_nn.state_dict(),
                         "state_value_nn": self.state_value_nn.state_dict(),
                         "policy_optimiser": self.policy_optimiser.state_dict(),
                         "state_value_optimiser": self.state_value_optimiser.state_dict(),
-                    }, self.save_path)
+                    }, f"{self.job_title}_model")
+                self.logger.save_logs()
 
         self.time_step += 1
 
@@ -134,7 +135,7 @@ class ReinforceAgent(Agent):
 
         # backprop policy NN
         self.policy_optimiser.zero_grad()
-        self.writer.add_scalar("policy_loss", policy_loss_total.item(), len(self.reward_history))
+        self.logger.log("policy_loss", policy_loss_total.item(), len(self.reward_history))
         policy_loss_total.backward(retain_graph=True)
         self.policy_optimiser.step()
 
@@ -143,7 +144,7 @@ class ReinforceAgent(Agent):
             self.state_value_optimiser.zero_grad()
             targets = torch.tensor([G], dtype=torch.float32).to(self.device)
             state_value_loss = F.mse_loss(state_value_predictions, targets)
-            self.writer.add_scalar("sv_loss", state_value_loss.item(), len(self.reward_history))
+            self.logger.log("sv_loss", state_value_loss.item(), len(self.reward_history))
             state_value_loss.backward()
             self.state_value_optimiser.step()
 
