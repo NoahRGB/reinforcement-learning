@@ -14,6 +14,7 @@ From scratch implementations of various reinforcement learning algorithms using 
 - [x] Tabular Q-learning
 - [x] Tabular Monte Carlo
 
+<br/>
 
 ## [Classic control](https://gymnasium.farama.org/environments/classic_control/) environments
 | Environment       | DQN | A2C | REINFORCE | Semigradient SARSA | PPO |
@@ -36,7 +37,7 @@ From scratch implementations of various reinforcement learning algorithms using 
 | ---------------------- | :-: | :-------: | :-: |
 | Ant                    |     |           |     |
 | HalfCheetah            |     |           |     |
-| Hopper                 |     |           |     |
+| Hopper                 |     |           |  ✓  |
 | Humanoid               |     |           |     |
 | HumanoidStandup        |     |           |     |
 | InvertedDoublePendulum |     |           |  ✓  |
@@ -50,7 +51,7 @@ From scratch implementations of various reinforcement learning algorithms using 
 ## [Atari](https://ale.farama.org/environments/) environments
 | Environment    | DQN | A2C | PPO |
 | -------------- | :-: | :-: | :-: |
-| Pong           |  ✓  |     |     |
+| Pong           |  ✓  |  ✓  |     |
 | Space Invaders |  ✓  |     |     |
 | Boxing         |  ✓  |  ✓  |     |
 
@@ -61,6 +62,8 @@ From scratch implementations of various reinforcement learning algorithms using 
 ![DQN pong agent](./results/finished/dqn/dqn_pong/dqn_pong_master.gif)
 
 ![DQN car racing agent](./results/finished/dqn/dqn_carracing/dqn_carracing.gif)
+
+![PPO hopper](./results/finished/ppo/ppo_hopper/ppo_hopper.gif)
 
 ![A2C bipedal walker](./results/finished/a2c/a2c_bipedalwalker/a2c_bipedalwalker.gif)
 

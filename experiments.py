@@ -10,18 +10,18 @@ from environments import *
 from agents.tabular import *
 from agents.approximate import *
 
-experiment_title = "sarsa_cartpole"
+experiment_title = "ppo_hopper"
 device = detect_torch_device(quiet=False)
-logger = Logger(use_normal_logs=True, use_tensorboard_logs=True, parent_dir=f"results/temps/{experiment_title}")
+logger = Logger(use_normal_logs=False, use_tensorboard_logs=True, parent_dir=f"results/temps/{experiment_title}")
 
-NUM_ENVS = 1
+NUM_ENVS = 8
 
 # =============== environments =================
 
 # env = AtariEnvironment("ALE/Pong-v5", NUM_ENVS, render_mode=None)
 # env = AtariEnvironment("ALE/Boxing-v5", NUM_ENVS, render_mode="human")
 # env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=True)
-# env = GymEnvironment("Walker2d-v5", NUM_ENVS, render_mode=None)
+env = GymEnvironment("Hopper-v5", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None, continuous=True)
 # env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Pendulum-v1", NUM_ENVS, render_mode=None)
@@ -42,10 +42,10 @@ NUM_ENVS = 1
 #                  clip_grad_norm=0.5, update_freq=4,
 #                  save_nn=True, load_nn_path=None)
 
-# agent = PPOAgent(device, logger, job_title=experiment_title, actor_lr=0.0005, critic_lr=0.0005, gamma=0.99, lam=0.95,
-#                conv=False, cont=False, tmax=256, epsilon=0.2, epochs=10, minibatch_size=64, 
-#                decay_steps=None, decay_rate=None, entropy_weight=0.01, clip_grad_norm=None,
-#                save_nn=True, load_path=None,)
+agent = PPOAgent(device, logger, job_title=experiment_title, actor_lr=0.0003, critic_lr=0.0005, gamma=0.99, lam=0.95,
+               conv=False, cont=True, tmax=256, epsilon=0.2, epochs=4, minibatch_size=64, 
+               decay_steps=None, decay_rate=None, entropy_weight=0.001, clip_grad_norm=0.5,
+               save_nn=True, load_path=None,)
 
 # agent = A2CAgent(device, logger, job_title=experiment_title, actor_lr=0.00001, critic_lr=0.00001, gamma=0.99, lam=0.96,
 #                conv=False, cont=False, tmax=64, decay_steps=None, decay_rate=None,
@@ -91,5 +91,3 @@ print(f"Finished in {round(finished - start, 2)} seconds")
 
 # plt.plot(learning_rewards)
 # plt.show()
-
-if writer is not None: writer.close()

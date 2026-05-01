@@ -17,16 +17,14 @@ class Actor(nn.Module):
         self.cont = cont
 
         if self.conv:
-            self.fc_input_dim = 512
+            self.fc_input_dim = 256
             self.main_body = nn.Sequential(
-                nn.Conv2d(state_space_dim[0], 32, kernel_size=(8, 8), stride=4),
+                nn.Conv2d(state_space_dim[0], 16, kernel_size=(8, 8), stride=4),
                 nn.ReLU(),
-                nn.Conv2d(32, 64, kernel_size=(4, 4), stride=2),
+                nn.Conv2d(16, 32, kernel_size=(4, 4), stride=2),
                 nn.ReLU(),
-                nn.Conv2d(64, 64, kernel_size=(3, 3), stride=1),
-                nn.ReLU(),
-                nn.Flatten(), # (3136,)
-                nn.Linear(3136, 512),
+                nn.Flatten(),
+                nn.Linear(2592, 256),
                 nn.ReLU(),
             )
         else:
@@ -67,16 +65,14 @@ class Critic(nn.Module):
 
         if self.conv:
             self.fc_nn = nn.Sequential(
-                nn.Conv2d(state_space_dim[0], 32, kernel_size=(8, 8), stride=4),
+                nn.Conv2d(state_space_dim[0], 16, kernel_size=(8, 8), stride=4),
                 nn.ReLU(),
-                nn.Conv2d(32, 64, kernel_size=(4, 4), stride=2),
+                nn.Conv2d(16, 32, kernel_size=(4, 4), stride=2),
                 nn.ReLU(),
-                nn.Conv2d(64, 64, kernel_size=(3, 3), stride=1),
+                nn.Flatten(),
+                nn.Linear(2592, 256),
                 nn.ReLU(),
-                nn.Flatten(), # (3136,)
-                nn.Linear(3136, 512),
-                nn.ReLU(),
-                nn.Linear(512, 1),
+                nn.Linear(256, 1),
             )
         else:
             self.fc_nn = nn.Sequential(
@@ -174,12 +170,13 @@ class PPOAgent(Agent):
         done = torch.tensor(np.array(self.transitions["done"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
         masks = 1 - done # (tmax, num_envs)
 
-        gae = 0.0
-        advantages = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
-        for t in reversed(range(len(r))):
-            delta = r[t] + self.gamma * self.critic(sprime[t]).squeeze(-1) * masks[t] - self.critic(s[t]).squeeze(-1)
-            gae = delta + self.gamma * self.lam * masks[t] * gae
-            advantages[t] = gae
+        with torch.no_grad():
+            gae = 0.0
+            advantages = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
+            for t in reversed(range(len(r))):
+                delta = r[t] + self.gamma * self.critic(sprime[t]).squeeze(-1) * masks[t] - self.critic(s[t]).squeeze(-1)
+                gae = delta + self.gamma * self.lam * masks[t] * gae
+                advantages[t] = gae
 
         advantages = advantages.view(self.tmax * self.num_envs).detach() # (tmax * num_envs,)
         return advantages
