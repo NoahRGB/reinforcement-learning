@@ -36,7 +36,7 @@ From scratch implementations of various reinforcement learning algorithms using 
 | Environment            | A2C | REINFORCE | PPO |
 | ---------------------- | :-: | :-------: | :-: |
 | Ant                    |     |           |     |
-| HalfCheetah            |     |           |     |
+| HalfCheetah            |     |           |  ✓  |
 | Hopper                 |     |           |  ✓  |
 | Humanoid               |     |           |     |
 | HumanoidStandup        |     |           |     |
@@ -44,8 +44,8 @@ From scratch implementations of various reinforcement learning algorithms using 
 | InvertedPendulum       |  ✓  |           |     |
 | Pusher                 |     |           |     |
 | Reacher                |     |           |     |
-| Swimmer                |     |           |     |
-| Walker2D               |     |           |     |
+| Swimmer                |     |           |  ✓  |
+| Walker2D               |     |           |  ✓  |
 
 
 ## [Atari](https://ale.farama.org/environments/) environments
