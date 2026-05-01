@@ -173,20 +173,22 @@ class A2CAgent(Agent):
         done = torch.tensor(np.array(self.transitions["done"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
         masks = 1 - done # (tmax, num_envs)
 
-        state_values = self.critic(s).squeeze(-1) # (tmax, num_envs)
-        next_state_values = self.critic(sprime).squeeze(-1) # (tmax, num_envs)
+        # state_values = self.critic(s).squeeze(-1) # (tmax, num_envs)
+        # next_state_values = self.critic(sprime).squeeze(-1) # (tmax, num_envs)
 
         gae = 0.0
         advantages = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
         for t in reversed(range(len(r))):
-            delta = r[t] + self.gamma * next_state_values[t] * masks[t] - state_values[t]
+            delta = r[t] + self.gamma * self.critic(sprime[t]).squeeze(-1) * masks[t] - self.critic(s[t]).squeeze(-1)
             gae = delta + self.gamma * self.lam * masks[t] * gae
             advantages[t] = gae
 
         advantages = advantages.view(self.tmax * self.num_envs).detach() # (tmax * num_envs,)
         s = s.view(self.tmax * self.num_envs, *s.shape[2:]) # (tmax * num_envs, state_space_dim)
         a = a.view(self.tmax * self.num_envs, *a.shape[2:]) # (tmax * num_envs, action_space_dim)
-        state_values = state_values.view(self.tmax * self.num_envs) # (tmax * num_envs,)
+        
+        # state_values = state_values.view(self.tmax * self.num_envs) # (tmax * num_envs,)
+        state_values = self.critic(s).squeeze(-1) # (tmax*num_envs)
         returns = (advantages + self.critic(s).squeeze(-1)).detach() # (tmax * num_envs,)
 
         if self.cont:

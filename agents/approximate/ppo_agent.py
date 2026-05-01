@@ -28,24 +28,22 @@ class Actor(nn.Module):
                 nn.ReLU(),
             )
         else:
-            self.fc_input_dim = 256
+            self.fc_input_dim = 64
             self.main_body = nn.Sequential(
-                nn.Linear(state_space_dim[0], 256),
-                nn.ReLU(),
-                nn.Linear(256, 256),
-                nn.ReLU(),
+                nn.Linear(state_space_dim[0], 64),
+                nn.Tanh(),
+                nn.Linear(64, 64),
+                nn.Tanh(),
             )
 
         if self.cont:
             self.mu_nn = nn.Sequential(
                 nn.Linear(self.fc_input_dim, *action_space_dim),
-                # nn.Tanh(),
+                nn.Tanh(),
             )
 
-            self.sigma_nn = nn.Sequential(
-                nn.Linear(self.fc_input_dim, *action_space_dim),
-                nn.Softplus()
-            )
+            self.log_std = nn.Parameter(torch.zeros(action_space_dim))
+
         else:
             self.logits_nn = nn.Sequential(
                 nn.Linear(self.fc_input_dim, action_space_dim),
@@ -55,7 +53,7 @@ class Actor(nn.Module):
         main_body_out = self.main_body(input)
         if self.cont:
             mu = self.mu_nn(main_body_out)
-            sigma = self.sigma_nn(main_body_out)
+            sigma = torch.exp(self.log_std)
             sigma = torch.clamp(sigma, min=1e-3)
             return mu, sigma
         return self.logits_nn(main_body_out)
@@ -80,10 +78,10 @@ class Critic(nn.Module):
             )
         else:
             self.fc_nn = nn.Sequential(
-                nn.Linear(state_space_dim[0], 128),
-                nn.ReLU(),
-                nn.Linear(128, 64),
-                nn.ReLU(),
+                nn.Linear(state_space_dim[0], 64),
+                nn.Tanh(),
+                nn.Linear(64, 64),
+                nn.Tanh(),
                 nn.Linear(64, 1),
             )
 
@@ -173,9 +171,6 @@ class PPOAgent(Agent):
         done = torch.tensor(np.array(self.transitions["done"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
         masks = 1 - done # (tmax, num_envs)
 
-        # state_values = self.critic(s).squeeze(-1) # (tmax, num_envs)
-        # next_state_values = self.critic(sprime).squeeze(-1) # (tmax, num_envs)
-
         gae = 0.0
         advantages = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
         for t in reversed(range(len(r))):
@@ -184,7 +179,6 @@ class PPOAgent(Agent):
             advantages[t] = gae
 
         advantages = advantages.view(self.tmax * self.num_envs).detach() # (tmax * num_envs,)
-        # state_values = state_values.view(self.tmax * self.num_envs) # (tmax * num_envs,)
         return advantages
 
     def make_ppo_update(self, s, a, old_log_probs, advantages, returns):
@@ -267,10 +261,6 @@ class PPOAgent(Agent):
         self.current_episode_rewards += r
 
         if self.time_step % self.tmax == 0:
-            # for epoch in range(self.epochs):
-            #     self.make_ppo_update(0)
-            # self.reset_transitions()
-
             advantages = self.calculate_advantages()
 
             s = torch.tensor(np.array(self.transitions["s"]), dtype=torch.float32).to(self.device) # (tmax, num_envs, state_space_dim)

@@ -9,7 +9,7 @@ from utils import smoothing
 smooting = float(sys.argv[1]) if len(sys.argv) > 1 else 0.99
 
 loc = "./results/temps/data/"
-# loc = "./results/experiments/pong_decay/"
+# loc = "./results/finished/a2c/a2c_boxing/"
 cols = ["red", "blue", "green", "orange", "purple", "cyan", "magenta", "yellow", "black", "brown", "pink", "gray", "olive", "cyan", "navy", "teal", "maroon", "lime", "coral", "gold"]
 data = []
 files = [f for f in os.listdir(loc) if f.endswith(".pkl")]

@@ -52,7 +52,7 @@ From scratch implementations of various reinforcement learning algorithms using 
 | -------------- | :-: | :-: | :-: |
 | Pong           |  ✓  |     |     |
 | Space Invaders |  ✓  |     |     |
-| Boxing         |  ✓  |     |     |
+| Boxing         |  ✓  |  ✓  |     |
 
 <br/>
 
@@ -65,3 +65,5 @@ From scratch implementations of various reinforcement learning algorithms using 
 ![A2C bipedal walker](./results/finished/a2c/a2c_bipedalwalker/a2c_bipedalwalker.gif)
 
 ![DQN boxing agent](./results/finished/dqn/dqn_boxing/dqn_boxing.gif)
+
+![PPO inverted double pendulum](./results/finished/ppo/ppo_inv_double_pendulum/ppo_inv_double_pendulum.gif)
