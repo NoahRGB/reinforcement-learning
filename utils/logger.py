@@ -25,7 +25,9 @@ class Logger:
                 current_digit += 1
                 current_check = f"{parent_dir}_{current_digit}"
             self.parent_dir = current_check
-        pathlib.Path(f"{self.parent_dir}").mkdir(parents=True, exist_ok=True) 
+            
+        if use_normal_logs or use_tensorboard_logs:
+            pathlib.Path(f"{self.parent_dir}").mkdir(parents=True, exist_ok=True) 
 
     def log(self, var_name, value, step=None):
 
