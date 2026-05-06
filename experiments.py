@@ -18,7 +18,7 @@ NUM_ENVS = 1
 
 # =============== environments =================
 
-env = AtariEnvironment("ALE/Breakout-v5", NUM_ENVS, render_mode="human")
+env = AtariEnvironment("ALE/Bowling-v5", NUM_ENVS, render_mode="human")
 # env = AtariEnvironment("ALE/Boxing-v5", NUM_ENVS, render_mode="human")
 # env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=True)
 # env = GymEnvironment("HalfCheetah-v5", NUM_ENVS, render_mode="human")
@@ -47,10 +47,10 @@ env = AtariEnvironment("ALE/Breakout-v5", NUM_ENVS, render_mode="human")
 #                decay_steps=None, decay_rate=None, entropy_weight=0.001, clip_grad_norm=0.5,
 #                save_nn=False, load_path=None,)
 
-# agent = A2CAgent(device, logger, job_title=experiment_title, actor_lr=0.00001, critic_lr=0.00001, gamma=0.99, lam=0.96,
-#                conv=True, cont=False, tmax=6499, decay_steps=None, decay_rate=None,
-#                entropy_weight=0.0, clip_grad_norm=0.1,
-#                save_nn=False, load_path=None)
+agent = A2CAgent(device, logger, job_title=experiment_title, actor_lr=0.00001, critic_lr=0.00001, gamma=0.99, lam=0.96,
+               conv=True, cont=False, tmax=6499, decay_steps=None, decay_rate=None,
+               entropy_weight=0.0, clip_grad_norm=0.1,
+               save_nn=False, load_path="results/temps/data/a2c_bowling_model.pt")
 
 # agent = ReinforceAgent(device, logger, job_title=experiment_title, use_baseline=True, 
 #                                policy_lr=0.001, state_value_lr=0.01, gamma=0.99,
