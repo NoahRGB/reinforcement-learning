@@ -4,6 +4,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3" # shuts tensorflow up
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
+import gymnasium as gym
 
 from utils import *
 from environments import *
@@ -11,14 +12,15 @@ from agents.tabular import *
 from agents.approximate import *
 
 NUM_ENVS = 1
-EPISODES = 50000
+EPISODES = 500000
 USE_TENSORBOARD_LOGS = True
 USE_NORMAL_LOGS = False
-TITLE = "nothing"
+TITLE = "ballgame-ppo"
 
 device = detect_torch_device(quiet=False)
 logger = Logger(use_normal_logs=USE_NORMAL_LOGS, use_tensorboard_logs=USE_TENSORBOARD_LOGS, parent_dir=f"results/temps/{TITLE}")
 
+gym.register(id="gymnasium_env/BallGame-v0", entry_point=BallGame, max_episode_steps=1)
 
 # =============== environments =================
 
@@ -30,12 +32,13 @@ logger = Logger(use_normal_logs=USE_NORMAL_LOGS, use_tensorboard_logs=USE_TENSOR
 # env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Pendulum-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode=None)
-env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Taxi-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("FrozenLake-v1", NUM_ENVS, is_slippery=True, render_mode=None)
 # env = GymEnvironment("CliffWalking-v1", NUM_ENVS, render_mode=None)
 # env = MazeEnvironment()
+# env = GymEnvironment("gymnasium_env/BallGame-v0", NUM_ENVS, render_mode="human")
 
 # =============== approximate agents =================
 
@@ -46,15 +49,15 @@ env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None)
 #                  clip_grad_norm=0.5, update_freq=4,
 #                  save_nn=True, load_nn_path=None)
 
-# agent = PPOAgent(device, logger, job_title=TITLE, actor_lr=0.0003, critic_lr=0.0005, gamma=0.99, lam=0.95,
-#                conv=False, cont=True, tmax=250006, epsilon=0.2, epochs=4, minibatch_size=64, 
-#                decay_steps=None, decay_rate=None, entropy_weight=0.001, clip_grad_norm=0.5,
-#                save_nn=False, load_path=None,)
+# agent = PPOAgent(device, logger, job_title=TITLE, actor_lr=0.0001, critic_lr=0.0001, gamma=0.99, lam=0.95,
+#                conv=False, cont=True, tmax=16, epsilon=0.3, epochs=3, minibatch_size=4, 
+#                decay_steps=None, decay_rate=None, entropy_weight=0.01, clip_grad_norm=10.0,
+#                save_nn=True, load_path=None,)
 
-agent = A2CAgent(device, logger, job_title=TITLE, actor_lr=0.00001, critic_lr=0.00001, gamma=0.99, lam=0.96,
-               conv=True, cont=False, tmax=64, decay_steps=None, decay_rate=None,
-               entropy_weight=0.0, clip_grad_norm=0.1,
-               save_nn=False, load_path=None)
+agent = A2CAgent(device, logger, job_title=TITLE, actor_lr=0.0005, critic_lr=0.0005, gamma=0.99, lam=0.96,
+               conv=False, cont=True, tmax=4, decay_steps=None, decay_rate=None,
+               entropy_weight=0.0, clip_grad_norm=None,
+               save_nn=False, load_path=None,)
 
 # agent = ReinforceAgent(device, logger, job_title=TITLE, use_baseline=True, 
 #                                policy_lr=0.001, state_value_lr=0.01, gamma=0.99,

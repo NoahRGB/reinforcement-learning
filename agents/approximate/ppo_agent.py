@@ -154,6 +154,8 @@ class PPOAgent(Agent):
         self.critic = Critic(self.state_space_size, self.action_space_size, self.conv).to(self.device)
         self.actor_optimiser = optim.Adam(self.actor.parameters(), lr=self.actor_lr)
         self.critic_optimiser = optim.Adam(self.critic.parameters(), lr=self.critic_lr)
+        self.actor_scheduler = None #optim.lr_scheduler.ExponentialLR(self.actor_optimiser, gamma=self.decay_rate)
+        self.critic_scheduler = None #optim.lr_scheduler.ExponentialLR(self.critic_optimiser, gamma=self.decay_rate)
 
         # load saved models
         if self.load_path is not None:
@@ -220,9 +222,15 @@ class PPOAgent(Agent):
         self.critic_optimiser.step()
 
         if self.decay_steps is not None:
-            # self.scheduler.step()
             if self.time_step % self.decay_steps == 0:
                 self.entropy_weight *= self.decay_rate
+
+        if self.actor_scheduler is not None:
+            self.actor_scheduler.step()
+            self.logger.log("actor_lr", self.actor_scheduler.get_last_lr()[0], self.update_count)
+        if self.critic_scheduler is not None:
+            self.critic_scheduler.step()
+            self.logger.log("critic_lr", self.critic_scheduler.get_last_lr()[0], self.update_count)
 
         self.logger.log("policy_loss", policy_loss.item(), self.update_count)
         self.logger.log("state_value_loss", state_value_loss.item(), self.update_count)
