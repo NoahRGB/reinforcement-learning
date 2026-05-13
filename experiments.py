@@ -15,7 +15,7 @@ NUM_ENVS = 1
 EPISODES = 500000
 USE_TENSORBOARD_LOGS = True
 USE_NORMAL_LOGS = False
-TITLE = "ballgame-ppo"
+TITLE = "double_dqn_tests"
 
 device = detect_torch_device(quiet=False)
 logger = Logger(use_normal_logs=USE_NORMAL_LOGS, use_tensorboard_logs=USE_TENSORBOARD_LOGS, parent_dir=f"results/temps/{TITLE}")
@@ -32,7 +32,7 @@ gym.register(id="gymnasium_env/BallGame-v0", entry_point=BallGame, max_episode_s
 # env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Pendulum-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode=None)
-# env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None)
+env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Taxi-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("FrozenLake-v1", NUM_ENVS, is_slippery=True, render_mode=None)
@@ -41,6 +41,13 @@ gym.register(id="gymnasium_env/BallGame-v0", entry_point=BallGame, max_episode_s
 # env = GymEnvironment("gymnasium_env/BallGame-v0", NUM_ENVS, render_mode="human")
 
 # =============== approximate agents =================
+
+agent = DoubleDQNAgent(device, logger, job_title=TITLE, lr=0.001, conv=False,
+                 replay_memory_size=1000, replay_warmup_length=0,
+                 C=1000, minibatch_size=32, gamma=0.99,
+                 epsilon_start=1.0, epsilon_end=0.00, epsilon_decay_steps=10000,
+                 clip_grad_norm=0.5, update_freq=4,
+                 save_nn=False, load_nn_path=None)
 
 # agent = DQNAgent(device, logger, job_title=TITLE, lr=0.001, conv=False,
 #                  replay_memory_size=1000, replay_warmup_length=0,
@@ -54,10 +61,10 @@ gym.register(id="gymnasium_env/BallGame-v0", entry_point=BallGame, max_episode_s
 #                decay_steps=None, decay_rate=None, entropy_weight=0.01, clip_grad_norm=10.0,
 #                save_nn=True, load_path=None,)
 
-agent = A2CAgent(device, logger, job_title=TITLE, actor_lr=0.0005, critic_lr=0.0005, gamma=0.99, lam=0.96,
-               conv=False, cont=True, tmax=4, decay_steps=None, decay_rate=None,
-               entropy_weight=0.0, clip_grad_norm=None,
-               save_nn=False, load_path=None,)
+# agent = A2CAgent(device, logger, job_title=TITLE, actor_lr=0.0005, critic_lr=0.0005, gamma=0.99, lam=0.96,
+#                conv=False, cont=True, tmax=4, decay_steps=None, decay_rate=None,
+#                entropy_weight=0.0, clip_grad_norm=None,
+#                save_nn=False, load_path=None,)
 
 # agent = ReinforceAgent(device, logger, job_title=TITLE, use_baseline=True, 
 #                                policy_lr=0.001, state_value_lr=0.01, gamma=0.99,
