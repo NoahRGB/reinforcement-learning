@@ -49,12 +49,13 @@ env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None, seed=SEED)
 
 # =============== approximate agents =================
 
-agent = PrioritisedDQNAgent(device, logger, job_title=TITLE, lr=0.001, conv=False,
-                 replay_memory_size=10000, replay_warmup_length=0,
-                 C=100, minibatch_size=32, gamma=0.99, alpha=0.8, beta=0.5,
-                 epsilon_start=1.0, epsilon_end=0.00, epsilon_decay_steps=10000,
+agent = PrioritisedDQNAgent(device, logger, job_title=TITLE, lr_scheduler=LinearScheduler(0.001, 0.0, 100000),
+                 conv=False, replay_memory_size=10000, replay_warmup_length=0,
+                 C=100, minibatch_size=32, gamma=0.99, alpha=0.6,
+                 epsilon_scheduler=LinearScheduler(1.0, 0.05, 10000),
+                 beta_scheduler=LinearScheduler(0.4, 1.0, 10000),
                  clip_grad_norm=None, update_freq=1,
-                 save_nn=True, load_nn_path=None)
+                 save_nn=False, load_nn_path=None)
 
 # agent = DoubleDQNAgent(device, logger, job_title=TITLE, lr=0.001, conv=False,
 #                  replay_memory_size=1000, replay_warmup_length=0,

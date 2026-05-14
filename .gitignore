@@ -1,5 +1,6 @@
 runs/
 results/temps/
+.vscode/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

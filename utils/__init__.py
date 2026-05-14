@@ -2,6 +2,7 @@ from .learn import learn, learn_vectorised
 from .utils import detect_torch_device, create_tensorboard_writer
 from .logger import Logger
 from .sum_tree import SumTree
+from .schedulers import LinearScheduler
 
 __all__ = [
         "learn",
@@ -10,4 +11,5 @@ __all__ = [
         "create_tensorboard_writer",
         "Logger",
         "SumTree",
+        "LinearScheduler",
 ]

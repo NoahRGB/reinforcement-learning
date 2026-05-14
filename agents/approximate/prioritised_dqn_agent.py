@@ -98,16 +98,18 @@ class DQN(nn.Module):
             return self.regular_dqn(input)
 
 class PrioritisedDQNAgent(Agent):
-    def __init__(self, device, logger, lr, conv, replay_memory_size, replay_warmup_length,
-                 C, minibatch_size, gamma, alpha, beta,
-                 epsilon_start, epsilon_end, epsilon_decay_steps, 
+    def __init__(self, device, logger, lr_scheduler, conv, replay_memory_size, replay_warmup_length,
+                 C, minibatch_size, gamma, alpha,
+                 beta_scheduler,
+                 epsilon_scheduler, 
                  clip_grad_norm, update_freq, 
                  load_nn_path=None, save_nn=False, job_title="dqn"):
         
         self.device = device
         self.logger = logger
         self.job_title = job_title
-        self.lr = lr
+        self.lr_scheduler = lr_scheduler
+        self.lr = self.lr_scheduler.get_value()
         self.conv = conv
         self.replay_memory_size = replay_memory_size
         self.replay_warmup_length = replay_warmup_length 
@@ -116,14 +118,12 @@ class PrioritisedDQNAgent(Agent):
         self.C = C
         self.gamma = gamma
         self.alpha = alpha
-        self.beta = beta
+        self.beta_scheduler = beta_scheduler
+        self.beta = self.beta_scheduler.get_value()
         self.update_freq = update_freq
 
-        self.epsilon = epsilon_start
-        self.epsilon = epsilon_start
-        self.epsilon_start = epsilon_start
-        self.epsilon_end = epsilon_end 
-        self.epsilon_decay_steps = epsilon_decay_steps 
+        self.epsilon_scheduler = epsilon_scheduler
+        self.epsilon = self.epsilon_scheduler.get_value()
 
         self.load_nn_path = load_nn_path
         self.save_nn = save_nn
@@ -253,7 +253,17 @@ class PrioritisedDQNAgent(Agent):
         self.current_episode_rewards += r # (num_envs,) + (num_envs,)
 
         self.time_step += 1
-        
+
+        self.lr_scheduler.step()
+        self.lr = self.lr_scheduler.get_value()
+        for param_group in self.optimiser.param_groups:
+            param_group['lr'] = self.lr
+        self.logger.log("lr", self.lr, self.time_step)
+
+        self.beta_scheduler.step()
+        self.beta = self.beta_scheduler.get_value()
+        self.logger.log("beta", self.beta, self.time_step)
+
         for env_idx in range(self.num_envs):
             # add the transition to replay memory for every env
             self.replay.add((s[env_idx], a[env_idx], r[env_idx], sprime[env_idx], done[env_idx]))
@@ -266,9 +276,8 @@ class PrioritisedDQNAgent(Agent):
         if self.replay.current_size >= self.replay_warmup_length and self.replay.current_size >= self.minibatch_size:
             
             # decay epsilon
-            self.epsilon = (self.epsilon_end + (self.epsilon_start - self.epsilon_end) *
-                            (1 - ((self.time_step - self.replay_warmup_length) / self.epsilon_decay_steps)))
-            self.epsilon = max(self.epsilon, self.epsilon_end)
+            self.epsilon_scheduler.step()
+            self.epsilon = self.epsilon_scheduler.get_value()
             self.logger.log("epsilon", self.epsilon, self.time_step)
 
             # every update_freq time steps perform an update from replay memory
