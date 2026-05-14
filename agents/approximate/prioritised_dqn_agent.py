@@ -151,7 +151,8 @@ class PrioritisedDQNAgent(Agent):
         self.dqn = DQN(self.conv, self.state_space_dim, self.action_space_dim).to(self.device)
         self.target_dqn = DQN(self.conv, self.state_space_dim, self.action_space_dim).to(self.device)
         self.clone_qnet()
-        self.optimiser = optim.Adam(self.dqn.parameters(), lr=self.lr)
+        # self.optimiser = optim.Adam(self.dqn.parameters(), lr=self.lr)
+        self.optimiser = optim.RMSprop(self.dqn.parameters(), lr=self.lr)
         self.replay = ReplayMemory(self.replay_memory_size, self.alpha, self.beta, 1e-5)
 
         # load relevant models if necessary

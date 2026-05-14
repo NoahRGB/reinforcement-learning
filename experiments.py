@@ -1,10 +1,11 @@
-import os, time, sys
+import os, time, sys, random
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3" # shuts tensorflow up
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 import gymnasium as gym
+import torch
 
 from utils import *
 from environments import *
@@ -13,12 +14,18 @@ from agents.approximate import *
 
 NUM_ENVS = 1
 EPISODES = 500000
+SEED = 1
 USE_TENSORBOARD_LOGS = True
 USE_NORMAL_LOGS = False
 TITLE = "prioritised_dqn_tests"
 
 device = detect_torch_device(quiet=False)
 logger = Logger(use_normal_logs=USE_NORMAL_LOGS, use_tensorboard_logs=USE_TENSORBOARD_LOGS, parent_dir=f"results/temps/{TITLE}")
+
+if SEED is not None:
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
 
 # gym.register(id="gymnasium_env/BallGame-v0", entry_point=BallGame, max_episode_steps=1)
 
@@ -32,7 +39,7 @@ logger = Logger(use_normal_logs=USE_NORMAL_LOGS, use_tensorboard_logs=USE_TENSOR
 # env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Pendulum-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode=None)
-env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None)
+env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None, seed=SEED)
 # env = GymEnvironment("MountainCar-v0", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Taxi-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("FrozenLake-v1", NUM_ENVS, is_slippery=True, render_mode=None)
@@ -43,16 +50,16 @@ env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None)
 # =============== approximate agents =================
 
 agent = PrioritisedDQNAgent(device, logger, job_title=TITLE, lr=0.001, conv=False,
-                 replay_memory_size=1000, replay_warmup_length=0,
-                 C=1000, minibatch_size=32, gamma=0.99, alpha=0.5, beta=0.5,
+                 replay_memory_size=10000, replay_warmup_length=0,
+                 C=100, minibatch_size=32, gamma=0.99, alpha=0.8, beta=0.5,
                  epsilon_start=1.0, epsilon_end=0.00, epsilon_decay_steps=10000,
-                 clip_grad_norm=0.5, update_freq=4,
-                 save_nn=False, load_nn_path=None)
+                 clip_grad_norm=None, update_freq=1,
+                 save_nn=True, load_nn_path=None)
 
 # agent = DoubleDQNAgent(device, logger, job_title=TITLE, lr=0.001, conv=False,
 #                  replay_memory_size=1000, replay_warmup_length=0,
 #                  C=1000, minibatch_size=32, gamma=0.99,
-#                  epsilon_start=1.0, epsilon_end=0.00, epsilon_decay_steps=10000,
+#                  epsilon_start=1.0, epsilon_end=0.00, epsilon_decay_steps=50000,
 #                  clip_grad_norm=0.5, update_freq=4,
 #                  save_nn=False, load_nn_path=None)
 

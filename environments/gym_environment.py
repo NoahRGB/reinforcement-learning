@@ -45,7 +45,8 @@ class GymEnvironment(Environment):
             return sprime, r, (is_terminated|is_truncated)
 
     def reset(self):
-        self.env.reset(seed=self.seed)
+        self.env.reset()
+        # self.env.reset(seed=self.seed)
 
     def get_start_state(self):
         start_state, _ = self.env.reset(seed=self.seed)

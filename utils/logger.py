@@ -18,16 +18,19 @@ class Logger:
         self.vars = {}
 
         self.parent_dir = parent_dir
-        if os.path.isdir(parent_dir):
+        if os.path.isdir(self.parent_dir):
             current_digit = 1
-            current_check = f"{parent_dir}_{current_digit}"
+            current_check = f"{self.parent_dir}_{current_digit}"
             while os.path.isdir(current_check):
                 current_digit += 1
-                current_check = f"{parent_dir}_{current_digit}"
+                current_check = f"{self.parent_dir}_{current_digit}"
             self.parent_dir = current_check
-            
-        if use_normal_logs or use_tensorboard_logs:
-            pathlib.Path(f"{self.parent_dir}").mkdir(parents=True, exist_ok=True) 
+
+        if use_normal_logs:
+            self.make_parent_dir()
+    
+    def make_parent_dir(self):
+        pathlib.Path(f"{self.parent_dir}").mkdir(parents=True, exist_ok=True)
 
     def log(self, var_name, value, step=None):
 
@@ -55,6 +58,8 @@ class Logger:
                         f.write(value)
 
     def save_torch(self, dict, name):
+        if not os.path.isdir(self.parent_dir):
+            self.make_parent_dir()
         if name.endswith(".pt"):
             name = name[:-3]
         torch.save(dict, f"{self.parent_dir}/{name}.pt")

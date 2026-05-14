@@ -2,11 +2,13 @@ From scratch implementations of various reinforcement learning algorithms using 
 ## Algorithms implemented
 
 - [x] Semigradient SARSA
-- [x] REINFORCE
-- [x] DQN
-- [x] A2C
-- [x] PPO
-- [ ] TRPO
+- [x] [REINFORCE](https://people.cs.umass.edu/~barto/courses/cs687/williams92simple.pdf)
+- [x] [DQN](https://training.incf.org/sites/default/files/2023-05/Human-level%20control%20through%20deep%20reinforcement%20learning.pdf)
+- [x] [Dobule DQN](https://ojs.aaai.org/index.php/AAAI/article/view/10295)
+- [x] [Prioritised replay DQN](https://arxiv.org/pdf/1511.05952)
+- [x] [A2C](https://proceedings.mlr.press/v48/mniha16.pdf)
+- [x] [PPO](https://arxiv.org/pdf/1707.06347)
+- [ ] [TRPO](https://proceedings.mlr.press/v37/schulman15.pdf)
 
 <br/>
 
