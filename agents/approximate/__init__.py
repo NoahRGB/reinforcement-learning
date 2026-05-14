@@ -5,6 +5,7 @@ from .reinforce_agent import ReinforceAgent
 from .a2c_agent import A2CAgent
 from .ppo_agent import PPOAgent
 from .double_dqn_agent import DoubleDQNAgent
+from .prioritised_dqn_agent import PrioritisedDQNAgent
 
 __all__ = [
         "SemigradientSarsaAgent",
@@ -13,5 +14,6 @@ __all__ = [
         "ReinforceAgent",
         "A2CAgent",
         "PPOAgent",
-        "DoubleDQNAgent"
+        "DoubleDQNAgent",
+        "PrioritisedDQNAgent",
 ]

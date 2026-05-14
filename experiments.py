@@ -15,12 +15,12 @@ NUM_ENVS = 1
 EPISODES = 500000
 USE_TENSORBOARD_LOGS = True
 USE_NORMAL_LOGS = False
-TITLE = "double_dqn_tests"
+TITLE = "prioritised_dqn_tests"
 
 device = detect_torch_device(quiet=False)
 logger = Logger(use_normal_logs=USE_NORMAL_LOGS, use_tensorboard_logs=USE_TENSORBOARD_LOGS, parent_dir=f"results/temps/{TITLE}")
 
-gym.register(id="gymnasium_env/BallGame-v0", entry_point=BallGame, max_episode_steps=1)
+# gym.register(id="gymnasium_env/BallGame-v0", entry_point=BallGame, max_episode_steps=1)
 
 # =============== environments =================
 
@@ -42,12 +42,19 @@ env = GymEnvironment("CartPole-v1", NUM_ENVS, render_mode=None)
 
 # =============== approximate agents =================
 
-agent = DoubleDQNAgent(device, logger, job_title=TITLE, lr=0.001, conv=False,
+agent = PrioritisedDQNAgent(device, logger, job_title=TITLE, lr=0.001, conv=False,
                  replay_memory_size=1000, replay_warmup_length=0,
-                 C=1000, minibatch_size=32, gamma=0.99,
+                 C=1000, minibatch_size=32, gamma=0.99, alpha=0.5, beta=0.5,
                  epsilon_start=1.0, epsilon_end=0.00, epsilon_decay_steps=10000,
                  clip_grad_norm=0.5, update_freq=4,
                  save_nn=False, load_nn_path=None)
+
+# agent = DoubleDQNAgent(device, logger, job_title=TITLE, lr=0.001, conv=False,
+#                  replay_memory_size=1000, replay_warmup_length=0,
+#                  C=1000, minibatch_size=32, gamma=0.99,
+#                  epsilon_start=1.0, epsilon_end=0.00, epsilon_decay_steps=10000,
+#                  clip_grad_norm=0.5, update_freq=4,
+#                  save_nn=False, load_nn_path=None)
 
 # agent = DQNAgent(device, logger, job_title=TITLE, lr=0.001, conv=False,
 #                  replay_memory_size=1000, replay_warmup_length=0,
