@@ -8,7 +8,7 @@ import numpy as np
 from environments.custom.ball.surface import Surface
 from environments.custom.ball.ball import Ball
 
-class BallGame(gym.Env):
+class BallEnv(gym.Env):
     def __init__(self, width=500, height=500, render_mode=None):
         
         self.width = width
@@ -113,33 +113,6 @@ class BallGame(gym.Env):
                 reward = self.calc_reward(hitting_goal)
 
         self.ball = Ball(None if self.window is None else self.window, np.array([50.0, 50.0], dtype=np.float32), 20, 1)
-
-        # if not self.is_ball_released and throw_strength > 0.0:
-        #     self.is_ball_released = True
-        #     throw_angle = np.deg2rad(throw_angle)
-        #     throw_force = np.array([np.cos(throw_angle), np.sin(throw_angle)]) * throw_strength
-        #     self.ball.apply_force(throw_force)
-        
-        # if self.is_ball_released:
-        #     self.ball.apply_force(np.array([0.0, self.gravity]))
-
-        # self.ball.update(self.floor, self.roof, self.left_wall, self.right_wall)
-
-        # observation = self.ball.pos
-        # info = {}
-
-        # hitting_goal = self.ball.surface_collision(self.goal)
-
-        # reward = 0.0
-
-        # if self.render_mode == "human":
-        #     self.render_frame()
-
-        # if self.steps >= self.max_steps or hitting_goal:
-        #     done = True
-        #     reward = self.calc_reward(hitting_goal)
-        # else:
-        #     done = False
 
         return self.ball.pos, reward, False, False, {}
 

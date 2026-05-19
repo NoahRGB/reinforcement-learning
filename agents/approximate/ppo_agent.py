@@ -269,6 +269,7 @@ class PPOAgent(Agent):
         self.current_episode_rewards += r
 
         if self.time_step % self.tmax == 0:
+            print(f"Time step: {self.time_step}")
             advantages = self.calculate_advantages()
 
             s = torch.tensor(np.array(self.transitions["s"]), dtype=torch.float32).to(self.device) # (tmax, num_envs, state_space_dim)

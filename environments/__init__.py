@@ -1,11 +1,15 @@
 from .gym_environment import GymEnvironment
 from .maze_environment import MazeEnvironment
 from .atari_environment import AtariEnvironment
-from .custom.ball.env import BallGame
+from .custom.ball.env import BallEnv
+from .custom.rnn_ant.env import RNNAntEnv
+from .custom.rnn_ant.env_2 import RNNAntEnv2
 
 __all__ = [
         "GymEnvironment",
         "MazeEnvironment",
         "AtariEnvironment",
-        "BallGame",
+        "BallEnv",
+        "RNNAntEnv",
+        "RNNAntEnv2",
 ]
