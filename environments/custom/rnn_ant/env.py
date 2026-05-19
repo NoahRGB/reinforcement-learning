@@ -8,7 +8,7 @@ class RNNAntEnv(gym.Env):
     def __init__(self, render_mode=None):
         self.render_mode = render_mode
 
-        self.randomise_food = True
+        self.randomise_food = False
         self.num_memory_nodes = 0
         self.state_dimension = 3 + self.num_memory_nodes
         self.speed = 0.2
@@ -34,6 +34,9 @@ class RNNAntEnv(gym.Env):
 
         self.food_location = self.initial_food_location.copy()
         self.state = self.initial_state.copy()
+
+        # print(f"state: {self.state}")
+        # print(f"food location: {self.food_location}")
 
         return self.state, {}
     

@@ -261,7 +261,7 @@ class A2CAgent(Agent):
                 self.reward_history.append(self.current_episode_rewards[env_idx])
                 mean_recent_reward = np.mean(self.reward_history[-100:])
                 self.logger.log("mean_episode_reward", mean_recent_reward, step=len(self.reward_history))
-                self.logger.log("episode_reward", self.current_episode_rewards[env_idx], step=len(self.reward_history))
+                self.logger.log(f"episode_reward_{self.job_title}", self.current_episode_rewards[env_idx], step=len(self.reward_history))
                 self.current_episode_rewards[env_idx] = 0.0
 
                 if self.save_nn and mean_recent_reward > self.reward_record:

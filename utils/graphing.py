@@ -9,7 +9,8 @@ from utils import smoothing
 
 smoothing_val = float(sys.argv[1]) if len(sys.argv) > 1 else 0.0
 
-loc  = "./results/temps/data/"
+loc = "./results/experiments/ants/staticfood"
+# loc  = "./results/temps/data/"
 found_pkls = []
 found_dirs = [loc]
 
@@ -24,7 +25,8 @@ while len(found_dirs) > 0:
             found_pkls.append(item_path)
 
 cols = ["red", "blue", "green", "orange", "purple", "cyan", "magenta", "yellow", "black", "brown", "pink", "gray", "olive", "cyan", "navy", "teal", "maroon", "lime", "coral", "gold"]
-labels = [file[:-4].split("_")[-1] for file in found_pkls]
+# labels = [file[:-4].split("_")[-1] for file in found_pkls]
+labels = [file[:-4].split("/")[-1] for file in found_pkls]
 data = []
 
 # if the file can be read, plot it
