@@ -13,7 +13,7 @@ from environments import *
 from agents.tabular import *
 from agents.approximate import *
 
-NUM_ENVS = 1
+NUM_ENVS = 8
 EPISODES = 500000
 SEED = None
 USE_TENSORBOARD_LOGS = True
@@ -36,8 +36,8 @@ gym.register(id="custom/RNNAntEnv-v0", entry_point=RNNAntEnv, max_episode_steps=
 # env = AtariEnvironment("ALE/SpaceInvaders-v5", NUM_ENVS, render_mode="human")
 # env = AtariEnvironment("ALE/Boxing-v5", NUM_ENVS, render_mode="human")
 # env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=True)
-# env = GymEnvironment("Humanoid-v5", NUM_ENVS, render_mode=None)
-env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None, continuous=True)
+env = GymEnvironment("Humanoid-v5", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None, continuous=True)
 # env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Pendulum-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode=None)

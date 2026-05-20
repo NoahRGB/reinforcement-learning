@@ -114,8 +114,12 @@ class SACAgent(Agent):
             checkpoint = torch.load(self.load_path)
             self.actor.load_state_dict(checkpoint["actor_nn"])
             self.actor_optimiser.load_state_dict(checkpoint["actor_optimiser"])
-            self.critic.load_state_dict(checkpoint["critic_nn"])
-            self.critic_optimiser.load_state_dict(checkpoint["critic_optimiser"])
+            self.qfunc1.load_state_dict(checkpoint["qfunc1_nn"])
+            self.qfunc2.load_state_dict(checkpoint["qfunc2_nn"])
+            self.qfunc1_optimiser.load_state_dict(checkpoint["qfunc1_optimiser"])
+            self.qfunc2_optimiser.load_state_dict(checkpoint["qfunc2_optimiser"])
+            self.target_qfunc1.load_state_dict(checkpoint["target_qfunc1_nn"])
+            self.target_qfunc2.load_state_dict(checkpoint["target_qfunc2_nn"])
 
     def update_qfuncs(self, all_s, all_a, all_r, all_sprime, all_done):
         masks = 1 - all_done # (minibatch_size,)
@@ -211,14 +215,19 @@ class SACAgent(Agent):
                     self.logger.save_torch({
                         "actor_nn": self.actor.state_dict(),
                         "actor_optimiser": self.actor_optimiser.state_dict(),
-                        "critic_nn": self.critic.state_dict(),
-                        "critic_optimiser": self.critic_optimiser.state_dict(),
+                        "qfunc1_nn": self.qfunc1.state_dict(),
+                        "qfunc2_nn": self.qfunc2.state_dict(),
+                        "qfunc1_optimiser": self.qfunc1_optimiser.state_dict(),
+                        "qfunc2_optimiser": self.qfunc2_optimiser.state_dict(),
+                        "target_qfunc1_nn": self.target_qfunc1.state_dict(),
+                        "target_qfunc2_nn": self.target_qfunc2.state_dict(),
                     }, f"{self.job_title}_model")
                 self.logger.save_logs()
 
         if len(self.replay) >= self.minibatch_size:
             if self.time_step % self.update_freq == 0:
                 self.make_sac_update()
+                print(f"time step: {self.time_step}")
 
     def finish_episode(self, episode_num):
         pass
