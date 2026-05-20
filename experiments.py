@@ -15,10 +15,10 @@ from agents.approximate import *
 
 NUM_ENVS = 1
 EPISODES = 500000
-SEED = 50
+SEED = None
 USE_TENSORBOARD_LOGS = True
 USE_NORMAL_LOGS = False
-TITLE = "ant_test"
+TITLE = "test"
 
 device = detect_torch_device(quiet=False)
 logger = Logger(use_normal_logs=USE_NORMAL_LOGS, use_tensorboard_logs=USE_TENSORBOARD_LOGS, parent_dir=f"results/temps/{TITLE}")
@@ -30,15 +30,14 @@ if SEED is not None:
 
 # gym.register(id="custom/BallEnv-v0", entry_point=BallEnv, max_episode_steps=1)
 gym.register(id="custom/RNNAntEnv-v0", entry_point=RNNAntEnv, max_episode_steps=30)
-gym.register(id="custom/RNNAntEnv2-v0", entry_point=RNNAntEnv2, max_episode_steps=30)
 
 # =============== environments =================
 
-# env = AtariEnvironment("ALE/Bowling-v5", NUM_ENVS, render_mode="human")
+# env = AtariEnvironment("ALE/SpaceInvaders-v5", NUM_ENVS, render_mode="human")
 # env = AtariEnvironment("ALE/Boxing-v5", NUM_ENVS, render_mode="human")
 # env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=True)
 # env = GymEnvironment("Humanoid-v5", NUM_ENVS, render_mode=None)
-# env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None, continuous=True)
+env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None, continuous=True)
 # env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Pendulum-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode=None)
@@ -49,13 +48,12 @@ gym.register(id="custom/RNNAntEnv2-v0", entry_point=RNNAntEnv2, max_episode_step
 # env = GymEnvironment("CliffWalking-v1", NUM_ENVS, render_mode=None)
 # env = MazeEnvironment()
 # env = GymEnvironment("custom/BallEnv-v0", NUM_ENVS, render_mode="human")
-env = GymEnvironment("custom/RNNAntEnv-v0", NUM_ENVS, render_mode=None)
-# env = GymEnvironment("custom/RNNAntEnv2-v0", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("custom/RNNAntEnv-v0", NUM_ENVS, render_mode=None)
 
 # =============== approximate agents =================
 
 # agent = PrioritisedDQNAgent(device, logger, job_title=TITLE, lr_scheduler=LinearScheduler(0.001, 0.0, 100000),
-#                  conv=False, replay_memory_size=10000, replay_warmup_length=0,
+#                  conv=True, replay_memory_size=10000, replay_warmup_length=0,
 #                  C=100, minibatch_size=32, gamma=0.99, alpha=0.6,
 #                  epsilon_scheduler=LinearScheduler(1.0, 0.05, 10000),
 #                  beta_scheduler=LinearScheduler(0.4, 1.0, 10000),
@@ -76,10 +74,14 @@ env = GymEnvironment("custom/RNNAntEnv-v0", NUM_ENVS, render_mode=None)
 #                  clip_grad_norm=0.5, update_freq=4,
 #                  save_nn=True, load_nn_path=None)
 
-agent = PPOAgent(device, logger, job_title=TITLE, actor_lr=0.0003, critic_lr=0.0003, gamma=0.99, lam=0.95,
-               conv=False, cont=True, tmax=128, epsilon=0.2, epochs=3, minibatch_size=32, 
-               decay_steps=None, decay_rate=None, entropy_weight=0.0, clip_grad_norm=None,
-               save_nn=False, load_path=None,)
+agent = SACAgent(device, logger, job_title=TITLE, actor_lr=0.0001, qfunc_lr=0.0001, gamma=0.99,
+               replay_memory_size=10000, minibatch_size=32, update_freq=4, alpha=0.5, target_factor=0.005,
+               decay_steps=None, decay_rate=None, save_nn=False, load_path=None,)
+
+# agent = PPOAgent(device, logger, job_title=TITLE, actor_lr=0.0003, critic_lr=0.0003, gamma=0.99, lam=0.95,
+#                conv=False, cont=True, tmax=128, epsilon=0.2, epochs=3, minibatch_size=32, 
+#                decay_steps=None, decay_rate=None, entropy_weight=0.0, clip_grad_norm=None,
+#                save_nn=False, load_path=None,)
 
 # agent = A2CAgent(device, logger, job_title=TITLE, actor_lr=0.0005, critic_lr=0.0005, gamma=0.99, lam=0.96,
 #                conv=False, cont=True, tmax=30, decay_steps=None, decay_rate=None,

@@ -9,6 +9,8 @@ From scratch implementations of various reinforcement learning algorithms using 
 - [x] [A2C](https://proceedings.mlr.press/v48/mniha16.pdf)
 - [x] [PPO](https://arxiv.org/pdf/1707.06347)
 - [ ] [TRPO](https://proceedings.mlr.press/v37/schulman15.pdf)
+- [x] [SAC](https://arxiv.org/abs/1812.05905)
+- [ ] [DDPG](https://arxiv.org/abs/1509.02971)
 
 <br/>
 

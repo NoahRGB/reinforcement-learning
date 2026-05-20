@@ -117,7 +117,6 @@ class PPOAgent(Agent):
         # s is (num_envs, state_space_dim)
         if self.cont:
             mu, sigma = self.actor(self.process_state(s)) # (num_envs, action_space_dim,)
-            sigma = sigma.clamp(min=1e-3)
             dist = torch.distributions.Normal(mu, sigma)
             return dist.sample().cpu().numpy() # (num_envs, action_space_dim,)
         else:

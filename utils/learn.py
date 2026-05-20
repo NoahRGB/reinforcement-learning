@@ -63,6 +63,7 @@ def learn_vectorised(episodes: int, env: Environment, agent: Agent, quiet=True):
     episodes_completed = 0
     agent.initialise(env.get_state_space(), env.get_action_space(), env.get_start_state(), env.get_num_envs())
     current_states = env.get_start_state() # (num_envs, state_dim)
+    reward_history = []
 
     while episodes_completed < episodes:
 
@@ -70,8 +71,10 @@ def learn_vectorised(episodes: int, env: Environment, agent: Agent, quiet=True):
         sprimes, rewards, dones = env.step(current_states, actions) # (num_envs, state_dim), (num_envs,), (num_envs,)
         agent.update(current_states, sprimes, actions, rewards, dones)
         current_states = sprimes
-
+        reward_history.append(rewards.mean())
         num_completed_episodes = dones.sum()
         episodes_completed += num_completed_episodes
         if num_completed_episodes > 0 and not quiet:
             print(f"Completed {episodes_completed}/{episodes} episodes")
+    
+    return np.array(reward_history)
