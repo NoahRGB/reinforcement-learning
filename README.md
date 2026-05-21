@@ -4,14 +4,15 @@ From scratch implementations of various reinforcement learning algorithms using 
 - [x] Semigradient SARSA
 - [x] [REINFORCE](https://people.cs.umass.edu/~barto/courses/cs687/williams92simple.pdf)
 - [x] [DQN](https://training.incf.org/sites/default/files/2023-05/Human-level%20control%20through%20deep%20reinforcement%20learning.pdf)
-- [x] [Dobule DQN](https://ojs.aaai.org/index.php/AAAI/article/view/10295)
-- [x] [Prioritised replay DQN](https://arxiv.org/pdf/1511.05952)
+- [x] [Dobule DQN (DDQN)](https://ojs.aaai.org/index.php/AAAI/article/view/10295)
+- [x] [Prioritised experience replay DQN (PER DQN)](https://arxiv.org/pdf/1511.05952)
 - [x] [A2C](https://proceedings.mlr.press/v48/mniha16.pdf)
 - [x] [PPO](https://arxiv.org/pdf/1707.06347)
 - [ ] [TRPO](https://proceedings.mlr.press/v37/schulman15.pdf)
 - [x] [SAC](https://arxiv.org/abs/1812.05905)
 - [ ] [DDPG](https://arxiv.org/abs/1509.02971)
-
+- [ ] [DRQN](https://arxiv.org/abs/1507.06527)
+  
 <br/>
 
 - [x] Tabular on/off policy (nstep) SARSA

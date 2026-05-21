@@ -7,6 +7,7 @@ from .ppo_agent import PPOAgent
 from .double_dqn_agent import DoubleDQNAgent
 from .prioritised_dqn_agent import PrioritisedDQNAgent
 from .sac_agent import SACAgent
+from .drqn_agent import DRQNAgent
 
 __all__ = [
         "SemigradientSarsaAgent",
@@ -17,5 +18,6 @@ __all__ = [
         "PPOAgent",
         "DoubleDQNAgent",
         "PrioritisedDQNAgent",
-        "SACAgent"
+        "SACAgent",
+        "DRQNAgent",
 ]

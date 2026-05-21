@@ -20,7 +20,7 @@ class AtariEnvironment(Environment):
                 noop_max=30, frame_skip=4, terminal_on_life_loss=False,
                 screen_size=84, grayscale_obs=True, grayscale_newaxis=False
             )
-            env = FrameStackObservation(env, stack_size=4)
+            env = FrameStackObservation(env, stack_size=1)
             return env
 
         if self.num_envs == 1:
