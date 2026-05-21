@@ -178,11 +178,11 @@ class SACAgent(Agent):
         minibatch = random.sample(self.replay, self.minibatch_size)
 
         all_s, all_a, all_r, all_sprime, all_done = zip(*minibatch)
-        all_s = torch.stack([self.process_state(s_) for s_ in all_s]).to(self.device) # (minibatch_size, state_space_dim,)
+        all_s = torch.tensor(np.array(all_s)).to(self.device) # (minibatch_size, state_space_dim,)
         all_a = torch.tensor(np.array(all_a), dtype=torch.float32).to(self.device) # (minibatch_size,)
-        all_r = torch.tensor(all_r, dtype=torch.float32).to(self.device) # (minibatch_size,)
-        all_sprime = torch.stack([self.process_state(s_) for s_ in all_sprime]).to(self.device) # (minibatch_size, state_space_dim,)
-        all_done = torch.tensor(all_done, dtype=torch.float32).to(self.device) # (minibatch_size,)
+        all_r = torch.tensor(np.array(all_r), dtype=torch.float32).to(self.device) # (minibatch_size,)
+        all_sprime = torch.tensor(np.array(all_sprime)).to(self.device) # (minibatch_size, state_space_dim,)
+        all_done = torch.tensor(np.array(all_done), dtype=torch.float32).to(self.device) # (minibatch_size,)
 
         self.update_qfuncs(all_s, all_a, all_r, all_sprime, all_done)
         self.update_actor(all_s)
