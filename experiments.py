@@ -83,7 +83,7 @@ env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None, continuous=Tr
 
 agent = SACAgent(device, logger, job_title=TITLE, actor_lr=0.0001, qfunc_lr=0.0001, gamma=0.99,
                replay_memory_size=10000, minibatch_size=32, update_freq=4, alpha=0.5, target_factor=0.005,
-               decay_steps=None, decay_rate=None, save_nn=False, load_path=None,)
+               decay_steps=None, decay_rate=None, save_nn=True, load_path=None,)
 
 # agent = PPOAgent(device, logger, job_title=TITLE, actor_lr=0.0003, critic_lr=0.0003, gamma=0.99, lam=0.95,
 #                conv=False, cont=True, tmax=128, epsilon=0.2, epochs=3, minibatch_size=32, 
