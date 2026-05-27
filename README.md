@@ -6,13 +6,14 @@ From scratch implementations of various reinforcement learning algorithms using 
 - [x] [DQN](https://training.incf.org/sites/default/files/2023-05/Human-level%20control%20through%20deep%20reinforcement%20learning.pdf)
 - [x] [Dobule DQN (DDQN)](https://ojs.aaai.org/index.php/AAAI/article/view/10295)
 - [x] [Prioritised experience replay DQN (PER DQN)](https://arxiv.org/pdf/1511.05952)
-- [x] [A2C](https://proceedings.mlr.press/v48/mniha16.pdf)
-- [x] [PPO](https://arxiv.org/pdf/1707.06347)
-- [ ] [TRPO](https://proceedings.mlr.press/v37/schulman15.pdf)
-- [x] [SAC](https://arxiv.org/abs/1812.05905)
-- [ ] [DDPG](https://arxiv.org/abs/1509.02971)
 - [x] [DRQN](https://arxiv.org/abs/1507.06527)
-  
+- [x] [A2C](https://proceedings.mlr.press/v48/mniha16.pdf)
+- [ ] [TRPO](https://proceedings.mlr.press/v37/schulman15.pdf)
+- [x] [PPO](https://arxiv.org/pdf/1707.06347)
+- [x] [SAC](https://arxiv.org/abs/1812.05905)
+- [x] [DDPG](https://arxiv.org/abs/1509.02971)
+- [ ] [TD3](https://arxiv.org/pdf/1802.09477)
+
 <br/>
 
 - [x] Tabular on/off policy (nstep) SARSA

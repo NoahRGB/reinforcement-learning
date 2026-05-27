@@ -13,12 +13,12 @@ from environments import *
 from agents.tabular import *
 from agents.approximate import *
 
-NUM_ENVS = 10
-EPISODES = 10000
+NUM_ENVS = 1
+EPISODES = 100000
 SEED = 1
 USE_TENSORBOARD_LOGS = True
 USE_NORMAL_LOGS = False
-TITLE = "tests"
+TITLE = f"ddpg_tests"
 
 device = detect_torch_device(quiet=False)
 logger = Logger(use_normal_logs=USE_NORMAL_LOGS, use_tensorboard_logs=USE_TENSORBOARD_LOGS, parent_dir=f"results/temps/{TITLE}")
@@ -37,7 +37,7 @@ gym.register(id="custom/RNNAntEnv-v0", entry_point=RNNAntEnv, max_episode_steps=
 # env = AtariEnvironment("ALE/Boxing-v5", NUM_ENVS, render_mode="human")
 # env = GymEnvironment("CarRacing-v3", NUM_ENVS, render_mode=None, image_preprocess=True, continuous=True)
 # env = GymEnvironment("Ant-v5", NUM_ENVS, render_mode="human")
-# env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None, continuous=True)
+env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None, continuous=True)
 # env = GymEnvironment("BipedalWalker-v3", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Pendulum-v1", NUM_ENVS, render_mode=None)
 # env = GymEnvironment("Acrobot-v1", NUM_ENVS, render_mode=None)
@@ -48,7 +48,7 @@ gym.register(id="custom/RNNAntEnv-v0", entry_point=RNNAntEnv, max_episode_steps=
 # env = GymEnvironment("CliffWalking-v1", NUM_ENVS, render_mode=None)
 # env = MazeEnvironment()
 # env = GymEnvironment("custom/BallEnv-v0", NUM_ENVS, render_mode="human")
-env = GymEnvironment("custom/RNNAntEnv-v0", NUM_ENVS, render_mode=None)
+# env = GymEnvironment("custom/RNNAntEnv-v0", NUM_ENVS, render_mode=None)
 
 # =============== approximate agents =================
 
@@ -81,6 +81,10 @@ env = GymEnvironment("custom/RNNAntEnv-v0", NUM_ENVS, render_mode=None)
 #                  clip_grad_norm=0.5, update_freq=4,
 #                  save_nn=True, load_nn_path=None)
 
+agent = DDPGAgent(device, logger, job_title=TITLE, actor_lr=0.001, qfunc_lr=0.001, gamma=0.99, noise_factor=0.1,
+               replay_memory_size=10000, minibatch_size=128, update_freq=1, target_factor=0.001,
+               decay_steps=None, decay_rate=None, save_nn=False, load_path=None,)
+
 # agent = SACAgent(device, logger, job_title=TITLE, actor_lr=0.0001, qfunc_lr=0.0001, gamma=0.99,
 #                replay_memory_size=10000, minibatch_size=32, update_freq=4, alpha=0.5, target_factor=0.005,
 #                decay_steps=None, decay_rate=None, save_nn=False, load_path=None,)
@@ -90,10 +94,10 @@ env = GymEnvironment("custom/RNNAntEnv-v0", NUM_ENVS, render_mode=None)
 #                decay_steps=None, decay_rate=None, entropy_weight=0.0, clip_grad_norm=None,
 #                save_nn=False, load_path=None,)
 
-agent = A2CAgent(device, logger, job_title=TITLE, actor_lr=0.001, critic_lr=0.001, gamma=0.99, lam=1.0,
-               conv=False, cont=True, tmax=256, decay_steps=None, decay_rate=None,
-               entropy_weight=0.01, clip_grad_norm=None,
-               save_nn=False, load_path=None,)
+# agent = A2CAgent(device, logger, job_title=TITLE, actor_lr=0.001, critic_lr=0.001, gamma=0.99, lam=1.0,
+#                conv=False, cont=True, tmax=100, decay_steps=None, decay_rate=None,
+#                entropy_weight=0.01, clip_grad_norm=None,
+#                save_nn=False, load_path=None,)
 
 # agent = ReinforceAgent(device, logger, job_title=TITLE, use_baseline=True, 
 #                                policy_lr=0.001, state_value_lr=0.01, gamma=0.99,
