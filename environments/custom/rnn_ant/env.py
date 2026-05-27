@@ -10,12 +10,13 @@ class RNNAntEnv(gym.Env):
 
         self.randomise_food = False
         self.num_memory_nodes = 0
-        self.state_dimension = 3 + self.num_memory_nodes
+        self.use_sensor = False
+        self.state_dimension = 2 + (1 if self.use_sensor else 0) + self.num_memory_nodes
         self.speed = 0.2
 
-        self.observation_space = spaces.Box(np.full((3 + self.num_memory_nodes), -10),
-                                            np.full((3 + self.num_memory_nodes), 10),
-                                            shape=(3 + self.num_memory_nodes,), dtype=np.float32)
+        self.observation_space = spaces.Box(np.full((self.state_dimension), -10),
+                                            np.full((self.state_dimension), 10),
+                                            shape=(self.state_dimension,), dtype=np.float32)
 
         self.action_space = spaces.Box(np.full((2 + self.num_memory_nodes), -10),
                                        np.full((2 + self.num_memory_nodes), 10),
@@ -27,6 +28,9 @@ class RNNAntEnv(gym.Env):
             np.zeros((self.state_dimension - 2))
         ], axis=0)
 
+        print(f"state: {self.initial_state}")
+        # print(f"food location: {self.initial_food_location}")
+
         self.reset()
 
     def reset(self, seed=None, options=None):
@@ -34,9 +38,6 @@ class RNNAntEnv(gym.Env):
 
         self.food_location = self.initial_food_location.copy()
         self.state = self.initial_state.copy()
-
-        # print(f"state: {self.state}")
-        # print(f"food location: {self.food_location}")
 
         return self.state, {}
     
@@ -52,12 +53,16 @@ class RNNAntEnv(gym.Env):
     def run_one_step_of_physics_model(self, action):
         pos = self.state[0:2]
         a = action[0:2]
-        new_pos = pos + a * self.speed
+
+        mag = np.linalg.norm(a)
+        direction = a / (mag + 1e-8)
+        velocity = self.speed * np.tanh(mag) * direction
+        new_pos = pos + velocity
         sprime = new_pos.tolist()
 
-        sens = self.sensor_calculation(new_pos)
-
-        sprime.append(sens.tolist())
+        if self.use_sensor:
+            sens = self.sensor_calculation(new_pos)
+            sprime.append(sens.tolist())
 
         for i in range(0, self.num_memory_nodes):
             sprime.append(action[2+i:3+i].tolist()[0])

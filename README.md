@@ -11,7 +11,7 @@ From scratch implementations of various reinforcement learning algorithms using 
 - [ ] [TRPO](https://proceedings.mlr.press/v37/schulman15.pdf)
 - [x] [SAC](https://arxiv.org/abs/1812.05905)
 - [ ] [DDPG](https://arxiv.org/abs/1509.02971)
-- [ ] [DRQN](https://arxiv.org/abs/1507.06527)
+- [x] [DRQN](https://arxiv.org/abs/1507.06527)
   
 <br/>
 
