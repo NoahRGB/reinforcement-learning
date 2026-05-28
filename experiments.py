@@ -18,7 +18,7 @@ EPISODES = 100000
 SEED = 1
 USE_TENSORBOARD_LOGS = True
 USE_NORMAL_LOGS = False
-TITLE = f"ddpg_tests"
+TITLE = f"td3"
 
 device = detect_torch_device(quiet=False)
 logger = Logger(use_normal_logs=USE_NORMAL_LOGS, use_tensorboard_logs=USE_TENSORBOARD_LOGS, parent_dir=f"results/temps/{TITLE}")
@@ -81,9 +81,13 @@ env = GymEnvironment("LunarLander-v3", NUM_ENVS, render_mode=None, continuous=Tr
 #                  clip_grad_norm=0.5, update_freq=4,
 #                  save_nn=True, load_nn_path=None)
 
-agent = DDPGAgent(device, logger, job_title=TITLE, actor_lr=0.001, qfunc_lr=0.001, gamma=0.99, noise_factor=0.1,
-               replay_memory_size=10000, minibatch_size=128, update_freq=1, target_factor=0.001,
+agent = TD3Agent(device, logger, job_title=TITLE, actor_lr=0.001, qfunc_lr=0.001, gamma=0.99, noise_factor=0.1,
+               replay_memory_size=10000, minibatch_size=128, target_factor=0.001, d=2,
                decay_steps=None, decay_rate=None, save_nn=False, load_path=None,)
+
+# agent = DDPGAgent(device, logger, job_title=TITLE, actor_lr=0.001, qfunc_lr=0.001, gamma=0.99, noise_factor=0.1,
+#                replay_memory_size=10000, minibatch_size=128, update_freq=1, target_factor=0.001,
+#                decay_steps=None, decay_rate=None, save_nn=False, load_path=None,)
 
 # agent = SACAgent(device, logger, job_title=TITLE, actor_lr=0.0001, qfunc_lr=0.0001, gamma=0.99,
 #                replay_memory_size=10000, minibatch_size=32, update_freq=4, alpha=0.5, target_factor=0.005,

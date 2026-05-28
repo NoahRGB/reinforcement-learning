@@ -45,20 +45,20 @@ class QFunc(nn.Module):
     def forward(self, input):
         return self.fc_nn(input)
 
-class DDPGAgent(Agent):
+class TD3Agent(Agent):
     def __init__(self, device, logger, actor_lr, qfunc_lr, gamma, noise_factor,
-                 replay_memory_size, minibatch_size, update_freq, target_factor,
-                 decay_steps=None, decay_rate=0.99, save_nn=False, load_path=None, job_title="ddpg"):
+                 replay_memory_size, minibatch_size, target_factor, d,
+                 decay_steps=None, decay_rate=0.99, save_nn=False, load_path=None, job_title="td3"):
         self.device = device
         self.logger = logger
         self.job_title = job_title
         self.actor_lr = actor_lr
         self.qfunc_lr = qfunc_lr
+        self.d = d
         self.replay_memory_size = replay_memory_size
         self.target_factor = target_factor
         self.noise_factor = noise_factor
         self.minibatch_size = minibatch_size
-        self.update_freq = update_freq
         self.gamma = gamma
         self.decay_steps = decay_steps
         self.decay_rate = decay_rate
@@ -87,12 +87,15 @@ class DDPGAgent(Agent):
         self.current_episode_rewards = np.zeros(num_envs)
 
         self.actor = Actor(self.state_space_size, self.action_space_size).to(self.device)
-        self.qfunc = QFunc(self.state_space_size, self.action_space_size).to(self.device)
+        self.qfunc1 = QFunc(self.state_space_size, self.action_space_size).to(self.device)
+        self.qfunc2 = QFunc(self.state_space_size, self.action_space_size).to(self.device)
         self.target_actor = Actor(self.state_space_size, self.action_space_size).to(self.device)
-        self.target_qfunc = QFunc(self.state_space_size, self.action_space_size).to(self.device)
+        self.target_qfunc1 = QFunc(self.state_space_size, self.action_space_size).to(self.device)
+        self.target_qfunc2 = QFunc(self.state_space_size, self.action_space_size).to(self.device)
 
         self.actor_optimiser = optim.Adam(self.actor.parameters(), lr=self.actor_lr)
-        self.qfunc_optimiser = optim.Adam(self.qfunc.parameters(), lr=self.qfunc_lr)
+        self.qfunc1_optimiser = optim.Adam(self.qfunc1.parameters(), lr=self.qfunc_lr)
+        self.qfunc2_optimiser = optim.Adam(self.qfunc2.parameters(), lr=self.qfunc_lr)
 
         self.replay = deque(maxlen=self.replay_memory_size)
 
@@ -101,45 +104,60 @@ class DDPGAgent(Agent):
             checkpoint = torch.load(self.load_path)
             self.actor.load_state_dict(checkpoint["actor_nn"])
             self.actor_optimiser.load_state_dict(checkpoint["actor_optimiser"])
-            self.qfunc.load_state_dict(checkpoint["qfunc_nn"])
-            self.qfunc_optimiser.load_state_dict(checkpoint["qfunc_optimiser"])
-            self.target_qfunc.load_state_dict(checkpoint["target_qfunc_nn"])
+            self.qfunc1.load_state_dict(checkpoint["qfunc1_nn"])
+            self.qfunc1_optimiser.load_state_dict(checkpoint["qfunc1_optimiser"])
+            self.qfunc2.load_state_dict(checkpoint["qfunc2_nn"])
+            self.qfunc2_optimiser.load_state_dict(checkpoint["qfunc2_optimiser"])
+            self.target_qfunc1.load_state_dict(checkpoint["target_qfunc1_nn"])
+            self.target_qfunc2.load_state_dict(checkpoint["target_qfunc2_nn"])
             self.target_actor.load_state_dict(checkpoint["target_actor_nn"])
 
     def update_qfuncs(self, all_s, all_a, all_r, all_sprime, all_done):
         masks = 1 - all_done # (minibatch_size,)
-
-        qvals = self.qfunc(torch.concat([all_s, all_a], dim=1)).squeeze(1) # (minibatch_size,)
+        
+        qfunc1_vals = self.qfunc1(torch.concat([all_s, all_a], dim=1)).squeeze(1) # (minibatch_size,)
+        qfunc2_vals = self.qfunc2(torch.concat([all_s, all_a], dim=1)).squeeze(1) # (minibatch_size,)
 
         with torch.no_grad():
             target_policy_actions = self.target_actor(all_sprime) # (minibatch_size, action_space_dim,)
+            target_policy_actions += torch.randn_like(target_policy_actions) * self.noise_factor # (minibatch_size, action_space_dim,)
             target_policy_network_input = torch.concat([all_sprime, target_policy_actions], dim=1) # (minibatch_size, state_space_dim + action_space_dim,)
-            targets = all_r + self.gamma * masks * self.target_qfunc(target_policy_network_input).squeeze(1) # (minibatch_size,)
 
-        self.qfunc_optimiser.zero_grad()
-        qfunc_loss = F.mse_loss(qvals, targets)
-        qfunc_loss.backward()
-        self.qfunc_optimiser.step()
+            min_qvals = torch.min(self.target_qfunc1(target_policy_network_input), self.target_qfunc2(target_policy_network_input)).squeeze(1) # (minibatch_size,)
+            targets = all_r + self.gamma * masks * min_qvals # (minibatch_size,)
+
+        self.qfunc1_optimiser.zero_grad()
+        qfunc1_loss = F.mse_loss(qfunc1_vals, targets)
+        qfunc1_loss.backward()
+        self.qfunc1_optimiser.step()
+
+        self.qfunc2_optimiser.zero_grad()
+        qfunc2_loss = F.mse_loss(qfunc2_vals, targets)
+        qfunc2_loss.backward()
+        self.qfunc2_optimiser.step()
 
     def update_actor(self, all_s):
-
+                    
         policy_actions = self.actor(all_s) # (minibatch_size, action_space_dim,)
         policy_network_input = torch.concat([all_s, policy_actions], dim=1) # (minibatch_size, state_space_dim + action_space_dim,)
-        actor_loss = -self.qfunc(policy_network_input).mean() # scalar
+        actor_loss = -self.qfunc1(policy_network_input).mean() # scalar
 
         self.actor_optimiser.zero_grad()
         actor_loss.backward()
         self.actor_optimiser.step()
 
     def update_target_qfuncs(self):
-        for target_param, param in zip(self.target_qfunc.parameters(), self.qfunc.parameters()):
+        for target_param, param in zip(self.target_qfunc1.parameters(), self.qfunc1.parameters()):
             target_param.data.copy_(self.target_factor * target_param.data + (1 - self.target_factor) * param.data)
         
+        for target_param, param in zip(self.target_qfunc2.parameters(), self.qfunc2.parameters()):
+            target_param.data.copy_(self.target_factor * target_param.data + (1 - self.target_factor) * param.data)
+
         for target_param, param in zip(self.target_actor.parameters(), self.actor.parameters()):
             target_param.data.copy_(self.target_factor * target_param.data + (1 - self.target_factor) * param.data)
 
-    def make_ddpg_update(self):
-        # draw minibtach from replay memory and perform a DDPG update on the transitions
+    def make_td3_update(self):
+        # draw minibtach from replay memory and perform a TD3 update on the transitions
         minibatch = random.sample(self.replay, self.minibatch_size)
 
         all_s, all_a, all_r, all_sprime, all_done = zip(*minibatch)
@@ -150,8 +168,9 @@ class DDPGAgent(Agent):
         all_done = torch.tensor(np.array(all_done), dtype=torch.float32).to(self.device) # (minibatch_size,)
 
         self.update_qfuncs(all_s, all_a, all_r, all_sprime, all_done)
-        self.update_actor(all_s)
-        self.update_target_qfuncs()
+        if self.time_step % self.d == 0:
+            self.update_actor(all_s)
+            self.update_target_qfuncs()
 
     def update(self, s, sprime, a, r, done):
 
@@ -187,9 +206,8 @@ class DDPGAgent(Agent):
                 self.logger.save_logs()
 
         if len(self.replay) >= self.minibatch_size:
-            if self.time_step % self.update_freq == 0:
-                self.make_ddpg_update()
-                print(f"time step: {self.time_step}")
+            self.make_td3_update()
+            print(f"time step: {self.time_step}")
 
     def finish_episode(self, episode_num):
         pass

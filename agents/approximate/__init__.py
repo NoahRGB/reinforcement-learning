@@ -9,6 +9,7 @@ from .prioritised_dqn_agent import PrioritisedDQNAgent
 from .sac_agent import SACAgent
 from .drqn_agent import DRQNAgent
 from .ddpg_agent import DDPGAgent
+from .td3_agent import TD3Agent
 
 __all__ = [
         "SemigradientSarsaAgent",
@@ -22,4 +23,5 @@ __all__ = [
         "SACAgent",
         "DRQNAgent",
         "DDPGAgent",
+        "TD3Agent",
 ]
