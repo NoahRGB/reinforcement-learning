@@ -39,7 +39,7 @@ class Logger:
 
             if var_type == self.VarType.SCALAR:
                 if var_name not in self.vars: self.vars[var_name] = []
-                self.vars[var_name].append(value)
+                self.vars[var_name].append((value, step))
             elif var_type == self.VarType.TEXT:
                 with open(f"{self.parent_dir}/{var_name}.txt", "w") as f:
                     f.write(value)

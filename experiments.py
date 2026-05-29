@@ -14,7 +14,7 @@ from agents.tabular import *
 from agents.approximate import *
 
 NUM_ENVS = 1
-EPISODES = 100000
+EPISODES = 3
 SEED = 1
 USE_TENSORBOARD_LOGS = True
 USE_NORMAL_LOGS = True

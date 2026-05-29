@@ -29,15 +29,19 @@ while len(found_dirs) > 0:
 cols = ["red", "blue", "green", "orange", "purple", "cyan", "magenta", "yellow", "black", "brown", "pink", "gray", "olive", "cyan", "navy", "teal", "maroon", "lime", "coral", "gold"]
 # labels = [file[:-4].split("_")[-1] for file in found_pkls]
 labels = [file[:-4].split("/")[-1] for file in found_pkls]
-data = []
 
 # if the file can be read, plot it
 for file_idx, file in enumerate(found_pkls):
     with open(file, "rb") as f:
         try:
-            new_data = np.array(pickle.load(f))
-            data.append(new_data)
-            plt.plot(smoothing(new_data, smoothing_val), alpha=0.9, color=cols[file_idx], label=labels[file_idx])
+            raw_dat = pickle.load(f)
+            if isinstance(raw_dat[0], tuple):
+                xs = [x[1] for x in raw_dat]
+                ys = [x[0] for x in raw_dat]
+                plt.plot(xs, smoothing(ys, smoothing_val), alpha=0.9, color=cols[file_idx], label=labels[file_idx])
+            else:
+                new_data = np.array(pickle.load(f))
+                plt.plot(smoothing(new_data, smoothing_val), alpha=0.9, color=cols[file_idx], label=labels[file_idx])
         except Exception as e:
             print(f"Error loading {file}: {e}")
 
