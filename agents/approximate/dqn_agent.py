@@ -90,6 +90,7 @@ class DQNAgent(Agent):
         self.actions = [i for i in range(self.action_space_dim)] # discrete actions!
         self.current_episode_rewards = np.zeros((self.num_envs,))
         self.time_step = 0
+        self.num_gradient_updates = 0
         self.reward_history = []
 
         # create DQN, target DQN, optimiser, replay memory
@@ -98,6 +99,8 @@ class DQNAgent(Agent):
         self.clone_qnet()
         self.optimiser = optim.Adam(self.dqn.parameters(), lr=self.lr)
         self.replay = deque(maxlen=self.replay_memory_size)
+
+        self.logger.log("details", self.get_dump())
 
         # load relevant models if necessary
         if self.load_nn_path is not None:
@@ -110,8 +113,8 @@ class DQNAgent(Agent):
 
     def episode_terminated(self, env_idx):
         self.reward_history.append(self.current_episode_rewards[env_idx])
-        self.logger.log("mean_episode_reward", np.mean(self.reward_history[-100:]), len(self.reward_history))
-        self.logger.log("episode_reward", self.current_episode_rewards[env_idx], len(self.reward_history))
+        self.logger.log("mean_episode_reward", np.mean(self.reward_history[-100:]), self.time_step)
+        self.logger.log("episode_reward", self.current_episode_rewards[env_idx], self.time_step)
         self.current_episode_rewards[env_idx] = 0.0
 
         if self.save_nn:
@@ -147,6 +150,7 @@ class DQNAgent(Agent):
         return [np.random.choice(self.actions) for _ in range(self.num_envs)] # (num_envs,)
     
     def replay_memory_update(self):
+        self.num_gradient_updates += 1
         # performs an update on a sample of the transitions stored in replay memory
 
         # draw a sample of minibatch_size transitions from replay memory and process them
@@ -174,8 +178,8 @@ class DQNAgent(Agent):
         self.optimiser.step()
 
         # log losses/qvals
-        self.logger.log("loss", loss.item(), len(self.reward_history) + self.time_step)
-        self.logger.log("avg_qval", chosen_q_vals.mean().item(), len(self.reward_history) + self.time_step)
+        self.logger.log("loss", loss.item(), self.num_gradient_updates)
+        self.logger.log("avg_qval", chosen_q_vals.mean().item(), self.num_gradient_updates)
         self.logger.save_logs()
 
     def update(self, s, sprime, a, r, done):
@@ -187,7 +191,7 @@ class DQNAgent(Agent):
 
         self.current_episode_rewards += r # (num_envs,) + (num_envs,)
 
-        self.time_step += 1
+        self.time_step += self.num_envs
         
         for env_idx in range(self.num_envs):
             # add the transition to replay memory for every env
@@ -226,6 +230,7 @@ class DQNAgent(Agent):
     def get_dump(self):
         return f"""
         title: {self.job_title}
+        device: {self.device}
         epsilon: {self.epsilon}
         time_step: {self.time_step}
         replay_memory_size: {len(self.replay)}/{self.replay_memory_size}

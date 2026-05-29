@@ -10,6 +10,7 @@ from .sac_agent import SACAgent
 from .drqn_agent import DRQNAgent
 from .ddpg_agent import DDPGAgent
 from .td3_agent import TD3Agent
+from .a2c_shared_agent import SharedA2CAgent
 
 __all__ = [
         "SemigradientSarsaAgent",
@@ -24,4 +25,5 @@ __all__ = [
         "DRQNAgent",
         "DDPGAgent",
         "TD3Agent",
+        "SharedA2CAgent"
 ]

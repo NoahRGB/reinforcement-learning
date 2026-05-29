@@ -1,3 +1,4 @@
+from environments.custom.ball import env
 from environments.environment import Environment
 from environments.spaces import detect_space, EnvType
 
@@ -46,7 +47,6 @@ class GymEnvironment(Environment):
 
     def reset(self):
         self.env.reset()
-        # self.env.reset(seed=self.seed)
 
     def get_start_state(self):
         start_state, _ = self.env.reset(seed=self.seed)

@@ -41,7 +41,8 @@ class Logger:
                 if var_name not in self.vars: self.vars[var_name] = []
                 self.vars[var_name].append(value)
             elif var_type == self.VarType.TEXT:
-                self.vars[var_name] = value
+                with open(f"{self.parent_dir}/{var_name}.txt", "w") as f:
+                    f.write(value)
             
         if self.use_tensorboard_logs and step is not None:
             self.tensorboard_writer.add_scalar(var_name, value, step)
@@ -53,9 +54,6 @@ class Logger:
                 if isinstance(value, list):
                     with open(f"{self.parent_dir}/{var_name}.pkl", "wb") as f:
                         pickle.dump(value, f)
-                elif isinstance(value, str):
-                     with open(f"{self.parent_dir}/{var_name}.txt", "w") as f:
-                        f.write(value)
 
     def save_torch(self, dict, name):
         if not os.path.isdir(self.parent_dir):
