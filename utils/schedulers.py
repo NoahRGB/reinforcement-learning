@@ -7,9 +7,9 @@ class LinearScheduler:
         self.end_value = end_value
         self.decay_steps = decay_steps
 
-    def step(self):
-        self.current_step += 1
-        progress = min(self.current_step / self.decay_steps, 1.0)
+    def step(self, n=1):
+        self.current_step = min(self.current_step + n, self.decay_steps)
+        progress = self.current_step / self.decay_steps
         self.current_value = self.start_value + (self.end_value - self.start_value) * progress
 
         return self.current_value
@@ -26,8 +26,8 @@ class StepScheduler:
         self.current_value = values[0]
         self.current_step = 0
 
-    def step(self):
-        self.current_step += 1
+    def step(self, n=1):
+        self.current_step += n
         if self.current_idx < len(self.step_thresholds) - 1:
             if self.current_step >= self.step_thresholds[self.current_idx+1]:
                 self.current_idx += 1

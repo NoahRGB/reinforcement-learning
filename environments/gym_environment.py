@@ -3,15 +3,17 @@ from environments.environment import Environment
 from environments.spaces import detect_space, EnvType
 
 import gymnasium as gym
-from gymnasium.wrappers import RecordVideo, GrayscaleObservation, ResizeObservation, ReshapeObservation
+from gymnasium.wrappers import RecordVideo, GrayscaleObservation, ResizeObservation, ReshapeObservation, NormalizeObservation, NormalizeReward
 
 import numpy as np
 
 class GymEnvironment(Environment):
-    def __init__(self, name, num_envs, image_preprocess=False, seed=None, **kwargs):
+    def __init__(self, name, num_envs, image_preprocess=False, seed=None, normalise_obs=False, normalise_reward=False, **kwargs):
         
         self.num_envs = num_envs
         self.seed = seed
+        self.normalise_obs = normalise_obs
+        self.normalise_reward = normalise_reward
 
         def make_one_env():
             env = gym.make(name, **kwargs)
@@ -19,6 +21,10 @@ class GymEnvironment(Environment):
                 env = GrayscaleObservation(env, keep_dim=True)
                 env = ResizeObservation(env, (84, 84))
                 env = ReshapeObservation(env, (1, 84, 84))
+            if self.normalise_obs:
+                env = gym.wrappers.NormalizeObservation(env)
+            if self.normalise_reward:
+                env = gym.wrappers.NormalizeReward(env)
             return env
 
         if self.num_envs == 1:

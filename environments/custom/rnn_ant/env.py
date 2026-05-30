@@ -14,27 +14,35 @@ class RNNAntEnv(gym.Env):
         self.state_dimension = 2 + (1 if self.use_sensor else 0) + self.num_memory_nodes
         self.speed = 0.2
 
-        self.observation_space = spaces.Box(np.full((self.state_dimension), -10),
-                                            np.full((self.state_dimension), 10),
+        self.observation_space = spaces.Box(np.full((self.state_dimension), -5),
+                                            np.full((self.state_dimension), 5),
                                             shape=(self.state_dimension,), dtype=np.float32)
 
-        self.action_space = spaces.Box(np.full((2 + self.num_memory_nodes), -10),
-                                       np.full((2 + self.num_memory_nodes), 10),
+        self.action_space = spaces.Box(np.full((2 + self.num_memory_nodes), -1),
+                                       np.full((2 + self.num_memory_nodes), 1),
                                        shape=(2 + self.num_memory_nodes,), dtype=np.float32)
         
-        self.initial_food_location = (np.random.rand(2) - 0.5) * (8 if self.randomise_food else 0)
-        self.initial_state = np.concatenate([
-            (np.random.rand(2) - 0.5) * 10,
-            np.zeros((self.state_dimension - 2))
-        ], axis=0)
 
-        print(f"state: {self.initial_state}")
-        # print(f"food location: {self.initial_food_location}")
+        self.initial_state = None
+        self.initial_food_location = None
 
-        self.reset()
+        # self.reset()
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
+
+        if self.initial_state is None or self.initial_food_location is None:
+
+            self.initial_food_location = (np.random.rand(2) - 0.5) * (8 if self.randomise_food else 0)
+
+            self.initial_state = np.concatenate([
+                (np.random.rand(2) - 0.5) * 10,
+                np.zeros((self.state_dimension - 2))
+            ], axis=0)
+
+            print(f"state: {self.initial_state}")
+            # print(f"food location: {self.initial_food_location}")
+
 
         self.food_location = self.initial_food_location.copy()
         self.state = self.initial_state.copy()

@@ -10,9 +10,9 @@ import numpy as np
 
 import pickle
 
-class Actor(nn.Module):
+class CombinedNN(nn.Module):
     def __init__(self, state_space_dim, action_space_dim, conv, cont):
-        super(Actor, self).__init__()
+        super(CombinedNN, self).__init__()
         self.conv = conv
         self.cont = cont
 
@@ -37,64 +37,31 @@ class Actor(nn.Module):
             )
 
         if self.cont:
-            self.mu_nn = nn.Sequential(
-                nn.Linear(self.fc_input_dim, *action_space_dim),
-                nn.Tanh(),
-            )
-
-            self.log_std = nn.Parameter(torch.zeros(action_space_dim))
-
+            self.mu_head = nn.Linear(self.fc_input_dim, *action_space_dim)
+            self.log_sigma_head = nn.Parameter(torch.zeros(*action_space_dim))
         else:
-            self.logits_nn = nn.Sequential(
-                nn.Linear(self.fc_input_dim, action_space_dim),
-            )
+            self.actor_head = nn.Linear(self.fc_input_dim, action_space_dim)
+
+        self.critic_head = nn.Linear(self.fc_input_dim, 1)
 
     def forward(self, input):
         main_body_out = self.main_body(input)
+        critic_out = self.critic_head(main_body_out)
         if self.cont:
-            mu = self.mu_nn(main_body_out)
-            sigma = torch.exp(self.log_std)
+            mu = self.mu_head(main_body_out)
+            sigma = torch.exp(self.log_sigma_head)
             sigma = torch.clamp(sigma, min=1e-3)
-            return mu, sigma
-        return self.logits_nn(main_body_out)
-
-class Critic(nn.Module):
-    def __init__(self, state_space_dim, action_space_dim, conv):
-        super(Critic, self).__init__()
-        self.conv = conv
-
-        if self.conv:
-            self.fc_nn = nn.Sequential(
-                nn.Conv2d(state_space_dim[0], 16, kernel_size=(8, 8), stride=4),
-                nn.ReLU(),
-                nn.Conv2d(16, 32, kernel_size=(4, 4), stride=2),
-                nn.ReLU(),
-                nn.Flatten(),
-                nn.Linear(2592, 256),
-                nn.ReLU(),
-                nn.Linear(256, 1),
-            )
-        else:
-            self.fc_nn = nn.Sequential(
-                nn.Linear(state_space_dim[0], 64),
-                nn.Tanh(),
-                nn.Linear(64, 64),
-                nn.Tanh(),
-                nn.Linear(64, 1),
-            )
-
-    def forward(self, input):
-        return self.fc_nn(input)
-
+            return (mu, sigma), critic_out
+        return self.actor_head(main_body_out), critic_out
+    
 class PPOAgent(Agent):
-    def __init__(self, device, logger, actor_lr, critic_lr, gamma, lam, conv, cont,
-                 epsilon, epochs, minibatch_size, tmax, entropy_weight, decay_steps=None, decay_rate=0.99, 
+    def __init__(self, device, logger, lr, gamma, lam, conv, cont,
+                 epsilon, epochs, minibatch_size, tmax, value_weight, entropy_weight, decay_steps=None, decay_rate=0.99, 
                  clip_grad_norm=None, save_nn=False, load_path=None, job_title="ppo"):
         self.device = device
         self.logger = logger
         self.job_title = job_title
-        self.actor_lr = actor_lr
-        self.critic_lr = critic_lr
+        self.lr = lr
         self.gamma = gamma
         self.lam = lam
         self.epsilon = epsilon
@@ -105,6 +72,7 @@ class PPOAgent(Agent):
         self.cont = cont
         self.decay_steps = decay_steps
         self.decay_rate = decay_rate
+        self.value_weight = value_weight
         self.entropy_weight = entropy_weight
         self.clip_grad_norm = clip_grad_norm
         self.save_nn = save_nn
@@ -116,11 +84,11 @@ class PPOAgent(Agent):
     def run_policy(self, s, t):
         # s is (num_envs, state_space_dim)
         if self.cont:
-            mu, sigma = self.actor(self.process_state(s)) # (num_envs, action_space_dim,)
+            (mu, sigma), _ = self.combined_nn(torch.tensor(s, dtype=torch.float32).to(self.device)) # (num_envs, action_space_dim,)
             dist = torch.distributions.Normal(mu, sigma)
             return dist.sample().cpu().numpy() # (num_envs, action_space_dim,)
         else:
-            logits = self.actor(self.process_state(s)) # (num_envs, action_space_dim,)
+            logits, _ = self.combined_nn(torch.tensor(s, dtype=torch.float32).to(self.device)) # (num_envs, action_space_dim,)
             dist = torch.distributions.Categorical(logits=logits)
             return dist.sample().cpu().numpy() # (num_envs, action_space_dim,)
     
@@ -141,28 +109,24 @@ class PPOAgent(Agent):
         self.num_action_choices = action_space.num
 
         self.time_step = 0
-        self.update_count = 0
+        self.grad_update_count = 0
         self.reward_record = -np.inf
         
         self.reset_transitions()
-        
+
+        self.logger.log("details", self.get_dump())
+
         self.reward_history = []
         self.current_episode_rewards = np.zeros(num_envs)
 
-        self.actor = Actor(self.state_space_size, self.action_space_size, self.conv, self.cont).to(self.device)
-        self.critic = Critic(self.state_space_size, self.action_space_size, self.conv).to(self.device)
-        self.actor_optimiser = optim.Adam(self.actor.parameters(), lr=self.actor_lr)
-        self.critic_optimiser = optim.Adam(self.critic.parameters(), lr=self.critic_lr)
-        self.actor_scheduler = None #optim.lr_scheduler.ExponentialLR(self.actor_optimiser, gamma=self.decay_rate)
-        self.critic_scheduler = None #optim.lr_scheduler.ExponentialLR(self.critic_optimiser, gamma=self.decay_rate)
+        self.combined_nn = CombinedNN(self.state_space_size, self.action_space_size, self.conv, self.cont).to(self.device)
+        self.optimiser = optim.RMSprop(self.combined_nn.parameters(), lr=self.lr)
 
         # load saved models
         if self.load_path is not None:
             checkpoint = torch.load(self.load_path)
-            self.actor.load_state_dict(checkpoint["actor_nn"])
-            self.actor_optimiser.load_state_dict(checkpoint["actor_optimiser"])
-            self.critic.load_state_dict(checkpoint["critic_nn"])
-            self.critic_optimiser.load_state_dict(checkpoint["critic_optimiser"])
+            self.combined_nn.load_state_dict(checkpoint["combined_nn"])
+            self.optimiser.load_state_dict(checkpoint["optimiser"])
 
     def calculate_advantages(self):
         s = torch.tensor(np.array(self.transitions["s"]), dtype=torch.float32).to(self.device) # (tmax, num_envs, state_space_dim)
@@ -171,11 +135,17 @@ class PPOAgent(Agent):
         done = torch.tensor(np.array(self.transitions["done"]), dtype=torch.float32).to(self.device) # (tmax, num_envs)
         masks = 1 - done # (tmax, num_envs)
 
+        _, state_values = self.combined_nn(s) # (tmax, num_envs, 1)
+        state_values = state_values.squeeze(-1) # (tmax, num_envs)
+
+        _, next_state_values = self.combined_nn(sprime) # (tmax, num_envs, 1)
+        next_state_values = next_state_values.squeeze(-1) # (tmax, num_env
+
         with torch.no_grad():
             gae = 0.0
             advantages = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
             for t in reversed(range(len(r))):
-                delta = r[t] + self.gamma * self.critic(sprime[t]).squeeze(-1) * masks[t] - self.critic(s[t]).squeeze(-1)
+                delta = r[t] + self.gamma * next_state_values[t] * masks[t] - state_values[t]
                 gae = delta + self.gamma * self.lam * masks[t] * gae
                 advantages[t] = gae
 
@@ -185,11 +155,11 @@ class PPOAgent(Agent):
     def make_ppo_update(self, s, a, old_log_probs, advantages, returns):
 
         if self.cont:
-            mu, sigma = self.actor(s) # (tmax*num_envs, action_space_dim)
+            (mu, sigma), state_values = self.combined_nn(s) # (tmax*num_envs, action_space_dim), (tmax*num_envs, 1)
             dist = torch.distributions.Normal(mu, sigma)
             chosen_log_probs = dist.log_prob(a).sum(-1) # (tmax*num_envs)
         else:
-            logits = self.actor(s) # (tmax*num_envs, num_action_choices)
+            logits, state_values = self.combined_nn(s) # (tmax*num_envs, num_action_choices)
             log_probs = F.log_softmax(logits, dim=-1) # (tmax*num_envs, num_action_choices)
             chosen_log_probs = log_probs.gather(-1, a.unsqueeze(-1)).squeeze(-1) # (tmax*num_envs)
 
@@ -205,38 +175,27 @@ class PPOAgent(Agent):
 
         policy_loss = -torch.min(surrogate_obj, clipped_surrogate_obj).mean() - (self.entropy_weight * entropy_bonus)
 
-        state_values = self.critic(s).squeeze(-1) # (tmax*num_envs)
+        state_values = state_values.squeeze(-1) # (tmax*num_envs)
         state_value_loss = F.mse_loss(state_values, returns)
 
-        self.actor_optimiser.zero_grad()
-        policy_loss.backward()
-        if self.clip_grad_norm is not None:
-            torch.nn.utils.clip_grad_norm_(self.actor.parameters(), self.clip_grad_norm)
-        self.actor_optimiser.step()
+        combined_loss = policy_loss + self.value_weight * state_value_loss
 
-        self.critic_optimiser.zero_grad()
-        state_value_loss.backward()
+        self.optimiser.zero_grad()
+        combined_loss.backward()
         if self.clip_grad_norm is not None:
-            torch.nn.utils.clip_grad_norm_(self.critic.parameters(), self.clip_grad_norm)
-        self.critic_optimiser.step()
+            torch.nn.utils.clip_grad_norm_(self.combined_nn.parameters(), self.clip_grad_norm)
+        self.optimiser.step()
 
         if self.decay_steps is not None:
             if self.time_step % self.decay_steps == 0:
                 self.entropy_weight *= self.decay_rate
 
-        if self.actor_scheduler is not None:
-            self.actor_scheduler.step()
-            self.logger.log("actor_lr", self.actor_scheduler.get_last_lr()[0], self.update_count)
-        if self.critic_scheduler is not None:
-            self.critic_scheduler.step()
-            self.logger.log("critic_lr", self.critic_scheduler.get_last_lr()[0], self.update_count)
+        self.logger.log("policy_loss", policy_loss.item(), self.grad_update_count)
+        self.logger.log("state_value_loss", state_value_loss.item(), self.grad_update_count)
+        self.logger.log("entropy", entropy_bonus.item(), self.grad_update_count)
+        if self.cont: self.logger.log("sigma", sigma.mean().item(), self.grad_update_count)
 
-        self.logger.log("policy_loss", policy_loss.item(), self.update_count)
-        self.logger.log("state_value_loss", state_value_loss.item(), self.update_count)
-        self.logger.log("entropy", entropy_bonus.item(), self.update_count)
-        if self.cont: self.logger.log("sigma", sigma.mean().item(), self.update_count)
-
-        self.update_count += 1
+        self.grad_update_count += 1
 
     def update(self, s, sprime, a, r, done):
 
@@ -254,21 +213,20 @@ class PPOAgent(Agent):
 
         with torch.no_grad():
             if self.cont:
-                mu, sigma = self.actor(self.process_state(s)) # (num_envs, action_space_dim)
+                (mu, sigma), _ = self.combined_nn(self.process_state(s)) # (num_envs, action_space_dim)
                 dist = torch.distributions.Normal(mu, sigma)
                 chosen_log_probs = dist.log_prob(self.process_state(a)).sum(-1) # (num_envs,)
                 self.transitions["log_probs"].append(chosen_log_probs.cpu().detach())
             else:
-                logits = self.actor(self.process_state(s)) # (num_envs, action_space_dim)
+                logits, _ = self.combined_nn(self.process_state(s)) # (num_envs, action_space_dim)
                 log_probs = F.log_softmax(logits, dim=-1) # (tmax, num_envs, num_action_choices)
                 chosen_log_probs = log_probs[torch.arange(self.num_envs), a] # (num_envs,)
                 self.transitions["log_probs"].append(chosen_log_probs.cpu().detach()) 
 
-        self.time_step += 1
+        self.time_step += self.num_envs
         self.current_episode_rewards += r
 
-        if self.time_step % self.tmax == 0:
-            print(f"Time step: {self.time_step}")
+        if (self.time_step / self.num_envs) % self.tmax == 0:
             advantages = self.calculate_advantages()
 
             s = torch.tensor(np.array(self.transitions["s"]), dtype=torch.float32).to(self.device) # (tmax, num_envs, state_space_dim)
@@ -278,7 +236,9 @@ class PPOAgent(Agent):
             s = s.view(self.tmax * self.num_envs, *s.shape[2:]) # (tmax * num_envs, state_space_dim)
             a = a.view(self.tmax * self.num_envs, *a.shape[2:]) # (tmax * num_envs, action_space_dim)
 
-            state_values = self.critic(s).squeeze(-1) # (tmax * num_envs,)
+            _, state_values = self.combined_nn(s) # (tmax * num_envs, 1)
+            state_values = state_values.squeeze(-1) # (tmax * num_envs,)
+
             returns = (advantages + state_values).detach() # (tmax * num_envs,)
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
@@ -305,17 +265,15 @@ class PPOAgent(Agent):
                 # if terminal, save/log/reset rewards, save model
                 self.reward_history.append(self.current_episode_rewards[env_idx])
                 mean_recent_reward = np.mean(self.reward_history[-100:])
-                self.logger.log("mean_episode_reward", mean_recent_reward, len(self.reward_history))
-                self.logger.log("episode_reward", self.current_episode_rewards[env_idx], len(self.reward_history))
+                self.logger.log("mean_episode_reward", mean_recent_reward, self.time_step)
+                self.logger.log("episode_reward", self.current_episode_rewards[env_idx], self.time_step)
                 self.current_episode_rewards[env_idx] = 0.0
 
                 if self.save_nn and mean_recent_reward > self.reward_record:
                     self.reward_record = mean_recent_reward
                     self.logger.save_torch({
-                        "actor_nn": self.actor.state_dict(),
-                        "actor_optimiser": self.actor_optimiser.state_dict(),
-                        "critic_nn": self.critic.state_dict(),
-                        "critic_optimiser": self.critic_optimiser.state_dict(),
+                        "combined_nn": self.combined_nn.state_dict(),
+                        "optimiser": self.optimiser.state_dict(),
                     }, f"{self.job_title}_model")
                 self.logger.save_logs()
 
