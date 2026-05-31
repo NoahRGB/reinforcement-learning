@@ -266,7 +266,7 @@ class PPOAgent(Agent):
                 self.reward_history.append(self.current_episode_rewards[env_idx])
                 mean_recent_reward = np.mean(self.reward_history[-100:])
                 self.logger.log("mean_episode_reward", mean_recent_reward, self.time_step)
-                self.logger.log("episode_reward", self.current_episode_rewards[env_idx], self.time_step)
+                self.logger.log("episode_reward", self.current_episode_rewards[env_idx], len(self.reward_history))
                 self.current_episode_rewards[env_idx] = 0.0
 
                 if self.save_nn and mean_recent_reward > self.reward_record:
