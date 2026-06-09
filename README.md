@@ -67,14 +67,14 @@ From scratch implementations of various reinforcement learning algorithms using 
 
 ## Examples
 
-![DQN pong agent](./results/finished/dqn/dqn_pong/dqn_pong_master.gif)
+![DQN pong agent](./results/vids/dqn_pong_master.gif)
 
-![DQN car racing agent](./results/finished/dqn/dqn_carracing/dqn_carracing.gif)
+![DQN car racing agent](./results/vids/dqn_carracing.gif)
 
-![PPO hopper](./results/finished/ppo/ppo_hopper/ppo_hopper.gif)
+![PPO hopper](./results/vids/ppo_hopper.gif)
 
-![A2C bipedal walker](./results/finished/a2c/a2c_bipedalwalker/a2c_bipedalwalker.gif)
+![A2C bipedal walker](./results/vids/a2c_bipedalwalker.gif)
 
-![DQN boxing agent](./results/finished/dqn/dqn_boxing/dqn_boxing.gif)
+![DQN boxing agent](./results/vids/dqn_boxing.gif)
 
-![PPO inverted double pendulum](./results/finished/ppo/ppo_inv_double_pendulum/ppo_inv_double_pendulum.gif)
+![PPO inverted double pendulum](./results/vids/ppo_inv_double_pendulum.gif)
