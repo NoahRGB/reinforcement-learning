@@ -1,5 +1,0 @@
-NUM_ENVS = 16
-agent = PPOAgent(device, writer, actor_lr=0.001, critic_lr=0.001, gamma=0.99, 
-               conv=False, cont=False, tmax=16, epsilon=0.2, epochs=3, decay_steps=None, decay_rate=None,
-               entropy_weight=0.01, clip_grad_norm=None,
-               save_path="results/temps/models/ppo_cartpole.pt", load_path=None,)

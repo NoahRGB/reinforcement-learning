@@ -17,22 +17,3 @@ class LinearScheduler:
     def get_value(self):
         return self.current_value
     
-
-class StepScheduler:
-    def __init__(self, values: list, step_thresholds: list):
-        self.values = values
-        self.step_thresholds = step_thresholds
-        self.current_idx = 0
-        self.current_value = values[0]
-        self.current_step = 0
-
-    def step(self, n=1):
-        self.current_step += n
-        if self.current_idx < len(self.step_thresholds) - 1:
-            if self.current_step >= self.step_thresholds[self.current_idx+1]:
-                self.current_idx += 1
-                self.current_value = self.values[self.current_idx]
-        return self.current_value
-
-    def get_value(self):
-        return self.current_value

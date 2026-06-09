@@ -1,6 +1,0 @@
-agent = MultiA2CAgent(device, writer, actor_lr=0.0003, critic_lr=0.0003, gamma=0.99, 
-               conv=False, cont=True, tmax=16, decay_steps=None, decay_rate=None,
-               entropy_weight=0.02, clip_grad_norm=0.5,
-               save_path="results/temps/models/a2c_bipedalwalker.pt", load_path=None,)
-
-NUM_ENVS = 32

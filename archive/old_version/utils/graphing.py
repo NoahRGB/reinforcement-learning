@@ -5,15 +5,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-def smoothing(vals, factor):
-    # https://stackoverflow.com/questions/42281844/what-is-the-mathematics-behind-the-smoothing-parameter-in-tensorboards-scalar
-    last_smoothed_val = vals[0]
-    smoothed_vals = np.zeros(len(vals))
-    for i, val in enumerate(vals):
-        smoothed_val = last_smoothed_val * factor + (1 - factor) * val
-        smoothed_vals[i] = smoothed_val
-        last_smoothed_val = smoothed_val
-    return smoothed_vals
+from utils import smoothing 
 
 smoothing_val = float(sys.argv[1]) if len(sys.argv) > 1 else 0.0
 

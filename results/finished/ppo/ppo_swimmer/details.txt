@@ -1,9 +1,0 @@
-
- 19 NUM_ENVS = 8
- 20
-
- 46
- 47 agent = PPOAgent(device, logger, job_title=experiment_title, actor_lr=0.0003, critic_lr=0.0003, gamma=0.99,
- 48                conv=False, cont=True, tmax=256, epsilon=0.2, epochs=4, minibatch_size=64,
- 49                decay_steps=None, decay_rate=None, entropy_weight=0.001, clip_grad_norm=0.7,
- 50                save_nn=True, load_path=None,)

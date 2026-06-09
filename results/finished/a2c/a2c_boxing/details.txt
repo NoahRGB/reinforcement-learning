@@ -1,7 +1,0 @@
-num_envs = 16
-
- 54 agent = A2CAgent(device, writer, actor_lr=0.00003, critic_lr=0.00003, gamma=0.99,
- 55                conv=True, cont=False, tmax=64, decay_steps=None, decay_rate=None,
- 56                entropy_weight=0.01, clip_grad_norm=0.1,
- 57                save_path=loc, load_path=None)
- 58

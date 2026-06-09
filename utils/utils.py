@@ -1,6 +1,9 @@
+import os
+import random
+import torch
 import numpy as np
 
-import torch
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3" # shuts tensorflow up
 
 tensorboard = True
 try:
@@ -18,12 +21,9 @@ def create_tensorboard_writer(comment="", flush_secs=5):
         return SummaryWriter(comment=comment, flush_secs=flush_secs)
     return None
 
-def smoothing(vals, factor):
-    # https://stackoverflow.com/questions/42281844/what-is-the-mathematics-behind-the-smoothing-parameter-in-tensorboards-scalar
-    last_smoothed_val = vals[0]
-    smoothed_vals = np.zeros(len(vals))
-    for i, val in enumerate(vals):
-        smoothed_val = last_smoothed_val * factor + (1 - factor) * val
-        smoothed_vals[i] = smoothed_val
-        last_smoothed_val = smoothed_val
-    return smoothed_vals
+def seed(seed: int):
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)

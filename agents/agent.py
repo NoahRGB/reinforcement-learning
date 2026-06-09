@@ -1,66 +1,17 @@
 from abc import ABC, abstractmethod
+import torch
 
+import agents
+import envs
+import utils
 
 class Agent(ABC):
 
     @abstractmethod
-    def run_policy(self, s, t):
-        """
-        this method should return an action to perform on
-        the given state s
-        """
+    def learn(self, total_timesteps: int, env: envs.Gymenv, logger: utils.Logger, seed: int = None, quiet: bool = False):
         ...
 
     @abstractmethod
-    def update(self, s, sprime, a, r, done):
-        """
-        this method should perform any necessary learning
-        updates based on the given s, s', a, r sequence
-
-        it should return a bool denoting whether the agent
-        wants to stop learning
-        (perhaps based on a timeout)
-        """
-        ...
-
-    @abstractmethod
-    def initialise(self, state_space, action_space, start_state, num_envs):
-        """
-        this method should initialise all relevant structures
-        associated with the agent's logic so a new episode can
-        begin
-        """
-        ...
-
-    @abstractmethod
-    def finish_episode(self, episode_num):
-        """
-        this method should execute the relevant book keeping
-        or learning that needs to be done at the end of an
-        episode
-        """
-        ...
-
-    @abstractmethod
-    def get_supported_env_types(self) -> list:
-        ...
-
-    @abstractmethod
-    def get_supported_state_spaces(self) -> list:
-        """
-        this method should return a list of spaces from environments/spaces.py
-        that the agent supports for environment state spaces
-        """
-        ...
-
-    @abstractmethod
-    def get_supported_action_spaces(self) -> list:
-        """
-        this method should return a list of spaces from environments/spaces.py
-        that the agent supports for environment action spaces
-        """
-        ...
-
-    @abstractmethod
-    def get_dump(self) -> str:
+    def to(self, device: torch.device):
+        # convert all agent torch operations to the given device
         ...
