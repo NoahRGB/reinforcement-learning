@@ -124,6 +124,14 @@ class DDPG(agents.Agent):
             target_param.data.copy_(self.target_factor * target_param.data + (1 - self.target_factor) * param.data)
 
         self.logger.gradient_step_complete(["qfunc_loss", "actor_loss"], [qfunc_loss.item(), actor_loss.item()])
+        self.logger.network_update({
+            "actor": self.actor.state_dict(),
+            "qfunc": self.qfunc.state_dict(),
+            "target_actor": self.target_actor.state_dict(),
+            "target_qfunc": self.target_qfunc.state_dict(),
+            "actor_optimiser": self.actor_optimiser.state_dict(),
+            "qfunc_optimiser": self.qfunc_optimiser.state_dict(),
+        })
 
 
     def learn(self, total_timesteps: int, env: envs.Environment, logger: utils.Logger, seed: int = None, quiet: bool = False):

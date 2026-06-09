@@ -169,6 +169,8 @@ class PPO(agents.Agent):
                 self.optim.step()
 
                 self.logger.gradient_step_complete(["policy_loss", "state_value_loss"], [policy_loss.item(), state_value_loss.item()])
+    
+        self.logger.network_update({"net": self.net.state_dict(), "optim": self.optim.state_dict()})
 
                 
     def learn(self, total_timesteps: int, env: envs.Environment, logger: utils.Logger, seed: int = None, quiet: bool = False):

@@ -12,7 +12,7 @@ class Logger:
         REWARD=2,
         OTHER=3
 
-    def __init__(self, use_tensorboard, use_files, network_save_interval, print_progress, save_loc, categories=[Category.LOSS, Category.REWARD, Category.OTHER]):
+    def __init__(self, use_tensorboard, use_files, print_progress, network_save_interval, save_loc, categories=[Category.LOSS, Category.REWARD, Category.OTHER]):
         self.use_files = use_files
         self.network_save_interval = network_save_interval
         self.save_network = network_save_interval > 0
@@ -93,7 +93,7 @@ class Logger:
         self.reward_history.append(reward)
         if ((reward > self.reward_record) or 
             (not self.saved_network_before and self.save_network) or
-            ((self.episodes_completed % self.network_save_interval == 0 and self.save_network))):
+            ((self.save_network and self.episodes_completed % self.network_save_interval == 0))):
             if reward > self.reward_record:
                 self.reward_record = reward
             self._save_vars_to_file()

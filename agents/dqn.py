@@ -28,6 +28,8 @@ class QNet(torch.nn.Module):
             self.body = torch.nn.Sequential(
                 torch.nn.Linear(*input_size, 256),
                 torch.nn.ReLU(),
+                torch.nn.Linear(256, 256),
+                torch.nn.ReLU(),
                 torch.nn.Linear(256, output_size),
             )
     

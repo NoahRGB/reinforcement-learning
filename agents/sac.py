@@ -173,7 +173,17 @@ class SAC(agents.Agent):
             target_param.data.copy_(self.target_factor * target_param.data + (1 - self.target_factor) * param.data)
 
         self.logger.gradient_step_complete(["qfunc1_loss", "qfunc2_loss", "policy_loss", "alpha_loss"], [qfunc1_loss.item(), qfunc2_loss.item(), policy_loss.item(), alpha_loss.item()])
-
+        self.logger.network_update({
+            "actor": self.actor.state_dict(),
+            "qfunc1": self.qfunc1.state_dict(),
+            "qfunc2": self.qfunc2.state_dict(),
+            "target_qfunc1": self.target_qfunc1.state_dict(),
+            "target_qfunc2": self.target_qfunc2.state_dict(),
+            "actor_optimiser": self.actor_optimiser.state_dict(),
+            "qfunc1_optimiser": self.qfunc1_optimiser.state_dict(),
+            "qfunc2_optimiser": self.qfunc2_optimiser.state_dict(),
+            "alpha_optimiser": self.alpha_optimiser.state_dict(),
+        })
 
     def learn(self, total_timesteps: int, env: envs.Environment, logger: utils.Logger, seed: int = None, quiet: bool = False):
         assert env.get_num_envs() == 1

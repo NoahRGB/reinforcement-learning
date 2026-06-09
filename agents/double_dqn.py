@@ -26,9 +26,9 @@ class QNet(torch.nn.Module):
             )
         else:
             self.body = torch.nn.Sequential(
-                torch.nn.Linear(*input_size, 256),
+                torch.nn.Linear(*input_size, 128),
                 torch.nn.ReLU(),
-                torch.nn.Linear(256, output_size),
+                torch.nn.Linear(128, output_size),
             )
     
     def forward(self, inp):
