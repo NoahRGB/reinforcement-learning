@@ -10,6 +10,7 @@ import utils
 class QNet(torch.nn.Module):
     def __init__(self, input_size, output_size, conv):
         super(QNet, self).__init__()
+        self.conv = conv
 
         if conv:
             self.body = torch.nn.Sequential(
@@ -32,6 +33,9 @@ class QNet(torch.nn.Module):
             )
     
     def forward(self, inp):
+        if self.conv:
+            new_inp = inp / 255.0
+            return self.body(new_inp)
         return self.body(inp)
 
 class DoubleDQN(agents.Agent):

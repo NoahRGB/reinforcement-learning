@@ -22,7 +22,7 @@ class Gymenv(envs.Environment):
                     noop_max=30, frame_skip=4, terminal_on_life_loss=False,
                     screen_size=84, grayscale_obs=True, grayscale_newaxis=False
                 )
-                env = gym.wrappers.FrameStackObservation(env, stack_size=1)
+                env = gym.wrappers.FrameStackObservation(env, stack_size=4)
             elif self.minigrid:
                 env = gym.make(self.env_name, **env_kwargs)
                 env = minigrid.wrappers.ImgObsWrapper(env)

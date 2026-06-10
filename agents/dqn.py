@@ -10,6 +10,7 @@ import utils
 class QNet(torch.nn.Module):
     def __init__(self, input_size, output_size, conv):
         super(QNet, self).__init__()
+        self.conv = conv
 
         if conv:
             self.body = torch.nn.Sequential(
@@ -34,6 +35,9 @@ class QNet(torch.nn.Module):
             )
     
     def forward(self, inp):
+        if self.conv:
+            new_inp = inp / 255.0
+            return self.body(new_inp)
         return self.body(inp)
 
 class DQN(agents.Agent):
@@ -100,7 +104,7 @@ class DQN(agents.Agent):
 
         # zero grads, calculate loss, backprop, optimiser step
         self.optim.zero_grad()
-        loss = torch.nn.functional.smooth_l1_loss(chosen_q_vals, targets) # scalar
+        loss = torch.nn.functional.mse_loss(chosen_q_vals, targets) # scalar
         loss.backward()
         if self.cgn is not None:
             torch.nn.utils.clip_grad_norm_(self.qnet.parameters(), self.cgn)

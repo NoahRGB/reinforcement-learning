@@ -9,6 +9,7 @@ from .td3 import TD3
 from .double_dqn import DoubleDQN
 from .prioritised_dqn import PrioritisedDQN
 from .drqn import DRQN
+from .lstm_ppo import LSTM_PPO
 
 __all__ = [
     "Agent",
@@ -22,4 +23,5 @@ __all__ = [
     "DoubleDQN",
     "PrioritisedDQN",
     "DRQN",
+    "LSTM_PPO",
 ]

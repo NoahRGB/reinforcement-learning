@@ -88,9 +88,11 @@ class Logger:
                 
     def episode_complete(self, reward):
         self.episodes_completed += 1
+        self.reward_history.append(reward)
+
         if self.print_progress:
             print(f"episode {self.episodes_completed}, timesteps {self.timesteps_completed}, reward: {reward}")
-        self.reward_history.append(reward)
+
         if ((reward > self.reward_record) or 
             (not self.saved_network_before and self.save_network) or
             ((self.save_network and self.episodes_completed % self.network_save_interval == 0))):
@@ -98,12 +100,13 @@ class Logger:
                 self.reward_record = reward
             self._save_vars_to_file()
             self._save_network_to_file()
+
         if self.Category.REWARD in self.categories:
             self._add_var_if_new("episodic_reward")
             self._add_var_if_new("mean_episodic_reward")
-            self.vars["episodic_reward"].append((reward, self.episodes_completed))
+            self.vars["episodic_reward"].append((reward, self.timesteps_completed))
             self.vars["mean_episodic_reward"].append((np.mean(self.reward_history[-100:]), self.timesteps_completed))
-            self._write_to_tensorboard("episodic_reward", reward, self.episodes_completed)
+            self._write_to_tensorboard("episodic_reward", reward, self.timesteps_completed)
             self._write_to_tensorboard("mean_episodic_reward", np.mean(self.reward_history[-100:]), self.timesteps_completed)
 
     def training_done(self):
