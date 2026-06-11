@@ -42,18 +42,18 @@ class EpisodeRewardLogger(BaseCallback):
 
 
 LOG_PATH = "./runs"
-SEED = 1
-TIMESTEPS = 1000
-NUM_ENVS = 10
+SEED = 7
+TIMESTEPS = 300000
+NUM_ENVS = 8
 STATS_WINDOW = 100
 
 vec_env = make_vec_env("CartPole-v1", n_envs=NUM_ENVS, seed=SEED)
 
 
-agent = A2C("MlpPolicy", vec_env, stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH)
+agent = A2C("MlpPolicy", vec_env, ent_coef=0.0, stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH)
 
 logger = EpisodeRewardLogger()
 
 trained_agent = agent.learn(total_timesteps=TIMESTEPS, callback=logger)
 
-logger.save("./results/temps/data/sb3_a2c_cartpole")
+logger.save(f"./results/temps/data/sb3_a2c_cartpole_seed{SEED}_timesteps{TIMESTEPS}")

@@ -70,8 +70,8 @@ class Logger:
                 self._make_parent_dir()
             torch.save(self.torch_network_dict, f"{self.save_loc}/torch_network.pt")
 
-    def timestep_complete(self):
-        self.timesteps_completed += 1
+    def timestep_complete(self, n=1):
+        self.timesteps_completed += n
 
     def gradient_step_complete(self, loss_names, loss_values):
         self.gradient_steps += 1

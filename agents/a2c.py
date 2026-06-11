@@ -145,9 +145,6 @@ class A2C(agents.Agent):
         self.logger = logger
         current_game_states = torch.from_numpy(env.get_start_states()).float().to(self.device)
         utils.seed(seed)
-
-        print(current_game_states)
-
         self._setup(env)
 
         for iteration in range(1, num_iterations + 1):
@@ -159,7 +156,7 @@ class A2C(agents.Agent):
             dones = torch.zeros((self.tmax, env.get_num_envs()), dtype=torch.float32).to(self.device)
 
             for current_t in range(self.tmax):
-                self.logger.timestep_complete()
+                self.logger.timestep_complete(n=env.get_num_envs())
 
                 current_actions = self._get_actions(current_game_states)
                 current_sprimes, current_rewards, current_isterms, current_istruncs, current_infos = env.step(current_actions.cpu().numpy())

@@ -197,7 +197,7 @@ class PPO(agents.Agent):
             old_log_probs = torch.zeros((self.tmax, env.get_num_envs()), dtype=torch.float32).to(self.device)
             
             for current_t in range(self.tmax):
-                self.logger.timestep_complete()
+                self.logger.timestep_complete(n=env.get_num_envs())
 
                 dist, current_actions = self._get_actions(current_game_states)
                 current_sprimes, current_rewards, current_isterms, current_istruncs, current_infos = env.step(current_actions.cpu().numpy())

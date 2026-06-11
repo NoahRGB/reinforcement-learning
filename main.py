@@ -7,11 +7,15 @@ import agents
 import envs
 
 DEVICE = utils.detect_torch_device(quiet=False)
-TITLE = "tests"
-USE_NORMAL_LOGS = False
+USE_NORMAL_LOGS = True
 USE_TENSORBOARD_LOGS = True
 PRINT_PROGRESS = True
 NETWORK_SAVE_INTERVAL = 0
+SEED = 1
+ENV_NAME = "CartPole-v1" # "PongNoFrameskip-v4"
+NUM_ENVS = 8
+TIMESTEPS = 300000
+TITLE = f"me_a2c_cartpole_seed{SEED}_timesteps{TIMESTEPS}"
 LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
                          USE_NORMAL_LOGS,
                          PRINT_PROGRESS,
@@ -19,10 +23,7 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
                          f"results/temps/{TITLE}",
                          [utils.Logger.Category.REWARD,
                           utils.Logger.Category.LOSS])
-SEED = 1
-ENV_NAME = "CartPole-v1" # "PongNoFrameskip-v4"
-NUM_ENVS = 10
-TIMESTEPS = 3000000
+
 
 # agent = agents.TD3(lr=0.001, gamma=0.98, noise_factor=0.1,
 #                    replay_size=200000, minibatch_size=256,
@@ -50,9 +51,9 @@ TIMESTEPS = 3000000
 # agent = agents.REINFORCE(policy_lr=0.001, state_value_lr=0.01,
 #                          gamma=0.99, use_baseline=True)
 
-agent = agents.A2C(lr=0.0007, gamma=0.9,
-                   lam=0.9, tmax=8,
-                   value_weight=0.4,
+agent = agents.A2C(lr=0.0007, gamma=0.99,
+                   lam=1.0, tmax=5,
+                   value_weight=0.5,
                    entropy_weight=0.0,
                    cgn=0.5)
 
