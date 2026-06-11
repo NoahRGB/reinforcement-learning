@@ -21,11 +21,11 @@ class EpisodeRewardLogger(BaseCallback):
     def _on_step(self):
         infos = self.locals["infos"]
         for info in infos:
+
             if "episode" in info:
                 self.episode_done_count += 1
                 reward = info["episode"]["r"]
                 timestep = self.num_timesteps
-
                 self.reward_history.append(reward)
                 self.vars["episodic_reward"].append((reward, timestep))
                 self.vars["mean_episodic_reward"].append((np.mean(self.reward_history[-100:]), timestep))
@@ -56,4 +56,4 @@ logger = EpisodeRewardLogger()
 
 trained_agent = agent.learn(total_timesteps=TIMESTEPS, callback=logger)
 
-logger.save(f"./results/temps/data/sb3_a2c_cartpole_seed{SEED}_timesteps{TIMESTEPS}")
+# logger.save(f"./results/temps/data/sb3_a2c_cartpole_seed{SEED}_timesteps{TIMESTEPS}")

@@ -7,7 +7,7 @@ import agents
 import envs
 
 DEVICE = utils.detect_torch_device(quiet=False)
-USE_NORMAL_LOGS = True
+USE_NORMAL_LOGS = False
 USE_TENSORBOARD_LOGS = True
 PRINT_PROGRESS = True
 NETWORK_SAVE_INTERVAL = 0
@@ -93,6 +93,6 @@ agent = agents.A2C(lr=0.0007, gamma=0.99,
 #                    cgn=10.0, warmup_steps=10000)
 
 agent.to(DEVICE)
-env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=False, render_mode=None)
+env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=True, render_mode=None)
 agent.learn(TIMESTEPS, env, LOGGER, seed=SEED)
  

@@ -28,7 +28,14 @@ class ActorCriticNetwork(torch.nn.Module):
 
         else:
             self.body_out_size = 64
-            self.body = torch.nn.Sequential(
+            self.policy_body = torch.nn.Sequential(
+                torch.nn.Linear(*num_inputs, 64),
+                torch.nn.Tanh(),
+                torch.nn.Linear(64, 64),
+                torch.nn.Tanh()
+            )
+
+            self.value_body = torch.nn.Sequential(
                 torch.nn.Linear(*num_inputs, 64),
                 torch.nn.Tanh(),
                 torch.nn.Linear(64, 64),
@@ -44,13 +51,15 @@ class ActorCriticNetwork(torch.nn.Module):
             self.logits_head = torch.nn.Linear(self.body_out_size, num_outputs)
 
     def forward(self, inp: torch.Tensor):
-        main_out = self.body(inp)
-        critic_out = self.critic_head(main_out).squeeze(-1)
+
+        critic_out = self.critic_head(self.value_body(inp)).squeeze(-1)
+
         if self.is_continuous:
-            mu_out = self.mu_head(main_out)
+            mu_out = self.mu_head(self.policy_body(inp))
             log_sigma_out = self.log_sigma_head
             return (mu_out, log_sigma_out.exp()), critic_out
-        logits_out = self.logits_head(main_out)
+        
+        logits_out = self.logits_head(self.policy_body(inp))
         return logits_out, critic_out
 
 
@@ -87,7 +96,7 @@ class A2C(agents.Agent):
     
     def _improve(self, s: torch.Tensor, a: torch.Tensor, r: torch.Tensor, sprime: torch.Tensor, done: torch.Tensor, num_envs: int):
         # s (tmax, num_envs, state_dim), a (tmax, num_envs, action_dim), r (tmax, num_envs), sprime (tmax, num_envs, state_dim), done (tmax, num_envs)
-        
+
         s_flattened = s.view(-1, *self.state_space_dim) # (tmax * num_envs, state_dim)
         
         if self.is_continuous:
