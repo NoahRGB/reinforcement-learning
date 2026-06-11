@@ -146,6 +146,8 @@ class A2C(agents.Agent):
         current_game_states = torch.from_numpy(env.get_start_states()).float().to(self.device)
         utils.seed(seed)
 
+        print(current_game_states)
+
         self._setup(env)
 
         for iteration in range(1, num_iterations + 1):

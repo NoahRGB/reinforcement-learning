@@ -20,9 +20,9 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
                          [utils.Logger.Category.REWARD,
                           utils.Logger.Category.LOSS])
 SEED = 1
-ENV_NAME = "ALE/Pong-v5"
-NUM_ENVS = 1
-TIMESTEPS = 1000000
+ENV_NAME = "CartPole-v1" # "PongNoFrameskip-v4"
+NUM_ENVS = 10
+TIMESTEPS = 3000000
 
 # agent = agents.TD3(lr=0.001, gamma=0.98, noise_factor=0.1,
 #                    replay_size=200000, minibatch_size=256,
@@ -50,18 +50,26 @@ TIMESTEPS = 1000000
 # agent = agents.REINFORCE(policy_lr=0.001, state_value_lr=0.01,
 #                          gamma=0.99, use_baseline=True)
 
-# agent = agents.A2C(lr=0.0007, gamma=0.9,
-#                    lam=0.9, tmax=8,
-#                    value_weight=0.4,
-#                    entropy_weight=0.0,
-#                    cgn=0.5)
+agent = agents.A2C(lr=0.0007, gamma=0.9,
+                   lam=0.9, tmax=8,
+                   value_weight=0.4,
+                   entropy_weight=0.0,
+                   cgn=0.5)
 
-# agent = agents.DRQN(lr=0.0001, replay_size=1000,
+# agent = agents.DRQN2(lr=0.0001, replay_size=10000,
 #                    C=1000, update_freq=4, minibatch_size=32,
 #                    gamma=0.99, epsilon_start=1.0,
-#                    epsilon_end=0.01, epsilon_steps=500000,
-#                    cgn=10.0, warmup_steps=100000,
-#                    unroll_iterations=4,
+#                    epsilon_end=0.01, epsilon_steps=150000,
+#                    cgn=10.0, warmup_steps=10000,
+#                    unroll_iterations=10,
+#                    load_path=None)
+
+# agent = agents.DRQN(lr=0.0001, replay_size=100,
+#                    C=1000, update_freq=4, minibatch_size=32,
+#                    gamma=0.99, epsilon_start=1.0,
+#                    epsilon_end=0.01, epsilon_steps=150000,
+#                    cgn=10.0, warmup_steps=10000,
+#                    unroll_iterations=10,
 #                    load_path=None)
 
 # agent = agents.PrioritisedDQN(lr=0.0001, replay_size=1000,
@@ -77,14 +85,13 @@ TIMESTEPS = 1000000
 #                    epsilon_end=0.05, epsilon_steps=100000,
 #                    cgn=10.0, warmup_steps=64)
 
-agent = agents.DQN(lr=0.0001, replay_size=10000,
-                   C=1000, update_freq=4, minibatch_size=32,
-                   gamma=0.99, epsilon_start=1.0,
-                   epsilon_end=0.01, epsilon_steps=150000,
-                   cgn=10.0, warmup_steps=10000)
-
+# agent = agents.DQN(lr=0.0001, replay_size=10000,
+#                    C=1000, update_freq=4, minibatch_size=32,
+#                    gamma=0.99, epsilon_start=1.0,
+#                    epsilon_end=0.01, epsilon_steps=150000,
+#                    cgn=10.0, warmup_steps=10000)
 
 agent.to(DEVICE)
-env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=True, render_mode=None)
+env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=False, render_mode=None)
 agent.learn(TIMESTEPS, env, LOGGER, seed=SEED)
  

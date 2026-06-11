@@ -12,17 +12,17 @@ class Gymenv(envs.Environment):
         self.num_envs = num_envs
         self.seed = seed
         self.normalise_obs = normalise_obs
-        self.atari = "ALE" in env_name
+        self.atari = "ALE" in env_name or "Pong" in env_name
         self.minigrid = "MiniGrid" in env_name
 
         def make_one_env():
             if self.atari:
-                env = gym.make(self.env_name, frameskip=1, **env_kwargs)
+                env = gym.make(self.env_name, **env_kwargs)
                 env = gym.wrappers.AtariPreprocessing(env,
                     noop_max=30, frame_skip=4, terminal_on_life_loss=False,
                     screen_size=84, grayscale_obs=True, grayscale_newaxis=False
                 )
-                env = gym.wrappers.FrameStackObservation(env, stack_size=4)
+                env = gym.wrappers.FrameStackObservation(env, stack_size=1)
             elif self.minigrid:
                 env = gym.make(self.env_name, **env_kwargs)
                 env = minigrid.wrappers.ImgObsWrapper(env)
