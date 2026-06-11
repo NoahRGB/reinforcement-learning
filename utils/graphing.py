@@ -16,11 +16,7 @@ def smoothing(vals, factor):
     return smoothed_vals
 
 smoothing_val = float(sys.argv[1]) if len(sys.argv) > 1 else 0.0
-
 loc = str(sys.argv[2]) if len(sys.argv) > 2 else "./results/temps/data/"
-# loc = "./results/experiments/ants/staticfood"
-# loc  = "./results/temps/data/"
-
 found_pkls = []
 found_dirs = [loc]
 

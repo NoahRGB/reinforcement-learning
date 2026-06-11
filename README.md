@@ -12,7 +12,7 @@ From scratch implementations of various reinforcement learning algorithms using 
 - [x] [PPO](https://arxiv.org/pdf/1707.06347)
 - [x] [SAC](https://arxiv.org/abs/1812.05905)
 - [x] [DDPG](https://arxiv.org/abs/1509.02971)
-- [ ] [TD3](https://arxiv.org/pdf/1802.09477)
+- [x] [TD3](https://arxiv.org/pdf/1802.09477)
 
 <br/>
 
