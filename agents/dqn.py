@@ -89,11 +89,11 @@ class DQN(agents.Agent):
         minibatch = random.sample(self.replay, self.minibatch_size)
         all_s, all_a, all_r, all_sprime, all_done = zip(*minibatch)
         
-        all_s = torch.cat(all_s).to(self.device)
-        all_a = torch.cat(all_a).to(self.device)
-        all_r = torch.cat(all_r).to(self.device)
-        all_sprime = torch.cat(all_sprime).to(self.device)
-        all_done = torch.cat(all_done).to(self.device)
+        all_s = torch.cat(all_s).to(self.device) # (minibatch_size, state_space_dim)
+        all_a = torch.cat(all_a).to(self.device) # (minibatch_size,)
+        all_r = torch.cat(all_r).to(self.device) # (minibatch_size,)
+        all_sprime = torch.cat(all_sprime).to(self.device) # (minibatch_size, state_space_dim)
+        all_done = torch.cat(all_done).to(self.device) # (minibatch_size,)
 
         q_vals = self.qnet(all_s) # (minibatch_size, action_space_dim,)
         chosen_q_vals = q_vals.gather(1, all_a.unsqueeze(1)).squeeze(1) # (minibatch_size,)
@@ -148,11 +148,11 @@ class DQN(agents.Agent):
                 current_dones = torch.from_numpy(current_isterms | current_istruncs).float().to(self.device)
 
                 self.replay.append((
-                    current_game_states.detach(),
-                    current_actions.detach(),
-                    current_rewards,
-                    current_sprimes,
-                    current_dones,
+                    current_game_states.detach().cpu(),
+                    current_actions.detach().cpu(),
+                    current_rewards.detach().cpu(),
+                    current_sprimes.detach().cpu(),
+                    current_dones.detach().cpu(),
                 ))
 
                 current_game_states = current_sprimes

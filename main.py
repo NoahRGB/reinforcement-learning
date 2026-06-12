@@ -12,10 +12,11 @@ USE_TENSORBOARD_LOGS = True
 PRINT_PROGRESS = True
 NETWORK_SAVE_INTERVAL = 0
 SEED = 1
-ENV_NAME = "CartPole-v1" # "PongNoFrameskip-v4"
-NUM_ENVS = 8
+ENV_NAME = "PongNoFrameskip-v4"
+NUM_ENVS = 1
 TIMESTEPS = 300000
-TITLE = f"me_a2c_cartpole_seed{SEED}_timesteps{TIMESTEPS}"
+TITLE = f"tests"
+
 LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
                          USE_NORMAL_LOGS,
                          PRINT_PROGRESS,
@@ -86,11 +87,11 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    epsilon_end=0.05, epsilon_steps=100000,
 #                    cgn=10.0, warmup_steps=64)
 
-# agent = agents.DQN(lr=0.0001, replay_size=10000,
-#                    C=1000, update_freq=4, minibatch_size=32,
-#                    gamma=0.99, epsilon_start=1.0,
-#                    epsilon_end=0.01, epsilon_steps=150000,
-#                    cgn=10.0, warmup_steps=10000)
+agent = agents.DQN(lr=0.0001, replay_size=400000,
+                   C=1000, update_freq=4, minibatch_size=32,
+                   gamma=0.99, epsilon_start=1.0,
+                   epsilon_end=0.01, epsilon_steps=150000,
+                   cgn=10.0, warmup_steps=0)
 
 agent.to(DEVICE)
 env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=True, render_mode=None)
