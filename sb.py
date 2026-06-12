@@ -42,15 +42,17 @@ class EpisodeRewardLogger(BaseCallback):
 
 
 LOG_PATH = "./runs"
-SEED = 7
-TIMESTEPS = 300000
-NUM_ENVS = 8
+SEED = 1
+TIMESTEPS = 50000
+NUM_ENVS = 1
 STATS_WINDOW = 100
 
-vec_env = make_vec_env("CartPole-v1", n_envs=NUM_ENVS, seed=SEED)
+# env = gym.make("Pendulum-v1", render_mode=None)
+vec_env = make_vec_env("Pendulum-v1", n_envs=NUM_ENVS, seed=SEED)
 
-
-agent = A2C("MlpPolicy", vec_env, ent_coef=0.0, stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH)
+agent = TD3("MlpPolicy", vec_env, gamma=0.98, buffer_size=200000, learning_starts=10000, target_policy_noise=0.1, stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH)
+print(agent.policy)
+# agent = A2C("MlpPolicy", vec_env, ent_coef=0.0, stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH)
 
 logger = EpisodeRewardLogger()
 

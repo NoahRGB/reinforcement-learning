@@ -51,11 +51,11 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 # agent = agents.REINFORCE(policy_lr=0.001, state_value_lr=0.01,
 #                          gamma=0.99, use_baseline=True)
 
-agent = agents.A2C(lr=0.0007, gamma=0.99,
-                   lam=1.0, tmax=5,
-                   value_weight=0.5,
-                   entropy_weight=0.0,
-                   cgn=0.5)
+# agent = agents.A2C(lr=0.0007, gamma=0.99,
+#                    lam=1.0, tmax=5,
+#                    value_weight=0.5,
+#                    entropy_weight=0.0,
+#                    cgn=0.5)
 
 # agent = agents.DRQN2(lr=0.0001, replay_size=10000,
 #                    C=1000, update_freq=4, minibatch_size=32,
