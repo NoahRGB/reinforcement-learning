@@ -16,7 +16,7 @@ def load_seed(path):
 # labels = ["DQN 2 frames", "DQN 4 frames", "DQN 1 frame"]
 
 paths = ["pong_dqn_4frames_10million", "pong_dqn_2frames_10million", "pong_dqn_1frames_10million", "pong_drqn_1frames_10million"]
-labels = ["4 frames", "2 frames", "1 frame", "DRQN 1 frame"]
+labels = ["4 frames", "2 frames", "1 frame", "1 frame + LSTM"]
 
 for path, label in zip(paths, labels):
     all_seed_timesteps = []
@@ -30,7 +30,7 @@ for path, label in zip(paths, labels):
             print(f"File not found for {path}_seed{seed}")
 
     min_timesteps = min(timesteps[-1] for timesteps in all_seed_timesteps)
-    grid = np.linspace(0, min_timesteps, 500)
+    grid = np.linspace(0, min_timesteps, 450)
 
     curves = []
     for t, r in zip(all_seed_timesteps, all_seed_rewards):
@@ -46,6 +46,8 @@ for path, label in zip(paths, labels):
 plt.xlabel("Timesteps")
 plt.ylabel("Episodic Reward")
 plt.legend()
+plt.ylim(-21, 21)
+plt.xlim(0, 10e6)
 plt.title("Pong with different frame stack sizes, averaged over 10 trials")
 plt.xticks([0, 1e6, 2e6, 3e6, 4e6, 5e6, 6e6, 7e6, 8e6, 9e6, 10e6], ["0", "1M", "2M", "3M", "4M", "5M", "6M", "7M", "8M", "9M", "10M"])
 # plt.savefig("results/temps/data/pong_frame_stack_comparison.png", dpi=300, bbox_inches="tight")

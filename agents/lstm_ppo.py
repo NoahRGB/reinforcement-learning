@@ -13,6 +13,7 @@ class ActorCriticNetwork(torch.nn.Module):
         self.is_continuous = is_continuous
         self.is_conv = is_conv
         self.lstm_hidden_size = lstm_hidden_size
+        self.body_out_size = 64
 
         if is_conv:
             
@@ -28,27 +29,28 @@ class ActorCriticNetwork(torch.nn.Module):
 
             self.lstm = torch.nn.LSTM(3136, self.lstm_hidden_size, batch_first=False)
         else:
-            
+
+            self.actor_lstm = torch.nn.LSTM(*num_inputs, self.lstm_hidden_size, batch_first=False)
+            self.critic_lstm = torch.nn.LSTM(*num_inputs, self.lstm_hidden_size, batch_first=False)
+
             self.actor_body = torch.nn.Sequential(
-                torch.nn.Linear(*num_inputs, 64),
+                torch.nn.Linear(self.lstm_hidden_size, self.body_out_size),
                 torch.nn.ReLU(),
             )
 
             self.critic_body = torch.nn.Sequential(
-                torch.nn.Linear(*num_inputs, 64),
+                torch.nn.Linear(self.lstm_hidden_size, self.body_out_size),
                 torch.nn.ReLU(),
             )
 
-            self.actor_lstm = torch.nn.LSTM(64, self.lstm_hidden_size, batch_first=False)
-            self.critic_lstm = torch.nn.LSTM(64, self.lstm_hidden_size, batch_first=False)
 
-        self.critic_head = torch.nn.Linear(self.lstm_hidden_size, 1)
+        self.critic_head = torch.nn.Linear(self.body_out_size, 1)
 
         if is_continuous:
-            self.mu_head = torch.nn.Linear(self.lstm_hidden_size, *num_outputs)
+            self.mu_head = torch.nn.Linear(self.body_out_size, *num_outputs)
             self.log_sigma_head = torch.nn.Parameter(torch.zeros(*num_outputs))
         else:
-            self.logits_head = torch.nn.Linear(self.lstm_hidden_size, num_outputs)
+            self.logits_head = torch.nn.Linear(self.body_out_size, num_outputs)
 
     def forward(self, inp: torch.Tensor, inp_hidden: tuple = None):
         # inp is (batch_size (B), sequence_length (T), state_space_dim)
@@ -63,8 +65,13 @@ class ActorCriticNetwork(torch.nn.Module):
 
         else:
             actor_inp_hidden, critic_inp_hidden = inp_hidden if inp_hidden is not None else (None, None)
-            actor_lstm_out, actor_hidden_out = self.actor_lstm(self.actor_body(inp), actor_inp_hidden)
-            critic_lstm_out, critic_hidden_out = self.critic_lstm(self.critic_body(inp), critic_inp_hidden)
+
+            actor_lstm_out, actor_hidden_out = self.actor_lstm(inp, actor_inp_hidden)
+            actor_lstm_out = self.actor_body(actor_lstm_out)
+
+            critic_lstm_out, critic_hidden_out = self.critic_lstm(inp, critic_inp_hidden)
+            critic_lstm_out = self.critic_body(critic_lstm_out)
+
             hidden_out = (actor_hidden_out, critic_hidden_out)
         
         critic_out = self.critic_head(critic_lstm_out).squeeze(-1)
@@ -103,6 +110,7 @@ class LSTM_PPO(agents.Agent):
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         self.net = ActorCriticNetwork(self.state_space_dim, self.action_space_dim, self.is_continuous, self.is_conv, self.lstm_hidden_size).to(self.device)
         self.optim = torch.optim.Adam(self.net.parameters(), self.lr)
+        # self.optim = torch.optim.Adam(self.net.parameters(), self.lr)
         # self.optim = torch.optim.RMSprop(self.net.parameters(), self.lr, eps=1e-5)
 
     def _get_actions(self, states: torch.Tensor, hidden_states: tuple):
@@ -135,10 +143,10 @@ class LSTM_PPO(agents.Agent):
 
         # compute all advantages at once for use in minibatches later
         with torch.no_grad():
-            _, state_values, tmax_end_hidden = self.net(s, initial_hidden_states) # (tmax, num_envs, 1)
+            _, state_values, tmax_end_hidden = self.net(s, initial_hidden_states) # (tmax, num_envs)
             state_values = state_values.view(self.tmax, num_envs) # (tmax, num_envs)
 
-            _, last_state_value, _ = self.net(sprime[-1].unsqueeze(0), tmax_end_hidden) # (1, num_envs, 1)
+            _, last_state_value, _ = self.net(sprime[-1].unsqueeze(0), tmax_end_hidden) # (1, num_envs)
             last_state_value = last_state_value.view(num_envs) # (num_envs,
 
             gae = 0.0
@@ -148,7 +156,7 @@ class LSTM_PPO(agents.Agent):
                     next_state_values = last_state_value * masks[t] # (num_envs)
                 else:
                     next_state_values = state_values[t + 1] * masks[t] # (num_envs)
-                delta = r[t] + self.gamma * next_state_values * masks[t] - state_values[t]
+                delta = r[t] + self.gamma * next_state_values - state_values[t]
                 gae = delta + self.gamma * self.lam * masks[t] * gae
                 advantages[t] = gae
         
@@ -266,7 +274,11 @@ class LSTM_PPO(agents.Agent):
                 rewards[current_t] = torch.from_numpy(current_rewards).float().to(self.device)
                 sprimes[current_t] = torch.from_numpy(current_sprimes).float().to(self.device)
                 dones[current_t] = torch.from_numpy(current_isterms | current_istruncs).float().to(self.device)
-                old_log_probs[current_t] = dist.log_prob(current_actions).sum(-1)                
+
+                if self.is_continuous:
+                    old_log_probs[current_t] = dist.log_prob(current_actions).sum(-1)  
+                else:
+                    old_log_probs[current_t] = dist.log_prob(current_actions)              
 
                 if "episode" in current_infos:
                     done_idxs = current_infos["_episode"]

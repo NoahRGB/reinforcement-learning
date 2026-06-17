@@ -206,7 +206,10 @@ class PPO(agents.Agent):
                 rewards[current_t] = torch.from_numpy(current_rewards).float().to(self.device)
                 sprimes[current_t] = torch.from_numpy(current_sprimes).float().to(self.device)
                 dones[current_t] = torch.from_numpy(current_isterms | current_istruncs).float().to(self.device)
-                old_log_probs[current_t] = dist.log_prob(current_actions).sum(-1)                
+                if self.is_continuous:
+                    old_log_probs[current_t] = dist.log_prob(current_actions).sum(-1)  
+                else:
+                    old_log_probs[current_t] = dist.log_prob(current_actions)              
 
                 if "episode" in current_infos:
                     done_idxs = current_infos["_episode"]
