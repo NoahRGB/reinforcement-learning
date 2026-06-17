@@ -7,6 +7,39 @@ import agents
 import envs
 import utils
 
+class NStepBuffer:
+    def __init__(self, n, gamma):
+        self.n = n
+        self.gamma = gamma
+        self.nstep_buffer = deque(maxlen=n)
+
+    def add(self, s, a, r, sprime, done):
+        self.nstep_buffer.append((s, a, r, sprime, done))
+
+    def is_full(self):
+        return len(self.nstep_buffer) == self.n
+
+    def nsteps_done(self):
+        all_s, all_a, all_r, all_sprime, all_done = zip(*self.nstep_buffer)
+        all_s = torch.stack(all_s).squeeze() # (n, state_dim,)
+        all_a = torch.stack(all_a).squeeze() # (n,)
+        all_r = torch.stack(all_r).squeeze() # (n,)
+        all_sprime = torch.stack(all_sprime).squeeze() # (n, state_dim,)
+        all_done = torch.stack(all_done).squeeze() # (n,)
+
+        final_timestep = len(all_r) - 1
+        for t in range(len(all_r)):
+            if all_done[t]:
+                final_timestep = t
+                break
+
+        G = 0
+        for t in reversed(range(final_timestep + 1)):
+            G = all_r[t] + self.gamma * G
+
+        return (all_s[0], all_a[0], G, all_sprime[final_timestep], all_done[final_timestep])
+        
+
 class QNet(torch.nn.Module):
     def __init__(self, input_size, output_size, conv):
         super(QNet, self).__init__()
@@ -35,15 +68,17 @@ class QNet(torch.nn.Module):
             )
     
     def forward(self, inp):
+        print(inp.shape)
         if self.conv:
             new_inp = inp / 255.0
             return self.body(new_inp)
         return self.body(inp)
 
-class DQN(agents.Agent):
+class MultistepDQN(agents.Agent):
 
-    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_start, epsilon_end, epsilon_steps, cgn, warmup_steps, gradient_steps, load_path=None):
+    def __init__(self, lr, n, replay_size, C, update_freq, minibatch_size, gamma, epsilon_start, epsilon_end, epsilon_steps, cgn, warmup_steps, gradient_steps):
         self.lr = lr
+        self.n = n
         self.replay_size = replay_size
         self.C = C
         self.update_freq = update_freq
@@ -57,7 +92,6 @@ class DQN(agents.Agent):
         self.warmup_steps = warmup_steps
         self.gradient_steps = gradient_steps
         self.device = torch.device("cpu")
-        self.load_path = load_path
 
     def _update_target_net(self):
         self.target_qnet.load_state_dict(self.qnet.state_dict())
@@ -67,6 +101,7 @@ class DQN(agents.Agent):
         self.state_space_dim = utils.detect_space_size(env.get_single_state_space())
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         
+        self.nstep_buffer = NStepBuffer(self.n, self.gamma)
         self.replay = deque(maxlen=self.replay_size)
         self.qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
         self.target_qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
@@ -76,12 +111,6 @@ class DQN(agents.Agent):
         self.optim = torch.optim.Adam(self.qnet.parameters(), lr=self.lr)
         # self.optim = torch.optim.RMSprop(self.qnet.parameters(), lr=self.lr, momentum=0.95)
         self.epsilon_scheduler = utils.LinearScheduler(self.epsilon_start, self.epsilon_end, self.epsilon_steps)
-
-        if self.load_path is not None:
-            checkpoint = torch.load(self.load_path, weights_only=False, map_location=self.device)
-            self.qnet.load_state_dict(checkpoint["qnet"])
-            self.target_qnet.load_state_dict(checkpoint["target_qnet"])
-            self.optim.load_state_dict(checkpoint["optim"])
 
     def _get_actions(self, states: torch.Tensor):
         with torch.no_grad():
@@ -96,20 +125,20 @@ class DQN(agents.Agent):
         if len(self.replay) < self.minibatch_size: return
 
         minibatch = random.sample(self.replay, self.minibatch_size)
-        all_s, all_a, all_r, all_sprime, all_done = zip(*minibatch)
-        
+        all_s, all_a, all_G, all_sprime, all_done = zip(*minibatch)
+
         all_s = torch.cat(all_s).to(self.device) # (minibatch_size, state_space_dim)
-        all_a = torch.cat(all_a).to(self.device) # (minibatch_size,)
-        all_r = torch.cat(all_r).to(self.device) # (minibatch_size,)
+        all_a = torch.stack(all_a).to(self.device) # (minibatch_size,)
+        all_G = torch.stack(all_G).to(self.device) # (minibatch_size,)
         all_sprime = torch.cat(all_sprime).to(self.device) # (minibatch_size, state_space_dim)
-        all_done = torch.cat(all_done).to(self.device) # (minibatch_size,)
+        all_done = torch.stack(all_done).to(self.device) # (minibatch_size,)
 
         q_vals = self.qnet(all_s) # (minibatch_size, action_space_dim,)
         chosen_q_vals = q_vals.gather(1, all_a.unsqueeze(1)).squeeze(1) # (minibatch_size,)
 
         # compute the target values (using the target DQN)
         with torch.no_grad():
-            targets = all_r + self.gamma * self.target_qnet(all_sprime).max(1)[0] * (1 - all_done) # (minibatch_size,)
+            targets = all_G + (self.gamma ** self.n) * self.target_qnet(all_sprime).max(1)[0] * (1 - all_done) # (minibatch_size,)
 
         # zero grads, calculate loss, backprop, optimiser step
         self.optim.zero_grad()
@@ -156,13 +185,16 @@ class DQN(agents.Agent):
                 current_sprimes = torch.from_numpy(current_sprimes).float().to(self.device)
                 current_dones = torch.from_numpy(current_isterms | current_istruncs).float().to(self.device)
 
-                self.replay.append((
+                self.nstep_buffer.add(
                     current_game_states.detach().cpu(),
                     current_actions.detach().cpu(),
                     current_rewards.detach().cpu(),
                     current_sprimes.detach().cpu(),
                     current_dones.detach().cpu(),
-                ))
+                )
+
+                if self.nstep_buffer.is_full():
+                    self.replay.append(self.nstep_buffer.nsteps_done())
 
                 current_game_states = current_sprimes
                 

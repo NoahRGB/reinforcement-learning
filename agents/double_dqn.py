@@ -40,7 +40,7 @@ class QNet(torch.nn.Module):
 
 class DoubleDQN(agents.Agent):
 
-    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_start, epsilon_end, epsilon_steps, cgn, warmup_steps):
+    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_start, epsilon_end, epsilon_steps, cgn, warmup_steps, gradient_steps):
         self.lr = lr
         self.replay_size = replay_size
         self.C = C
@@ -53,6 +53,7 @@ class DoubleDQN(agents.Agent):
         self.epsilon_steps = epsilon_steps
         self.cgn = cgn
         self.warmup_steps = warmup_steps
+        self.gradient_steps = gradient_steps
         self.device = torch.device("cpu")
 
     def _update_target_net(self):
@@ -157,7 +158,11 @@ class DoubleDQN(agents.Agent):
 
                 current_game_states = current_sprimes
     
-                if self.logger.timesteps_completed > self.warmup_steps:
+                if self.gradient_steps != -1 and self.logger.timesteps_completed > self.warmup_steps:
+                    self._improve()
+            
+            if self.gradient_steps != -1 and self.logger.timesteps_completed > self.warmup_steps:
+                for grad_update in range(self.gradient_steps):
                     self._improve()
 
         self.logger.training_done()

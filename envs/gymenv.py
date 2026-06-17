@@ -5,6 +5,9 @@ import ale_py
 import numpy as np
 
 import envs
+from .pomdp_cartpole import POMDPCartPole
+
+gym.register(id="POMDPCartPole", entry_point=POMDPCartPole)
 
 class Gymenv(envs.Environment):
     def __init__(self, env_name: str, num_envs: int, seed: int = None, normalise_obs: bool = False, atari: bool = False, **env_kwargs):

@@ -6,12 +6,13 @@ import envs
 import utils
 
 class ActorCriticNetwork(torch.nn.Module):
-    def __init__(self, num_inputs: int, num_outputs: int, is_continuous: bool, is_conv: bool):
+    def __init__(self, num_inputs: int, num_outputs: int, is_continuous: bool, is_conv: bool, lstm_hidden_size: int):
         super(ActorCriticNetwork, self).__init__()
         self.num_inputs = num_inputs
         self.num_outputs = num_outputs
         self.is_continuous = is_continuous
         self.is_conv = is_conv
+        self.lstm_hidden_size = lstm_hidden_size
 
         if is_conv:
             
@@ -25,18 +26,18 @@ class ActorCriticNetwork(torch.nn.Module):
                 torch.nn.Flatten(), # 3136
             )
 
-            self.lstm = torch.nn.LSTM(3136, 512, batch_first=True)
+            self.lstm = torch.nn.LSTM(3136, self.lstm_hidden_size, batch_first=True)
         else:
-            self.lstm = torch.nn.LSTM(*num_inputs, 512, batch_first=True)
+            self.lstm = torch.nn.LSTM(*num_inputs, self.lstm_hidden_size, batch_first=True)
 
 
-        self.critic_head = torch.nn.Linear(512, 1)
+        self.critic_head = torch.nn.Linear(self.lstm_hidden_size, 1)
 
         if is_continuous:
-            self.mu_head = torch.nn.Linear(512, *num_outputs)
+            self.mu_head = torch.nn.Linear(self.lstm_hidden_size, *num_outputs)
             self.log_sigma_head = torch.nn.Parameter(torch.zeros(*num_outputs))
         else:
-            self.logits_head = torch.nn.Linear(512, num_outputs)
+            self.logits_head = torch.nn.Linear(self.lstm_hidden_size, num_outputs)
 
     def forward(self, inp: torch.Tensor, inp_hidden: tuple = None):
         # inp is (batch_size (B), sequence_length (T), state_space_dim)
@@ -61,7 +62,7 @@ class ActorCriticNetwork(torch.nn.Module):
 
 
 class LSTM_PPO(agents.Agent):
-    def __init__(self, lr, gamma, lam, tmax, epsilon, epochs, minibatch_size, value_weight, entropy_weight, cgn):
+    def __init__(self, lr, gamma, lam, tmax, epsilon, epochs, minibatch_size, value_weight, entropy_weight, cgn, lstm_hidden_size):
         self.lr = lr
         self.gamma = gamma
         self.lam = lam
@@ -72,6 +73,7 @@ class LSTM_PPO(agents.Agent):
         self.value_weight = value_weight
         self.entropy_weight = entropy_weight
         self.cgn = cgn
+        self.lstm_hidden_size = lstm_hidden_size
         self.device = torch.device("cpu")
 
     def _setup(self, env: envs.Environment):
@@ -79,7 +81,7 @@ class LSTM_PPO(agents.Agent):
         self.is_continuous = utils.is_space_continuous(env.get_single_action_space())
         self.state_space_dim = utils.detect_space_size(env.get_single_state_space())
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
-        self.net = ActorCriticNetwork(self.state_space_dim, self.action_space_dim, self.is_continuous, self.is_conv).to(self.device)
+        self.net = ActorCriticNetwork(self.state_space_dim, self.action_space_dim, self.is_continuous, self.is_conv, self.lstm_hidden_size).to(self.device)
         self.optim = torch.optim.RMSprop(self.net.parameters(), self.lr, eps=1e-5)
 
     def _get_actions(self, states: torch.Tensor, hidden_states: tuple):
@@ -100,7 +102,13 @@ class LSTM_PPO(agents.Agent):
             return dist, actions, hidden_states
 
     def _improve(self, s: torch.Tensor, a: torch.Tensor, r: torch.Tensor, sprime: torch.Tensor, done: torch.Tensor, old_log_probs: torch.Tensor, num_envs: int):
-        # s (tmax, num_envs, state_dim), a (tmax, num_envs, action_dim), r (tmax, num_envs), sprime (tmax, num_envs, state_dim), done (tmax, num_envs), old_log_probs (tmax, num_envs)
+        # s (tmax, num_envs, state_dim)
+        # a (tmax, num_envs, action_dim)
+        # r (tmax, num_envs)
+        # sprime (tmax, num_envs, state_dim)
+        # done (tmax, num_envs)
+        # old_log_probs (tmax, num_envs)
+        
         masks = 1 - done # (tmax, num_envs)
 
         # compute all advantages at once for use in minibatches later
@@ -186,7 +194,7 @@ class LSTM_PPO(agents.Agent):
         current_game_states = torch.from_numpy(env.get_start_states()).float().to(self.device)
         utils.seed(seed)
 
-        hidden_states = (torch.zeros((1, num_envs, 512)).to(self.device), torch.zeros((1, num_envs, 512)).to(self.device))
+        hidden_states = (torch.zeros((1, num_envs, self.lstm_hidden_size)).to(self.device), torch.zeros((1, num_envs, self.lstm_hidden_size)).to(self.device))
 
         self._setup(env)
 

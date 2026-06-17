@@ -7,6 +7,44 @@ import agents
 import envs
 import utils
 
+class ReplayMemory:
+    def __init__(self, size, state_space_dim):
+        self.max_size = size
+        self.current_size = 0
+        self.next_insert = 0
+        self.s = torch.zeros((self.max_size, *state_space_dim), dtype=torch.float32)
+        self.a = torch.zeros((self.max_size), dtype=torch.int64)
+        self.r = torch.zeros((self.max_size), dtype=torch.float32)
+        self.sprime = torch.zeros((self.max_size, *state_space_dim), dtype=torch.float32)
+        self.done = torch.zeros((self.max_size), dtype=torch.float32)
+
+    def add(self, s, a, r, sprime, done):
+        self.s[self.next_insert] = s.detach().cpu()
+        self.a[self.next_insert] = a.detach().cpu()
+        self.r[self.next_insert] = r.detach().cpu()
+        self.sprime[self.next_insert] = sprime.detach().cpu()
+        self.done[self.next_insert] = done.detach().cpu()
+
+        self.next_insert = (self.next_insert + 1) % self.max_size
+        self.current_size = min(self.current_size + 1, self.max_size)
+
+    def get_minibatch(self, minibatch_size, unroll_iterations):
+        legal = min(self.current_size, self.max_size) - unroll_iterations
+        start_idxs = (np.random.randint(0, legal, size=minibatch_size) + self.next_insert) % self.max_size
+        sequence_idxs = torch.from_numpy(
+            (start_idxs[:, None] + np.arange(unroll_iterations)) % self.max_size
+        )
+        
+        return (
+            self.s[sequence_idxs],
+            self.a[sequence_idxs],
+            self.r[sequence_idxs],
+            self.sprime[sequence_idxs],
+            self.done[sequence_idxs],
+        )
+
+
+
 class QNet(torch.nn.Module):
     def __init__(self, input_size, output_size, conv):
         super(QNet, self).__init__()
@@ -58,7 +96,7 @@ class QNet(torch.nn.Module):
 
 class DRQN(agents.Agent):
 
-    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_start, epsilon_end, epsilon_steps, cgn, warmup_steps, unroll_iterations, load_path=None):
+    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_start, epsilon_end, epsilon_steps, cgn, warmup_steps, gradient_steps, unroll_iterations, load_path=None):
         self.lr = lr
         self.replay_size = replay_size
         self.C = C
@@ -71,6 +109,7 @@ class DRQN(agents.Agent):
         self.epsilon_steps = epsilon_steps
         self.cgn = cgn
         self.warmup_steps = warmup_steps
+        self.gradient_steps = gradient_steps
         self.unroll_iterations = unroll_iterations
         self.load_path = load_path
         self.device = torch.device("cpu")
@@ -83,7 +122,7 @@ class DRQN(agents.Agent):
         self.state_space_dim = utils.detect_space_size(env.get_single_state_space())
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         
-        self.replay = deque(maxlen=self.replay_size)
+        self.replay = ReplayMemory(self.replay_size, self.state_space_dim)
         self.qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
         self.target_qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
 
@@ -112,30 +151,16 @@ class DRQN(agents.Agent):
                 return torch.tensor([np.random.choice(self.action_space_dim)], dtype=torch.int64).to(self.device)
         
     def _improve(self):
-        if len(self.replay) < self.minibatch_size: return
+        if self.replay.current_size < self.minibatch_size: return
 
-        all_s, all_a, all_r, all_sprime, all_done = [], [], [], [], []
-        minibatch = random.sample(self.replay, self.minibatch_size)
-
-        for episode in minibatch:
-            batch_s, batch_a, batch_r, batch_sprime, batch_done = episode
-            episode_length = len(batch_s)
-
-            start = np.random.randint(0, episode_length - self.unroll_iterations + 1)
-            end = start + self.unroll_iterations
-
-            all_s.append(batch_s[start:end])
-            all_a.append(batch_a[start:end])
-            all_r.append(batch_r[start:end])
-            all_sprime.append(batch_sprime[start:end])
-            all_done.append(batch_done[start:end])
+        minibatch = self.replay.get_minibatch(self.minibatch_size, self.unroll_iterations)
+        all_s, all_a, all_r, all_sprime, all_done = minibatch
+        all_s = all_s.to(self.device)
+        all_a = all_a.to(self.device)
+        all_r = all_r.to(self.device)
+        all_sprime = all_sprime.to(self.device)
+        all_done = all_done.to(self.device)
         
-        all_s = torch.stack(all_s).to(self.device) # (minibatch_size, unroll_iterations, state_dim)
-        all_a = torch.stack(all_a).to(self.device) # (minibatch_size, unroll_iterations)
-        all_r = torch.stack(all_r).to(self.device) # (minibatch_size, unroll_iterations)
-        all_sprime = torch.stack(all_sprime).to(self.device)# (minibatch_size, unroll_iterations, state_dim)
-        all_done = torch.stack(all_done).to(self.device) # (minibatch_size, unroll_iterations)
-
         q_vals, hidden = self.qnet(all_s, None) # (minibatch_size, unroll_iterations, action_space_dim,)
         chosen_q_vals = q_vals.gather(2, all_a.unsqueeze(-1)).squeeze(-1) # (minibatch_size, unroll_iterations,)
 
@@ -167,8 +192,6 @@ class DRQN(agents.Agent):
 
         self._setup(env)
 
-        states, actions, rewards, sprimes, dones = [], [], [], [], []
-
         for iteration in range(1, total_iterations + 1):
 
             for current_t in range(self.update_freq):
@@ -178,16 +201,22 @@ class DRQN(agents.Agent):
                     self._update_target_net()
                 self.epsilon = self.epsilon_scheduler.step()
             
-                current_actions = self._get_actions(current_game_states)
+                current_actions = self._get_actions(current_game_states.to(self.device))
                 current_sprimes, current_rewards, current_isterms, current_istruncs, current_infos = env.step(current_actions.cpu().numpy())
+      
+                current_rewards = torch.from_numpy(current_rewards).float()
+                current_sprimes = torch.from_numpy(current_sprimes).float()
+                current_dones = torch.from_numpy(current_isterms | current_istruncs).float()
 
-                states.append(current_game_states.detach())
-                actions.append(current_actions.detach())
-                rewards.append(torch.from_numpy(current_rewards).float().to(self.device))
-                sprimes.append(torch.from_numpy(current_sprimes).float().to(self.device))
-                dones.append(torch.from_numpy(current_isterms | current_istruncs).float().to(self.device))
+                self.replay.add(
+                    current_game_states.detach().cpu(),
+                    current_actions.detach().cpu(),
+                    current_rewards,
+                    current_sprimes,
+                    current_dones,
+                )
 
-                current_game_states = sprimes[-1]
+                current_game_states = current_sprimes
 
                 if "episode" in current_infos:
                     done_idxs = current_infos["_episode"]
@@ -195,20 +224,14 @@ class DRQN(agents.Agent):
                     for reward in completed_rewards:
 
                         self.logger.episode_complete(reward)
-                        if len(states) >= self.unroll_iterations:
-                            self.replay.append((
-                                torch.cat(states).to(self.device), # (episode_len, state_dim)
-                                torch.cat(actions).to(self.device), # (episode_len)
-                                torch.cat(rewards).to(self.device), # (episode_len)
-                                torch.cat(sprimes).to(self.device), # (episode_len, state_dim)
-                                torch.cat(dones).to(self.device) # (episode_len)
-                            ))
-                        states, actions, rewards, sprimes, dones = [], [], [], [], []
                         self.game_hidden_states = (torch.zeros((1, 1, 512)).to(self.device), torch.zeros((1, 1, 512)).to(self.device))
 
+                if self.gradient_steps == -1 and self.logger.timesteps_completed > self.warmup_steps:
+                    self._improve()
 
-            if self.logger.timesteps_completed > self.warmup_steps:
-                self._improve()
+            if self.gradient_steps != -1 and self.logger.timesteps_completed > self.warmup_steps:
+                for grad_update in range(self.gradient_steps):
+                    self._improve()
 
         self.logger.training_done()
 

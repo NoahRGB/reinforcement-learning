@@ -13,6 +13,7 @@ class QNet(torch.nn.Module):
         self.conv = conv
 
         if conv:
+            self.body_out_size = 512
             self.body = torch.nn.Sequential(
                 torch.nn.Conv2d(input_size[0], 32, kernel_size=8, stride=4),
                 torch.nn.ReLU(),
@@ -23,26 +24,35 @@ class QNet(torch.nn.Module):
                 torch.nn.Flatten(),
                 torch.nn.Linear(3136, 512),
                 torch.nn.ReLU(),
-                torch.nn.Linear(512, output_size)
             )
         else:
+            self.body_out_size = 256
             self.body = torch.nn.Sequential(
                 torch.nn.Linear(*input_size, 256),
                 torch.nn.ReLU(),
                 torch.nn.Linear(256, 256),
                 torch.nn.ReLU(),
-                torch.nn.Linear(256, output_size),
             )
-    
+
+        self.state_value_head = torch.nn.Linear(self.body_out_size, 1)
+        self.advantage_head = torch.nn.Linear(self.body_out_size, output_size)
+
     def forward(self, inp):
         if self.conv:
             new_inp = inp / 255.0
-            return self.body(new_inp)
-        return self.body(inp)
+            body_out = self.body(new_inp)
+        else:
+            body_out = self.body(inp)
 
-class DQN(agents.Agent):
+        state_value = self.state_value_head(body_out)
+        advantage = self.advantage_head(body_out)
 
-    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_start, epsilon_end, epsilon_steps, cgn, warmup_steps, gradient_steps, load_path=None):
+        q_values = state_value + (advantage - torch.mean(advantage, axis=1, keepdim=True))
+        return q_values
+
+class DuelingDQN(agents.Agent):
+
+    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_start, epsilon_end, epsilon_steps, cgn, warmup_steps, gradient_steps):
         self.lr = lr
         self.replay_size = replay_size
         self.C = C
@@ -57,7 +67,6 @@ class DQN(agents.Agent):
         self.warmup_steps = warmup_steps
         self.gradient_steps = gradient_steps
         self.device = torch.device("cpu")
-        self.load_path = load_path
 
     def _update_target_net(self):
         self.target_qnet.load_state_dict(self.qnet.state_dict())
@@ -76,12 +85,6 @@ class DQN(agents.Agent):
         self.optim = torch.optim.Adam(self.qnet.parameters(), lr=self.lr)
         # self.optim = torch.optim.RMSprop(self.qnet.parameters(), lr=self.lr, momentum=0.95)
         self.epsilon_scheduler = utils.LinearScheduler(self.epsilon_start, self.epsilon_end, self.epsilon_steps)
-
-        if self.load_path is not None:
-            checkpoint = torch.load(self.load_path, weights_only=False, map_location=self.device)
-            self.qnet.load_state_dict(checkpoint["qnet"])
-            self.target_qnet.load_state_dict(checkpoint["target_qnet"])
-            self.optim.load_state_dict(checkpoint["optim"])
 
     def _get_actions(self, states: torch.Tensor):
         with torch.no_grad():
@@ -165,10 +168,10 @@ class DQN(agents.Agent):
                 ))
 
                 current_game_states = current_sprimes
-                
+
                 if self.gradient_steps == -1 and self.logger.timesteps_completed > self.warmup_steps:
                     self._improve()
-
+            
             if self.gradient_steps != -1 and self.logger.timesteps_completed > self.warmup_steps:
                 for grad_update in range(self.gradient_steps):
                     self._improve()
