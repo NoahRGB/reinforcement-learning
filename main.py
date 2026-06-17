@@ -41,8 +41,8 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    alpha_start=0.0001, target_factor=0.005,
 #                    warmup_steps=100)
 
-agent = agents.LSTM_PPO(lr=0.001, gamma=0.9, lam=0.95, tmax=32,
-                   epsilon=0.2, epochs=10, minibatch_size=16,
+agent = agents.LSTM_PPO(lr=0.001, gamma=0.98, lam=0.8, tmax=32,
+                   epsilon=0.2, epochs=20, minibatch_size=2,
                    value_weight=0.5, entropy_weight=0.0, 
                    cgn=0.5, lstm_hidden_size=64)
 

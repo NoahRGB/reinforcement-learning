@@ -132,7 +132,6 @@ class PPO(agents.Agent):
             for minibatch_start_index in range(0, total_batch_size, self.minibatch_size):
                 minibatch_indices = all_indices[minibatch_start_index : minibatch_start_index + self.minibatch_size]
 
-                # minibatch_state_values = state_values[minibatch_indices]
                 minibatch_s = s[minibatch_indices]
                 minibatch_a = a[minibatch_indices]
                 minibatch_returns = returns[minibatch_indices]

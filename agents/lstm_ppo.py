@@ -46,9 +46,9 @@ class ActorCriticNetwork(torch.nn.Module):
             batch_size, seq_len, channels, height, width = inp.shape
             norm_input = inp / 255.0
             conv_out = self.conv_nn(norm_input.view(batch_size * seq_len, channels, height, width))
-            lstm_out, hidden = self.lstm(conv_out.view(batch_size, seq_len, 3136), inp_hidden)
+            lstm_out, hidden_out = self.lstm(conv_out.view(batch_size, seq_len, 3136), inp_hidden)
         else:
-            lstm_out, hidden = self.lstm(inp, inp_hidden)
+            lstm_out, hidden_out = self.lstm(inp, inp_hidden)
 
         critic_out = self.critic_head(lstm_out).squeeze(-1)
 
@@ -58,7 +58,8 @@ class ActorCriticNetwork(torch.nn.Module):
             return (mu_out, log_sigma_out.exp()), critic_out
         
         logits_out = self.logits_head(lstm_out)
-        return logits_out, critic_out
+
+        return logits_out, critic_out, hidden_out
 
 
 class LSTM_PPO(agents.Agent):
@@ -89,17 +90,18 @@ class LSTM_PPO(agents.Agent):
             states_inp = states.unsqueeze(1) # add fake time/seq dim
 
             if self.is_continuous:
-                (mu, sigma), _ = self.net(states_inp, hidden_states)
+                (mu, sigma), _, hidden_out = self.net(states_inp, hidden_states)
                 mu = mu.squeeze(1)
                 dist = torch.distributions.Normal(mu, sigma)
                 actions = dist.sample()
                 return dist, actions
             
-            logits, _ = self.net(states_inp, hidden_states)
+            logits, _, hidden_out = self.net(states_inp, hidden_states)
             logits = logits.squeeze(1)
             dist = torch.distributions.Categorical(logits=logits)
             actions = dist.sample()
-            return dist, actions, hidden_states
+
+            return dist, actions, hidden_out
 
     def _improve(self, s: torch.Tensor, a: torch.Tensor, r: torch.Tensor, sprime: torch.Tensor, done: torch.Tensor, old_log_probs: torch.Tensor, num_envs: int):
         # s (tmax, num_envs, state_dim)
@@ -116,10 +118,10 @@ class LSTM_PPO(agents.Agent):
         sprime_flattened = sprime.view(-1, *self.state_space_dim) # (tmax * num_envs, state_dim)
 
         with torch.no_grad():
-            _, state_values = self.net(s_flattened) # (tmax * num_envs, 1)
+            _, state_values, state_value_hidden = self.net(s_flattened) # (tmax * num_envs, 1)
             state_values = state_values.view(self.tmax, num_envs) # (tmax, num_envs)
 
-            _, next_state_values = self.net(sprime_flattened) # (tmax * num_envs, 1)
+            _, next_state_values, next_state_value_hidden = self.net(sprime_flattened) # (tmax * num_envs, 1)
             next_state_values = next_state_values.view(self.tmax, num_envs) # (tmax, num_envs)
 
             gae = 0.0
@@ -133,27 +135,27 @@ class LSTM_PPO(agents.Agent):
         returns = (advantages + state_values).detach() # (tmax, num_envs)
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
-        all_indices = np.arange(num_envs)
+        all_env_indices = np.arange(num_envs)
 
         # for every epoch, shuffle the batch and step through it in minibatch chunks
         for epoch in range(self.epochs):
-            np.random.shuffle(all_indices)
+            np.random.shuffle(all_env_indices)
             for minibatch_start_index in range(0, num_envs, self.minibatch_size):
-                minibatch_indices = all_indices[minibatch_start_index : minibatch_start_index + self.minibatch_size]
+                minibatch_indices = all_env_indices[minibatch_start_index : minibatch_start_index + self.minibatch_size]
 
                 # minibatch_state_values = state_values[minibatch_indices]
-                minibatch_s = s[minibatch_indices]
-                minibatch_a = a[minibatch_indices]
-                minibatch_returns = returns[minibatch_indices]
-                minibatch_advantages = advantages[minibatch_indices]
-                minibatch_old_log_probs = old_log_probs[minibatch_indices]
+                minibatch_s = s[:, minibatch_indices, :] # (tmax, minibatch_size, state_dim)
+                minibatch_a = a[:, minibatch_indices] # (tmax, minibatch_size, action_dim)
+                minibatch_returns = returns[:, minibatch_indices] # (tmax, minibatch_size)
+                minibatch_advantages = advantages[:, minibatch_indices] # (tmax, minibatch_size)
+                minibatch_old_log_probs = old_log_probs[:, minibatch_indices] # (tmax, minibatch_size)
 
                 if self.is_continuous:
-                    (minibatch_mu, minibatch_sigma), minibatch_state_values = self.net(minibatch_s)
+                    (minibatch_mu, minibatch_sigma), minibatch_state_values, state_value_hidden = self.net(minibatch_s)
                     dist = torch.distributions.Normal(minibatch_mu, minibatch_sigma)
                     chosen_log_probs = dist.log_prob(minibatch_a).sum(-1) # (tmax * num_envs)
                 else:
-                    minibatch_logits, minibatch_state_values = self.net(minibatch_s)
+                    minibatch_logits, minibatch_state_values, state_value_hidden = self.net(minibatch_s)
                     log_probs = torch.nn.functional.log_softmax(minibatch_logits, dim=-1) # (tmax * num_envs, action_dim)
                     chosen_log_probs = log_probs.gather(-1, minibatch_a.unsqueeze(-1)).squeeze(-1) # (tmax * num_envs)
                     dist = torch.distributions.Categorical(logits=minibatch_logits)
@@ -223,6 +225,8 @@ class LSTM_PPO(agents.Agent):
 
                 if "episode" in current_infos:
                     done_idxs = current_infos["_episode"]
+
+                    # reset the running hidden state for finished environments
                     hidden_states[0][:, done_idxs, :] = 0
                     hidden_states[1][:, done_idxs, :] = 0
 

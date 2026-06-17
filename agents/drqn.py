@@ -43,8 +43,6 @@ class ReplayMemory:
             self.done[sequence_idxs],
         )
 
-
-
 class QNet(torch.nn.Module):
     def __init__(self, input_size, output_size, conv):
         super(QNet, self).__init__()
