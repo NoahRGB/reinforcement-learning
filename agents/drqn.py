@@ -94,17 +94,15 @@ class QNet(torch.nn.Module):
 
 class DRQN(agents.Agent):
 
-    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_start, epsilon_end, epsilon_steps, cgn, warmup_steps, gradient_steps, unroll_iterations, load_path=None):
+    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_scheduler, cgn, warmup_steps, gradient_steps, unroll_iterations, load_path=None):
         self.lr = lr
         self.replay_size = replay_size
         self.C = C
         self.update_freq = update_freq
         self.minibatch_size = minibatch_size
         self.gamma = gamma
-        self.epsilon_start = epsilon_start
-        self.epsilon = self.epsilon_start
-        self.epsilon_end = epsilon_end
-        self.epsilon_steps = epsilon_steps
+        self.epsilon_scheduler = epsilon_scheduler
+        self.epsilon = epsilon_scheduler.get_value()
         self.cgn = cgn
         self.warmup_steps = warmup_steps
         self.gradient_steps = gradient_steps
@@ -129,7 +127,6 @@ class DRQN(agents.Agent):
         self._update_target_net()
 
         self.optim = torch.optim.Adam(self.qnet.parameters(), lr=self.lr)
-        self.epsilon_scheduler = utils.LinearScheduler(self.epsilon_start, self.epsilon_end, self.epsilon_steps)
 
         if self.load_path is not None:
             checkpoint = torch.load(self.load_path, weights_only=False, map_location=self.device)
