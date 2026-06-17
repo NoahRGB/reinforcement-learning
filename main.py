@@ -2,9 +2,13 @@
 import gymnasium as gym
 import minigrid
 
+
 import utils
 import agents
 import envs
+
+gym.register(id="POMDPCartPole", entry_point=envs.POMDPCartPole)
+
 
 DEVICE = utils.detect_torch_device(quiet=False)
 USE_NORMAL_LOGS = False

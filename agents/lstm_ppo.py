@@ -102,7 +102,8 @@ class LSTM_PPO(agents.Agent):
         self.state_space_dim = utils.detect_space_size(env.get_single_state_space())
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         self.net = ActorCriticNetwork(self.state_space_dim, self.action_space_dim, self.is_continuous, self.is_conv, self.lstm_hidden_size).to(self.device)
-        self.optim = torch.optim.RMSprop(self.net.parameters(), self.lr, eps=1e-5)
+        self.optim = torch.optim.Adam(self.net.parameters(), self.lr)
+        # self.optim = torch.optim.RMSprop(self.net.parameters(), self.lr, eps=1e-5)
 
     def _get_actions(self, states: torch.Tensor, hidden_states: tuple):
         with torch.no_grad():
@@ -134,16 +135,20 @@ class LSTM_PPO(agents.Agent):
 
         # compute all advantages at once for use in minibatches later
         with torch.no_grad():
-            _, state_values, _ = self.net(s, initial_hidden_states) # (tmax, num_envs, 1)
+            _, state_values, tmax_end_hidden = self.net(s, initial_hidden_states) # (tmax, num_envs, 1)
             state_values = state_values.view(self.tmax, num_envs) # (tmax, num_envs)
 
-            _, next_state_values, _ = self.net(sprime, initial_hidden_states) # (tmax, num_envs, 1)
-            next_state_values = next_state_values.view(self.tmax, num_envs) # (tmax, num_envs)
+            _, last_state_value, _ = self.net(sprime[-1].unsqueeze(0), tmax_end_hidden) # (1, num_envs, 1)
+            last_state_value = last_state_value.view(num_envs) # (num_envs,
 
             gae = 0.0
             advantages = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
             for t in reversed(range(self.tmax)):
-                delta = r[t] + self.gamma * next_state_values[t] * masks[t] - state_values[t]
+                if t == self.tmax - 1:
+                    next_state_values = last_state_value * masks[t] # (num_envs)
+                else:
+                    next_state_values = state_values[t + 1] * masks[t] # (num_envs)
+                delta = r[t] + self.gamma * next_state_values * masks[t] - state_values[t]
                 gae = delta + self.gamma * self.lam * masks[t] * gae
                 advantages[t] = gae
         

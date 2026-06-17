@@ -1,10 +1,6 @@
 from abc import ABC, abstractmethod
 import numpy as np
 
-import agents
-import envs
-import utils
-
 class Environment(ABC):
 
     @abstractmethod
