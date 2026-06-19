@@ -16,8 +16,8 @@ USE_TENSORBOARD_LOGS = True
 PRINT_PROGRESS = True
 NETWORK_SAVE_INTERVAL = 0
 SEED = 1
-ENV_NAME = "POMDPCartPole" # "PongNoFrameskip-v4"
-NUM_ENVS = 8
+ENV_NAME = "CartPole-v1" #"POMDPCartPole" # "PongNoFrameskip-v4"
+NUM_ENVS = 1
 TIMESTEPS = 200000
 TITLE = f"tests"
 
@@ -45,11 +45,11 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    alpha_start=0.0001, target_factor=0.005,
 #                    warmup_steps=100)
 
-agent = agents.LSTM_PPO(lr_scheduler=utils.LinearScheduler(0.001, 0.0, 100000), gamma=0.98, lam=0.8, tmax=32,
-                   epsilon_scheduler=utils.LinearScheduler(0.2, 0.0, 100000),
-                   epochs=20, minibatch_size=8,
-                   value_weight=0.5, entropy_weight=0.0, 
-                   cgn=0.5, lstm_hidden_size=64)
+# agent = agents.LSTM_PPO(lr_scheduler=utils.LinearScheduler(0.001, 0.0, 100000), gamma=0.98, lam=0.8, tmax=32,
+#                    epsilon_scheduler=utils.LinearScheduler(0.2, 0.0, 100000),
+#                    epochs=20, minibatch_size=8,
+#                    value_weight=0.5, entropy_weight=0.0, 
+#                    cgn=0.5, lstm_hidden_size=64)
 
 # agent = agents.PPO(lr=0.001, gamma=0.98, lam=0.8, tmax=32,
 #                    epsilon=0.2, epochs=20, minibatch_size=256,
@@ -91,6 +91,12 @@ agent = agents.LSTM_PPO(lr_scheduler=utils.LinearScheduler(0.001, 0.0, 100000), 
 #                    C=10, update_freq=256, minibatch_size=64, gamma=0.99,
 #                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.01, 15000),
 #                    cgn=0.5, warmup_steps=1000, gradient_steps=128)
+
+agent = agents.NoisyDQN(lr=0.001, replay_size=10000,
+                   C=1000, update_freq=4, 
+                   minibatch_size=32, gamma=0.99, 
+                   cgn=10.0, warmup_steps=0, gradient_steps=1,
+                   load_path=None)
 
 # agent = agents.DQN(lr=0.001, replay_size=10000,
 #                    C=1000, update_freq=4, 

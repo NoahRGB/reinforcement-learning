@@ -43,7 +43,6 @@ class ActorCriticNetwork(torch.nn.Module):
                 torch.nn.ReLU(),
             )
 
-
         self.critic_head = torch.nn.Linear(self.body_out_size, 1)
 
         if is_continuous:
@@ -84,8 +83,7 @@ class ActorCriticNetwork(torch.nn.Module):
         logits_out = self.logits_head(actor_lstm_out)
 
         return logits_out, critic_out, hidden_out
-
-
+    
 class LSTM_PPO(agents.Agent):
     def __init__(self, lr_scheduler: utils.LinearScheduler, gamma, lam, tmax, epsilon_scheduler: utils.LinearScheduler, epochs, minibatch_size, value_weight, entropy_weight, cgn, lstm_hidden_size):
         self.lr_scheduler = lr_scheduler
@@ -138,36 +136,33 @@ class LSTM_PPO(agents.Agent):
         # sprime (tmax, num_envs, state_dim)
         # done (tmax, num_envs)
         # old_log_probs (tmax, num_envs)
-        
         masks = 1 - done # (tmax, num_envs)
-
-        # compute all advantages at once for use in minibatches later
-        with torch.no_grad():
-            _, state_values, tmax_end_hidden = self.net(s, initial_hidden_states) # (tmax, num_envs)
-            state_values = state_values.view(self.tmax, num_envs) # (tmax, num_envs)
-
-            _, last_state_value, _ = self.net(sprime[-1].unsqueeze(0), tmax_end_hidden) # (1, num_envs)
-            last_state_value = last_state_value.view(num_envs) # (num_envs,
-
-            gae = 0.0
-            advantages = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
-            for t in reversed(range(self.tmax)):
-                if t == self.tmax - 1:
-                    next_state_values = last_state_value * masks[t] # (num_envs)
-                else:
-                    next_state_values = state_values[t + 1] * masks[t] # (num_envs)
-                delta = r[t] + self.gamma * next_state_values - state_values[t]
-                gae = delta + self.gamma * self.lam * masks[t] * gae
-                advantages[t] = gae
-        
-
-        returns = (advantages + state_values).detach() # (tmax, num_envs)
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
         all_env_indices = np.arange(num_envs)
 
         # for every epoch, shuffle the batch and step through it in minibatch chunks
         for epoch in range(self.epochs):
+
+            with torch.no_grad():
+                _, state_values, tmax_end_hidden = self.net(s, initial_hidden_states) # (tmax, num_envs)
+                state_values = state_values.view(self.tmax, num_envs) # (tmax, num_envs)
+
+                _, last_state_value, _ = self.net(sprime[-1].unsqueeze(0), tmax_end_hidden) # (1, num_envs)
+                last_state_value = last_state_value.view(num_envs) # (num_envs,
+
+                gae = 0.0
+                advantages = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
+                for t in reversed(range(self.tmax)):
+                    if t == self.tmax - 1:
+                        next_state_values = last_state_value * masks[t] # (num_envs)
+                    else:
+                        next_state_values = state_values[t + 1] * masks[t] # (num_envs)
+                    delta = r[t] + self.gamma * next_state_values - state_values[t]
+                    gae = delta + self.gamma * self.lam * masks[t] * gae
+                    advantages[t] = gae
+            
+            returns = (advantages + state_values).detach() # (tmax, num_envs)
+
             np.random.shuffle(all_env_indices)
             for minibatch_start_index in range(0, num_envs, self.minibatch_size):
                 minibatch_indices = all_env_indices[minibatch_start_index : minibatch_start_index + self.minibatch_size]
@@ -178,6 +173,8 @@ class LSTM_PPO(agents.Agent):
                 minibatch_returns = returns[:, minibatch_indices] # (tmax, minibatch_size)
                 minibatch_advantages = advantages[:, minibatch_indices] # (tmax, minibatch_size)
                 minibatch_old_log_probs = old_log_probs[:, minibatch_indices] # (tmax, minibatch_size)
+
+                minibatch_advantages = (minibatch_advantages - minibatch_advantages.mean()) / (minibatch_advantages.std() + 1e-8)
 
                 if self.is_conv:
                     minibatch_hidden = (initial_hidden_states[0][:, minibatch_indices, :], initial_hidden_states[1][:, minibatch_indices, :])

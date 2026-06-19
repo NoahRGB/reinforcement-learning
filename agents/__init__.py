@@ -12,6 +12,7 @@ from .drqn import DRQN
 from .lstm_ppo import LSTM_PPO
 from .dueling_dqn import DuelingDQN
 from .multistep_dqn import MultistepDQN
+from .noisy_dqn import NoisyDQN
 
 __all__ = [
     "Agent",
@@ -28,4 +29,5 @@ __all__ = [
     "LSTM_PPO",
     "DuelingDQN",
     "MultistepDQN",
+    "NoisyDQN",
 ]

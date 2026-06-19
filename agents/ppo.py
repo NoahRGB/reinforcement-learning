@@ -93,41 +93,42 @@ class PPO(agents.Agent):
         # s (tmax, num_envs, state_dim), a (tmax, num_envs, action_dim), r (tmax, num_envs), sprime (tmax, num_envs, state_dim), done (tmax, num_envs), old_log_probs (tmax, num_envs)
         masks = 1 - done # (tmax, num_envs)
 
-        # compute all advantages at once for use in minibatches later
-        s_flattened = s.view(-1, *self.state_space_dim) # (tmax * num_envs, state_dim)
-        sprime_flattened = sprime.view(-1, *self.state_space_dim) # (tmax * num_envs, state_dim)
-
-        with torch.no_grad():
-            _, state_values = self.net(s_flattened) # (tmax * num_envs, 1)
-            state_values = state_values.view(self.tmax, num_envs) # (tmax, num_envs)
-
-            _, next_state_values = self.net(sprime_flattened) # (tmax * num_envs, 1)
-            next_state_values = next_state_values.view(self.tmax, num_envs) # (tmax, num_envs)
-
-            gae = 0.0
-            advantages = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
-            for t in reversed(range(self.tmax)):
-                delta = r[t] + self.gamma * next_state_values[t] * masks[t] - state_values[t]
-                gae = delta + self.gamma * self.lam * masks[t] * gae
-                advantages[t] = gae
-        
-        # now that advantages have been computed, all (tmax, num_envs) dims can be collapsed
-        # since the temporal structure is no longer needed
-
-        state_values = state_values.view(self.tmax * num_envs).detach() # (tmax * num_envs)
-        advantages = advantages.view(self.tmax * num_envs).detach() # (tmax * num_envs,)
-        s = s.view(self.tmax * num_envs, *s.shape[2:]) # (tmax * num_envs, state_dim)
-        a = a.view(self.tmax * num_envs, *a.shape[2:]) # (tmax * num_envs, state_dim)
-        old_log_probs = old_log_probs.view(self.tmax * num_envs,) # (tmax * num_envs)
-
-        returns = (advantages + state_values).detach() # (tmax * num_envs)
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-
         total_batch_size = self.tmax * num_envs
         all_indices = np.arange(total_batch_size)
 
         # for every epoch, shuffle the batch and step through it in minibatch chunks
         for epoch in range(self.epochs):
+
+            # first calculate returns / advantages for the entire batch
+
+            s_flattened = s.view(-1, *self.state_space_dim) # (tmax * num_envs, state_dim)
+            sprime_flattened = sprime.view(-1, *self.state_space_dim) # (tmax * num_envs, state_dim)
+
+            with torch.no_grad():
+                _, state_values = self.net(s_flattened) # (tmax * num_envs, 1)
+                state_values = state_values.view(self.tmax, num_envs) # (tmax, num_envs)
+
+                _, next_state_values = self.net(sprime_flattened) # (tmax * num_envs, 1)
+                next_state_values = next_state_values.view(self.tmax, num_envs) # (tmax, num_envs)
+
+                gae = 0.0
+                advantages = torch.zeros_like(r).to(self.device) # (tmax, num_envs)
+                for t in reversed(range(self.tmax)):
+                    delta = r[t] + self.gamma * next_state_values[t] * masks[t] - state_values[t]
+                    gae = delta + self.gamma * self.lam * masks[t] * gae
+                    advantages[t] = gae
+            
+            # now that advantages have been computed, all (tmax, num_envs) dims can be collapsed
+            # since the temporal structure is no longer needed
+
+            state_values = state_values.view(self.tmax * num_envs).detach() # (tmax * num_envs)
+            advantages = advantages.view(self.tmax * num_envs).detach() # (tmax * num_envs,)
+            s = s.view(self.tmax * num_envs, *s.shape[2:]) # (tmax * num_envs, state_dim)
+            a = a.view(self.tmax * num_envs, *a.shape[2:]) # (tmax * num_envs, state_dim)
+            old_log_probs = old_log_probs.view(self.tmax * num_envs,) # (tmax * num_envs)
+
+            returns = (advantages + state_values).detach() # (tmax * num_envs)
+
             np.random.shuffle(all_indices)
             for minibatch_start_index in range(0, total_batch_size, self.minibatch_size):
                 minibatch_indices = all_indices[minibatch_start_index : minibatch_start_index + self.minibatch_size]
@@ -137,6 +138,8 @@ class PPO(agents.Agent):
                 minibatch_returns = returns[minibatch_indices]
                 minibatch_advantages = advantages[minibatch_indices]
                 minibatch_old_log_probs = old_log_probs[minibatch_indices]
+
+                minibatch_advantages = (minibatch_advantages - minibatch_advantages.mean()) / (minibatch_advantages.std() + 1e-8)
 
                 if self.is_continuous:
                     (minibatch_mu, minibatch_sigma), minibatch_state_values = self.net(minibatch_s)

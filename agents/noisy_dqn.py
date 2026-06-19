@@ -7,38 +7,45 @@ import agents
 import envs
 import utils
 
-class NStepBuffer:
-    def __init__(self, n, gamma):
-        self.n = n
-        self.gamma = gamma
-        self.nstep_buffer = deque(maxlen=n)
+class NoisyLinear(torch.nn.Module):
+    def __init__(self, input_size, output_size):
+        super(NoisyLinear, self).__init__()
 
-    def add(self, s, a, r, sprime, done):
-        self.nstep_buffer.append((s, a, r, sprime, done))
+        self.weight_mu = torch.nn.Parameter(torch.empty((input_size, output_size), dtype=torch.float32, requires_grad=True))
+        self.weight_sigma = torch.nn.Parameter(torch.empty((input_size, output_size), dtype=torch.float32, requires_grad=True))
 
-    def is_full(self):
-        return len(self.nstep_buffer) == self.n
+        self.bias_mu = torch.nn.Parameter(torch.empty((output_size), dtype=torch.float32, requires_grad=True))
+        self.bias_sigma = torch.nn.Parameter(torch.empty((output_size), dtype=torch.float32, requires_grad=True))
 
-    def nsteps_done(self):
-        all_s, all_a, all_r, all_sprime, all_done = zip(*self.nstep_buffer)
-        all_s = torch.stack(all_s).squeeze() # (n, state_dim,)
-        all_a = torch.stack(all_a).squeeze() # (n,)
-        all_r = torch.stack(all_r).squeeze() # (n,)
-        all_sprime = torch.stack(all_sprime).squeeze() # (n, state_dim,)
-        all_done = torch.stack(all_done).squeeze() # (n,)
+        # registering buffers means that these tensors will still move with .to() and appear in state_dict
+        # but they won't be learned. using just torch.empty() would cause them to be "forgotten"
+        self.register_buffer("weight_epsilon", torch.empty((input_size, output_size), dtype=torch.float32))
+        self.register_buffer("bias_epsilon", torch.empty((output_size), dtype=torch.float32))
 
-        final_timestep = len(all_r) - 1
-        for t in range(len(all_r)):
-            if all_done[t]:
-                final_timestep = t
-                break
+        # noisy net paper reccommends initialising mu with uniform distribution
+        # of [-1/sqrt(input_size), 1/sqrt(input_size)] and sigma with constant 0.5/sqrt(input_size)
+        self.weight_mu.data.uniform_(-1 / np.sqrt(input_size), 1 / np.sqrt(input_size))
+        self.weight_sigma.data.fill_(0.5 / np.sqrt(input_size))
+        self.bias_mu.data.uniform_(-1 / np.sqrt(input_size), 1 / np.sqrt(input_size))
+        self.bias_sigma.data.fill_(0.5 / np.sqrt(input_size))
 
-        G = 0
-        for t in reversed(range(final_timestep + 1)):
-            G = all_r[t] + self.gamma * G
+    def forward(self, inp):
+        # y = wx + b
 
-        return (all_s[0], all_a[0], G, all_sprime[final_timestep], all_done[final_timestep])
-        
+        if self.training:
+            # fill the epsilon tensors with mean 0 normal samples
+            self.weight_epsilon.normal_()
+            self.bias_epsilon.normal_()
+        else:
+            # fill the epsilon tensors with 0
+            # (you want greedy behaviour for evaluation)
+            self.weight_epsilon.zero_()
+            self.bias_epsilon.zero_()
+
+        noisy_net_weight = self.weight_mu + self.weight_sigma * self.weight_epsilon
+        noisy_net_bias = self.bias_mu + self.bias_sigma * self.bias_epsilon
+
+        return inp @ noisy_net_weight + noisy_net_bias
 
 class QNet(torch.nn.Module):
     def __init__(self, input_size, output_size, conv):
@@ -60,11 +67,11 @@ class QNet(torch.nn.Module):
             )
         else:
             self.body = torch.nn.Sequential(
-                torch.nn.Linear(*input_size, 256),
+                NoisyLinear(*input_size, 256),
                 torch.nn.ReLU(),
-                torch.nn.Linear(256, 256),
+                NoisyLinear(256, 256),
                 torch.nn.ReLU(),
-                torch.nn.Linear(256, output_size),
+                NoisyLinear(256, output_size),
             )
     
     def forward(self, inp):
@@ -73,22 +80,20 @@ class QNet(torch.nn.Module):
             return self.body(new_inp)
         return self.body(inp)
 
-class MultistepDQN(agents.Agent):
+class NoisyDQN(agents.Agent):
 
-    def __init__(self, lr, n, replay_size, C, update_freq, minibatch_size, gamma, epsilon_scheduler, cgn, warmup_steps, gradient_steps):
+    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, cgn, warmup_steps, gradient_steps, load_path=None):
         self.lr = lr
-        self.n = n
         self.replay_size = replay_size
         self.C = C
         self.update_freq = update_freq
         self.minibatch_size = minibatch_size
         self.gamma = gamma
-        self.epsilon_scheduler = epsilon_scheduler
-        self.epsilon = epsilon_scheduler.get_value()
         self.cgn = cgn
         self.warmup_steps = warmup_steps
         self.gradient_steps = gradient_steps
         self.device = torch.device("cpu")
+        self.load_path = load_path
 
     def _update_target_net(self):
         self.target_qnet.load_state_dict(self.qnet.state_dict())
@@ -98,7 +103,6 @@ class MultistepDQN(agents.Agent):
         self.state_space_dim = utils.detect_space_size(env.get_single_state_space())
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         
-        self.nstep_buffer = NStepBuffer(self.n, self.gamma)
         self.replay = deque(maxlen=self.replay_size)
         self.qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
         self.target_qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
@@ -108,33 +112,37 @@ class MultistepDQN(agents.Agent):
         self.optim = torch.optim.Adam(self.qnet.parameters(), lr=self.lr)
         # self.optim = torch.optim.RMSprop(self.qnet.parameters(), lr=self.lr, momentum=0.95)
 
+        if self.load_path is not None:
+            checkpoint = torch.load(self.load_path, weights_only=False, map_location=self.device)
+            self.qnet.load_state_dict(checkpoint["qnet"])
+            self.target_qnet.load_state_dict(checkpoint["target_qnet"])
+            self.optim.load_state_dict(checkpoint["optim"])
+
     def _get_actions(self, states: torch.Tensor):
         with torch.no_grad():
-            if np.random.random() >= self.epsilon:
-                q_values = self.qnet(states)
-                actions = q_values.argmax(dim=-1)
-                return actions
-            else:
-                return torch.tensor([np.random.choice(self.action_space_dim)], dtype=torch.int64).to(self.device)
+            q_values = self.qnet(states)
+            actions = q_values.argmax(dim=-1)
+            return actions
+
         
     def _improve(self):
         if len(self.replay) < self.minibatch_size: return
 
         minibatch = random.sample(self.replay, self.minibatch_size)
-        all_s, all_a, all_G, all_sprime, all_done = zip(*minibatch)
-
-        all_s = torch.stack(all_s).to(self.device) # (minibatch_size, state_space_dim)
-        all_a = torch.stack(all_a).to(self.device) # (minibatch_size,)
-        all_G = torch.stack(all_G).to(self.device) # (minibatch_size,)
-        all_sprime = torch.stack(all_sprime).to(self.device) # (minibatch_size, state_space_dim)
-        all_done = torch.stack(all_done).to(self.device) # (minibatch_size,)
+        all_s, all_a, all_r, all_sprime, all_done = zip(*minibatch)
+        
+        all_s = torch.cat(all_s).to(self.device) # (minibatch_size, state_space_dim)
+        all_a = torch.cat(all_a).to(self.device) # (minibatch_size,)
+        all_r = torch.cat(all_r).to(self.device) # (minibatch_size,)
+        all_sprime = torch.cat(all_sprime).to(self.device) # (minibatch_size, state_space_dim)
+        all_done = torch.cat(all_done).to(self.device) # (minibatch_size,)
 
         q_vals = self.qnet(all_s) # (minibatch_size, action_space_dim,)
         chosen_q_vals = q_vals.gather(1, all_a.unsqueeze(1)).squeeze(1) # (minibatch_size,)
 
         # compute the target values (using the target DQN)
         with torch.no_grad():
-            targets = all_G + (self.gamma ** self.n) * self.target_qnet(all_sprime).max(1)[0] * (1 - all_done) # (minibatch_size,)
+            targets = all_r + self.gamma * self.target_qnet(all_sprime).max(1)[0] * (1 - all_done) # (minibatch_size,)
 
         # zero grads, calculate loss, backprop, optimiser step
         self.optim.zero_grad()
@@ -166,7 +174,6 @@ class MultistepDQN(agents.Agent):
 
                 if self.logger.timesteps_completed % self.C == 0:
                     self._update_target_net()
-                self.epsilon = self.epsilon_scheduler.step()
             
                 current_actions = self._get_actions(current_game_states)
                 current_sprimes, current_rewards, current_isterms, current_istruncs, current_infos = env.step(current_actions.cpu().numpy())
@@ -181,16 +188,13 @@ class MultistepDQN(agents.Agent):
                 current_sprimes = torch.from_numpy(current_sprimes).float().to(self.device)
                 current_dones = torch.from_numpy(current_isterms | current_istruncs).float().to(self.device)
 
-                self.nstep_buffer.add(
+                self.replay.append((
                     current_game_states.detach().cpu(),
                     current_actions.detach().cpu(),
                     current_rewards.detach().cpu(),
                     current_sprimes.detach().cpu(),
                     current_dones.detach().cpu(),
-                )
-
-                if self.nstep_buffer.is_full():
-                    self.replay.append(self.nstep_buffer.nsteps_done())
+                ))
 
                 current_game_states = current_sprimes
                 
