@@ -8,9 +8,11 @@ import envs
 import utils
 
 class QNet(torch.nn.Module):
-    def __init__(self, input_size, output_size, conv):
+    def __init__(self, input_size, action_dim, num_atoms, conv):
         super(QNet, self).__init__()
         self.conv = conv
+        self.action_dim = action_dim
+        self.num_atoms = num_atoms
 
         if conv:
             self.body = torch.nn.Sequential(
@@ -23,7 +25,7 @@ class QNet(torch.nn.Module):
                 torch.nn.Flatten(),
                 torch.nn.Linear(3136, 512),
                 torch.nn.ReLU(),
-                torch.nn.Linear(512, output_size)
+                torch.nn.Linear(512, action_dim*num_atoms)
             )
         else:
             self.body = torch.nn.Sequential(
@@ -31,18 +33,22 @@ class QNet(torch.nn.Module):
                 torch.nn.ReLU(),
                 torch.nn.Linear(256, 256),
                 torch.nn.ReLU(),
-                torch.nn.Linear(256, output_size),
+                torch.nn.Linear(256, action_dim*num_atoms),
             )
     
     def forward(self, inp):
+        batch, *state_dims = inp.shape
+
         if self.conv:
             new_inp = inp / 255.0
-            return self.body(new_inp)
-        return self.body(inp)
+            all_out = self.body(new_inp)
+            return all_out.view(batch, self.action_dim, self.num_atoms)
+        
+        all_out = self.body(inp)
+        return all_out.view(batch, self.action_dim, self.num_atoms)
+class C51DQN(agents.Agent):
 
-class DistributionalDQN(agents.Agent):
-
-    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_scheduler: utils.LinearScheduler, cgn, warmup_steps, gradient_steps, load_path=None):
+    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_scheduler: utils.LinearScheduler, cgn, warmup_steps, gradient_steps, vmin, vmax, N, load_path=None):
         self.lr = lr
         self.replay_size = replay_size
         self.C = C
@@ -56,6 +62,11 @@ class DistributionalDQN(agents.Agent):
         self.gradient_steps = gradient_steps
         self.device = torch.device("cpu")
         self.load_path = load_path
+        self.vmin = vmin
+        self.vmax = vmax
+        self.num_atoms = N
+        self.delta_z = (self.vmax - self.vmin) / (self.num_atoms - 1)
+        self.atoms = np.array([self.vmin + i * self.delta_z for i in range(self.num_atoms)])
 
     def _update_target_net(self):
         self.target_qnet.load_state_dict(self.qnet.state_dict())
@@ -66,8 +77,8 @@ class DistributionalDQN(agents.Agent):
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         
         self.replay = deque(maxlen=self.replay_size)
-        self.qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
-        self.target_qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
+        self.qnet = QNet(self.state_space_dim, self.action_space_dim, self.num_atoms, self.is_conv).to(self.device)
+        self.target_qnet = QNet(self.state_space_dim, self.action_space_dim, self.num_atoms, self.is_conv).to(self.device)
         
         self._update_target_net()
 
@@ -83,8 +94,10 @@ class DistributionalDQN(agents.Agent):
     def _get_actions(self, states: torch.Tensor):
         with torch.no_grad():
             if np.random.random() >= self.epsilon:
-                q_values = self.qnet(states)
-                actions = q_values.argmax(dim=-1)
+                distributions = self.qnet(states.to(self.device)) # (num_envs, action_dim, num_atoms)
+                probs = torch.softmax(distributions, dim=-1)
+                qvals = torch.sum(probs * torch.from_numpy(self.atoms).to(self.device), dim=-1)
+                actions = qvals.argmax(dim=-1)
                 return actions
             else:
                 return torch.tensor([np.random.choice(self.action_space_dim)], dtype=torch.int64).to(self.device)
@@ -100,24 +113,54 @@ class DistributionalDQN(agents.Agent):
         all_r = torch.cat(all_r).to(self.device) # (minibatch_size,)
         all_sprime = torch.cat(all_sprime).to(self.device) # (minibatch_size, state_space_dim)
         all_done = torch.cat(all_done).to(self.device) # (minibatch_size,)
+        masks = 1.0 - all_done # (minibatch_size,)
 
-        q_vals = self.qnet(all_s) # (minibatch_size, action_space_dim,)
-        chosen_q_vals = q_vals.gather(1, all_a.unsqueeze(1)).squeeze(1) # (minibatch_size,)
+        original_next_dist = self.target_qnet(all_sprime) # (minibatch_size, action_dim, num_atoms) LOGITS
+        original_next_probs = torch.softmax(original_next_dist, dim=-1)
+        original_next_qvals = torch.sum(original_next_probs * torch.from_numpy(self.atoms).to(self.device), dim=-1) # (minibatch_size, action_dim)
+        
+        next_actions = original_next_qvals.argmax(dim=-1) # (minibatch_size,)
+        next_best_dist = original_next_dist[range(self.minibatch_size), next_actions] # (minibatch_size, num_atoms) 
+        next_best_probs = torch.softmax(next_best_dist, dim=-1) # (minibatch_size, num_atoms)
 
-        # compute the target values (using the target DQN)
-        with torch.no_grad():
-            targets = all_r + self.gamma * self.target_qnet(all_sprime).max(1)[0] * (1 - all_done) # (minibatch_size,)
+        # allocate space for the projected distribution
+        projected = torch.zeros((self.minibatch_size, self.num_atoms), dtype=torch.float32).to(self.device)
 
-        # zero grads, calculate loss, backprop, optimiser step
+        # for every atom
+        for j in range(0, self.num_atoms):
+
+            # project Tz_j onto the support z_i
+
+            # apply distributional bellman update and clip into vmin vmax
+            zj = self.vmin + j * self.delta_z # scalar
+            Tzj = all_r + self.gamma * zj * masks # (minibatch_size)
+            Tzj.clamp_(self.vmin, self.vmax) # (minibatch_size,)
+
+            # calculate the fractional index of Tzj on the N grid from vmin to vmax
+            bj = (Tzj - self.vmin) / self.delta_z # (minibatch_size)
+
+            # projected atom Tzj could be between l and u
+            # so distribute the probability p_j between these
+            # based on their distances (u - bj) and (bj - l)
+            l = torch.floor(bj).long() # (minibatch_size)
+            u = torch.ceil(bj).long() # (minibatch_size)
+
+            # distribute probability of Tz_j to immediate neighbours
+            projected[range(self.minibatch_size), l] += next_best_probs[:, j] * (u - bj)
+            projected[range(self.minibatch_size), u] += next_best_probs[:, j] * (bj - l)
+
+        # get the log probs of the distribution for the states s
+        current_dist = self.qnet(all_s) # (minibatch_size, action_dim, num_atoms)
+        chosen_dists = current_dist[range(self.minibatch_size), all_a]
+        current_dist_log_probs = torch.log_softmax(chosen_dists, dim=-1) # (minibatch_size, action_dim)
+
+        # calculate KL divergence loss
+        kl_loss = -current_dist_log_probs * projected
+        kl_loss = kl_loss.sum(dim=-1).mean()
+
         self.optim.zero_grad()
-        loss = torch.nn.functional.mse_loss(chosen_q_vals, targets) # scalar
-        loss.backward()
-        if self.cgn is not None:
-            torch.nn.utils.clip_grad_norm_(self.qnet.parameters(), self.cgn)
+        kl_loss.backward()
         self.optim.step()
-
-        self.logger.gradient_step_complete(["qnet_loss"], [loss.item()])
-        self.logger.network_update({"qnet":self.qnet.state_dict(), "target_qnet":self.target_qnet.state_dict(), "optim":self.optim.state_dict()})
 
 
     def learn(self, total_timesteps: int, env: envs.Environment, logger: utils.Logger, seed: int = None):
@@ -127,7 +170,7 @@ class DistributionalDQN(agents.Agent):
         utils.seed(seed)
         self.logger = logger
         total_iterations = total_timesteps // self.update_freq
-        current_game_states = torch.from_numpy(env.start_states).float().to(self.device)
+        current_game_states = torch.from_numpy(env.start_states).float()
 
         self._setup(env)
 
@@ -149,9 +192,9 @@ class DistributionalDQN(agents.Agent):
                     for reward in completed_rewards:
                         self.logger.episode_complete(reward)
                         
-                current_rewards = torch.from_numpy(current_rewards).float().to(self.device)
-                current_sprimes = torch.from_numpy(current_sprimes).float().to(self.device)
-                current_dones = torch.from_numpy(current_isterms | current_istruncs).float().to(self.device)
+                current_rewards = torch.from_numpy(current_rewards).float()
+                current_sprimes = torch.from_numpy(current_sprimes).float()
+                current_dones = torch.from_numpy(current_isterms | current_istruncs).float()
 
                 self.replay.append((
                     current_game_states.detach().cpu(),

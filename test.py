@@ -1,27 +1,36 @@
-import pickle
-import numpy as np
-import matplotlib.pyplot as plt
+import pickle, torch, numpy as np, matplotlib.pyplot as plt
 
-seeds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20]
 
-def load(path):
-    with open(f"{path}", "rb") as f:
-        return pickle.load(f)
-    
-# paths = ["../results/ants/rand/a2c_lstm_randfood.pkl", "../results/ants/rand/BPTT_randfood.pkl", "../results/ants/rand/ppo_lstm_randfood.pkl"]
-# labels = ["A2C + LSTM", "BPTT", "PPO + LSTM"]
 
-paths = ["../results/ants/rand/ppo_envmem_randfood.pkl", "../results/ants/rand/ppo_lstm_randfood.pkl", "../results/ants/rand/BPTT_randfood.pkl"]
+N = 51
+VMIN = 0
+VMAX = 200
 
-labels = ["PPO + env memory", "PPO + LSTM", "BPTT"]
+delta_z = (VMAX - VMIN) / (N - 1)
+atoms = np.array([VMIN + i * delta_z for i in range(N)])
 
-for i, path in enumerate(paths):
-    data = load(path)
-    plt.plot(data, label=labels[i])
+dist = np.array([0.0174, 0.0170, 0.0209, 0.0226, 0.0144, 0.0138, 0.0195, 0.0171, 0.0146,
+        0.0159, 0.0197, 0.0230, 0.0205, 0.0207, 0.0185, 0.0203, 0.0240, 0.0192,
+        0.0177, 0.0224, 0.0221, 0.0158, 0.0184, 0.0202, 0.0161, 0.0179, 0.0205,
+        0.0168, 0.0201, 0.0224, 0.0199, 0.0173, 0.0161, 0.0185, 0.0180, 0.0243,
+        0.0177, 0.0225, 0.0151, 0.0204, 0.0254, 0.0182, 0.0178, 0.0167, 0.0199,
+        0.0206, 0.0266, 0.0223, 0.0294, 0.0256, 0.0180])
 
-plt.title("Random food, fixed starting position, averaged over 20 trials")
-plt.xlabel("Episodes")
-plt.ylabel("Avg reward")
-plt.legend()
-plt.savefig("./results/vids/ppo_comparison.png", dpi=300, bbox_inches="tight")
+proj = np.array([7.5005e-01, 2.6333e-01, 4.0198e-02, 4.2192e-02, 3.7181e-02, 3.2059e-02,
+        3.8222e-02, 3.9137e-02, 3.5431e-02, 3.3331e-02, 3.6775e-02, 4.2808e-02,
+        4.0784e-02, 3.9643e-02, 3.6367e-02, 3.8905e-02, 4.3756e-02, 3.8290e-02,
+        3.6561e-02, 4.4598e-02, 4.2469e-02, 3.3081e-02, 3.7297e-02, 4.0107e-02,
+        3.6020e-02, 3.6671e-04, 2.0657e-02, 1.7036e-02, 2.0421e-02, 2.2462e-02,
+        1.9925e-02, 1.7438e-02, 1.6494e-02, 1.8678e-02, 1.8799e-02, 2.3849e-02,
+        1.8462e-02, 2.1767e-02, 1.5960e-02, 2.1312e-02, 2.4462e-02, 1.8273e-02,
+        1.7744e-02, 1.7474e-02, 2.0227e-02, 2.2099e-02, 2.5911e-02, 2.4139e-02,
+        2.8812e-02, 2.3957e-02, 1.3497e-02])
+
+
+fig, ax = plt.subplots(2)
+
+ax[0].bar(atoms, dist)
+ax[1].bar(atoms, proj)
+
+
 plt.show()

@@ -16,7 +16,7 @@ USE_TENSORBOARD_LOGS = True
 PRINT_PROGRESS = True
 NETWORK_SAVE_INTERVAL = 0
 SEED = 1
-ENV_NAME = "CartPole-v1" #"POMDPCartPole" # "PongNoFrameskip-v4"
+ENV_NAME = "PongNoFrameskip-v4"
 NUM_ENVS = 1
 TIMESTEPS = 200000
 TITLE = f"tests"
@@ -98,11 +98,12 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    cgn=10.0, warmup_steps=0, gradient_steps=1,
 #                    load_path=None)
 
-agent = agents.DistributionalDQN(lr=0.001, replay_size=10000,
+agent = agents.C51DQN(lr=0.0001, replay_size=100000,
                    C=1000, update_freq=4, 
                    minibatch_size=32, gamma=0.99, 
-                   epsilon_scheduler=utils.LinearScheduler(1.0, 0.01, 15000),
-                   cgn=10.0, warmup_steps=0, gradient_steps=1,
+                   epsilon_scheduler=utils.LinearScheduler(1.0, 0.01, 150000),
+                   cgn=10.0, warmup_steps=100000, gradient_steps=1,
+                   vmin=-1, vmax=1, N=5,
                    load_path=None)
 
 # agent = agents.DQN(lr=0.001, replay_size=10000,
@@ -113,6 +114,6 @@ agent = agents.DistributionalDQN(lr=0.001, replay_size=10000,
 #                    load_path=None)
 
 agent.to(DEVICE)
-env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=True, render_mode=None)
+env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=False, render_mode=None)
 agent.learn(TIMESTEPS, env, LOGGER, seed=SEED)
  

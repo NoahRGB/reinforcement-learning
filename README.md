@@ -1,18 +1,27 @@
 From scratch implementations of various reinforcement learning algorithms using NumPy and PyTorch
 ## Algorithms implemented
 
-- [x] Semigradient SARSA
+- [x] [Semigradient SARSA](http://incompleteideas.net/book/RLbook2020trimmed.pdf)
 - [x] [REINFORCE](https://people.cs.umass.edu/~barto/courses/cs687/williams92simple.pdf)
-- [x] [DQN](https://training.incf.org/sites/default/files/2023-05/Human-level%20control%20through%20deep%20reinforcement%20learning.pdf)
-- [x] [Dobule DQN (DDQN)](https://ojs.aaai.org/index.php/AAAI/article/view/10295)
-- [x] [Prioritised experience replay DQN (PER DQN)](https://arxiv.org/pdf/1511.05952)
-- [x] [DRQN](https://arxiv.org/abs/1507.06527)
 - [x] [A2C](https://proceedings.mlr.press/v48/mniha16.pdf)
 - [ ] [TRPO](https://proceedings.mlr.press/v37/schulman15.pdf)
 - [x] [PPO](https://arxiv.org/pdf/1707.06347)
 - [x] [SAC](https://arxiv.org/abs/1812.05905)
 - [x] [DDPG](https://arxiv.org/abs/1509.02971)
 - [x] [TD3](https://arxiv.org/pdf/1802.09477)
+
+<br/>
+
+- [x] [DQN](https://training.incf.org/sites/default/files/2023-05/Human-level%20control%20through%20deep%20reinforcement%20learning.pdf)
+- [x] [Dobule DQN (DDQN)](https://ojs.aaai.org/index.php/AAAI/article/view/10295)
+- [x] [Prioritised experience replay DQN DQN](https://arxiv.org/pdf/1511.05952)
+- [x] [DRQN (DQN + LSTM)](https://arxiv.org/abs/1507.06527)
+- [x] [Dueling DQN](https://arxiv.org/abs/1511.06581)
+- [x] [nstep DQN](http://incompleteideas.net/book/RLbook2020trimmed.pdf)
+- [x] [Noisy net DQN](https://arxiv.org/abs/1706.10295)
+- [x] [Distributional DQN / C51](https://arxiv.org/abs/1707.06887)
+- [ ] [Rainbow DQN](https://arxiv.org/abs/1710.02298)
+- [ ] [R2D2 (without multi-agent architecture)](https://openreview.net/pdf?id=r1lyTjAqYX)
 
 <br/>
 
