@@ -16,7 +16,7 @@ USE_TENSORBOARD_LOGS = True
 PRINT_PROGRESS = True
 NETWORK_SAVE_INTERVAL = 0
 SEED = 1
-ENV_NAME = "PongNoFrameskip-v4"
+ENV_NAME = "CartPole-v1" # "PongNoFrameskip-v4"
 NUM_ENVS = 1
 TIMESTEPS = 200000
 TITLE = f"tests"
@@ -71,7 +71,7 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    unroll_iterations=10, gradient_steps=1,
 #                    load_path=None)
 
-# agent = agents.PrioritisedDQN(lr=0.0001, replay_size=1000,
+# agent = agents.PrioritisedDQN(lr=0.001, replay_size=1000,
 #                    C=1000, update_freq=4, minibatch_size=32, gamma=0.99,
 #                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.01, 15000),
 #                    cgn=10.0, warmup_steps=0,
@@ -98,12 +98,20 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    cgn=10.0, warmup_steps=0, gradient_steps=1,
 #                    load_path=None)
 
-agent = agents.C51DQN(lr=0.0001, replay_size=100000,
-                   C=1000, update_freq=4, 
+# agent = agents.C51DQN(lr=0.0001, replay_size=100000,
+#                    C=1000, update_freq=4, 
+#                    minibatch_size=32, gamma=0.99, 
+#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.01, 150000),
+#                    cgn=10.0, warmup_steps=100000, gradient_steps=1,
+#                    vmin=-1, vmax=1, N=5,
+#                    load_path=None)
+
+agent = agents.RainbowDQN(lr=0.001, replay_size=10000,
+                   C=1000, update_freq=4,
                    minibatch_size=32, gamma=0.99, 
-                   epsilon_scheduler=utils.LinearScheduler(1.0, 0.01, 150000),
-                   cgn=10.0, warmup_steps=100000, gradient_steps=1,
-                   vmin=-1, vmax=1, N=5,
+                   cgn=10.0, warmup_steps=0, gradient_steps=1,
+                   use_distributional=False, vmin=-1, vmax=1, N=5,
+                   nstep=5, alpha=0.5, beta_scheduler=utils.LinearScheduler(0.4, 1.0, 15000),
                    load_path=None)
 
 # agent = agents.DQN(lr=0.001, replay_size=10000,

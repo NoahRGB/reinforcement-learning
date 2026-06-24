@@ -14,6 +14,7 @@ from .dueling_dqn import DuelingDQN
 from .multistep_dqn import MultistepDQN
 from .noisy_dqn import NoisyDQN
 from .c51_dqn import C51DQN
+from .rainbow_dqn import RainbowDQN
 
 __all__ = [
     "Agent",
@@ -32,4 +33,5 @@ __all__ = [
     "MultistepDQN",
     "NoisyDQN",
     "C51DQN",
+    "RainbowDQN",
 ]

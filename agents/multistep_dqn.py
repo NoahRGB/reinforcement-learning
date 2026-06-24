@@ -128,13 +128,14 @@ class MultistepDQN(agents.Agent):
         all_G = torch.stack(all_G).to(self.device) # (minibatch_size,)
         all_sprime = torch.stack(all_sprime).to(self.device) # (minibatch_size, state_space_dim)
         all_done = torch.stack(all_done).to(self.device) # (minibatch_size,)
+        masks = 1 - all_done # (minibatch_size,)
 
         q_vals = self.qnet(all_s) # (minibatch_size, action_space_dim,)
         chosen_q_vals = q_vals.gather(1, all_a.unsqueeze(1)).squeeze(1) # (minibatch_size,)
 
         # compute the target values (using the target DQN)
         with torch.no_grad():
-            targets = all_G + (self.gamma ** self.n) * self.target_qnet(all_sprime).max(1)[0] * (1 - all_done) # (minibatch_size,)
+            targets = all_G + (self.gamma ** self.n) * self.target_qnet(all_sprime).max(1)[0] * masks # (minibatch_size,)
 
         # zero grads, calculate loss, backprop, optimiser step
         self.optim.zero_grad()
@@ -177,9 +178,9 @@ class MultistepDQN(agents.Agent):
                     for reward in completed_rewards:
                         self.logger.episode_complete(reward)
                         
-                current_rewards = torch.from_numpy(current_rewards).float().to(self.device)
-                current_sprimes = torch.from_numpy(current_sprimes).float().to(self.device)
-                current_dones = torch.from_numpy(current_isterms | current_istruncs).float().to(self.device)
+                current_rewards = torch.from_numpy(current_rewards).float()
+                current_sprimes = torch.from_numpy(current_sprimes).float()
+                current_dones = torch.from_numpy(current_isterms | current_istruncs).float()
 
                 self.nstep_buffer.add(
                     current_game_states.detach().cpu(),
