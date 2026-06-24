@@ -87,3 +87,5 @@ From scratch implementations of various reinforcement learning algorithms using 
 ![DQN boxing agent](./results/vids/dqn_boxing.gif)
 
 ![PPO inverted double pendulum](./results/vids/ppo_inv_double_pendulum.gif)
+
+![Pong frame stacking experiment](./results/graphs/pong_frame_stack_comparison.png)
