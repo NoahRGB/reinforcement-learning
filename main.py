@@ -2,7 +2,6 @@
 import gymnasium as gym
 import minigrid
 
-
 import utils
 import agents
 import envs
@@ -71,47 +70,19 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    unroll_iterations=10, gradient_steps=1,
 #                    load_path=None)
 
-# agent = agents.PrioritisedDQN(lr=0.001, replay_size=1000,
-#                    C=1000, update_freq=4, minibatch_size=32, gamma=0.99,
-#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.01, 15000),
-#                    cgn=10.0, warmup_steps=0,
-#                    alpha=0.6, beta=0.4)
-
-# agent = agents.DoubleDQN(lr=0.001, replay_size=100000,
-#                    C=10000, update_freq=4, minibatch_size=64, gamma=0.9,
-#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.01, 15000),
-#                    cgn=10.0, warmup_steps=64)
-
-# agent = agents.MultistepDQN(lr=0.003, n=5, replay_size=100000,
-#                    C=10, update_freq=256, minibatch_size=64, gamma=0.99,
-#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.01, 15000),
-#                    cgn=0.5, warmup_steps=1000, gradient_steps=128)
-
-# agent = agents.DuelingDQN(lr=0.003, replay_size=100000,
-#                    C=10, update_freq=256, minibatch_size=64, gamma=0.99,
-#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.01, 15000),
-#                    cgn=0.5, warmup_steps=1000, gradient_steps=128)
-
-# agent = agents.NoisyDQN(lr=0.001, replay_size=10000,
-#                    C=1000, update_freq=4, 
+# agent = agents.RainbowDQN(lr=0.001, replay_size=10000,
+#                    C=1000, update_freq=4,
 #                    minibatch_size=32, gamma=0.99, 
 #                    cgn=10.0, warmup_steps=0, gradient_steps=1,
+#                    use_distributional=False, vmin=-1, vmax=1, N=5,
+#                    nstep=5, alpha=0.5, beta_scheduler=utils.LinearScheduler(0.4, 1.0, 15000),
 #                    load_path=None)
 
-# agent = agents.C51DQN(lr=0.0001, replay_size=100000,
-#                    C=1000, update_freq=4, 
-#                    minibatch_size=32, gamma=0.99, 
-#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.01, 150000),
-#                    cgn=10.0, warmup_steps=100000, gradient_steps=1,
-#                    vmin=-1, vmax=1, N=5,
-#                    load_path=None)
-
-agent = agents.RainbowDQN(lr=0.001, replay_size=10000,
-                   C=1000, update_freq=4,
+agent = agents.R2D2(lr=0.001, replay_size=10000,
+                   C=1000, update_freq=4, 
                    minibatch_size=32, gamma=0.99, 
+                   epsilon_scheduler=utils.LinearScheduler(1.0, 0.01, 15000),
                    cgn=10.0, warmup_steps=0, gradient_steps=1,
-                   use_distributional=False, vmin=-1, vmax=1, N=5,
-                   nstep=5, alpha=0.5, beta_scheduler=utils.LinearScheduler(0.4, 1.0, 15000),
                    load_path=None)
 
 # agent = agents.DQN(lr=0.001, replay_size=10000,
