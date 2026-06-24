@@ -282,8 +282,8 @@ class RainbowDQN(agents.Agent):
         self.optim.zero_grad()
 
         loss = torch.nn.functional.mse_loss(chosen_q_vals, targets, reduction="none") # scalar
-        # loss = (is_weights * loss).mean()
-        loss = loss.mean()
+        loss = (is_weights * loss).mean()
+        # loss = loss.mean()
         loss.backward()
 
         if self.cgn is not None:
