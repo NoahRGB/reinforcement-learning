@@ -13,36 +13,53 @@ class QNet(torch.nn.Module):
         self.conv = conv
 
         if conv:
-            self.body = torch.nn.Sequential(
+            self.conv_body = torch.nn.Sequential(
                 torch.nn.Conv2d(input_size[0], 32, kernel_size=8, stride=4),
                 torch.nn.ReLU(),
                 torch.nn.Conv2d(32, 64, kernel_size=4, stride=2),
                 torch.nn.ReLU(),
                 torch.nn.Conv2d(64, 64, kernel_size=3, stride=1),
                 torch.nn.ReLU(),
-                torch.nn.Flatten(),
-                torch.nn.Linear(3136, 512),
-                torch.nn.ReLU(),
-                torch.nn.Linear(512, output_size)
+                torch.nn.Flatten(), # 3136
             )
+
+            self.lstm = torch.nn.LSTM(3136, 512, batch_first=True)
+            self.fc = torch.nn.Linear(512, output_size)
+
         else:
-            self.body = torch.nn.Sequential(
-                torch.nn.Linear(*input_size, 256),
-                torch.nn.ReLU(),
-                torch.nn.Linear(256, 256),
-                torch.nn.ReLU(),
-                torch.nn.Linear(256, output_size),
-            )
+            self.lstm = torch.nn.LSTM(*input_size, 512, batch_first=True)
+            self.fc = torch.nn.Linear(512, output_size)
+
     
-    def forward(self, inp):
+    def forward(self, inp, inp_hidden=None):
+        # input is (batch_size (B), sequence_length (T), state_space_dim)
+        # e.g. (32, T, 1, 84, 84)
+
         if self.conv:
-            new_inp = inp / 255.0
-            return self.body(new_inp)
-        return self.body(inp)
+            # input is (batch_size (B), sequence_length (T), channels (C), height (H), width (W))
+            batch_size, seq_len, channels, height, width = inp.shape
+            norm_input = inp / 255.0
+
+            # merge batch/time for conv layer
+            conv_out = self.conv_body(norm_input.view(batch_size * seq_len, channels, height, width))
+
+            # restore batch/time for lstm layer (with conv output)
+            lstm_out, hidden = self.lstm(conv_out.view(batch_size, seq_len, 3136), inp_hidden)
+            qvals_out = self.fc(lstm_out)
+
+            return qvals_out, hidden
+        
+        lstm_out, hidden = self.lstm(inp, inp_hidden)
+        qvals_out = self.fc(lstm_out)
+        return qvals_out, hidden
 
 class R2D2(agents.Agent):
 
-    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_scheduler: utils.LinearScheduler, cgn, warmup_steps, gradient_steps, load_path=None):
+    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, 
+                 gamma, epsilon_scheduler: utils.LinearScheduler, cgn, 
+                 warmup_steps, gradient_steps, seq_len,
+                 load_path=None):
+        
         self.lr = lr
         self.replay_size = replay_size
         self.C = C
@@ -52,6 +69,7 @@ class R2D2(agents.Agent):
         self.epsilon_scheduler = epsilon_scheduler
         self.epsilon = epsilon_scheduler.get_value()
         self.cgn = cgn
+        self.seq_len = seq_len
         self.warmup_steps = warmup_steps
         self.gradient_steps = gradient_steps
         self.device = torch.device("cpu")
@@ -65,7 +83,8 @@ class R2D2(agents.Agent):
         self.state_space_dim = utils.detect_space_size(env.get_single_state_space())
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         
-        self.replay = deque(maxlen=self.replay_size)
+        self.sequence_buffer = deque(maxlen=self.seq_len)
+        self.replay = deque(maxlen=self.replay_size//self.seq_len)
         self.qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
         self.target_qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
         
@@ -83,7 +102,9 @@ class R2D2(agents.Agent):
     def _get_actions(self, states: torch.Tensor):
         with torch.no_grad():
             if np.random.random() >= self.epsilon:
-                q_values = self.qnet(states)
+                states_input = states.unsqueeze(1) # (num_envs, 1, state_dim) add fake time/seq dim
+                q_values, _ = self.qnet(states_input, None)
+                q_values = q_values.squeeze(1) # (num_envs, action_dim) remove fake time/seq dim
                 actions = q_values.argmax(dim=-1)
                 return actions
             else:
@@ -93,6 +114,13 @@ class R2D2(agents.Agent):
         if len(self.replay) < self.minibatch_size: return
 
         minibatch = random.sample(self.replay, self.minibatch_size)
+
+        states = torch.stack([
+            torch.stack([t[0] for t in seq])
+            for seq in minibatch
+        ])
+
+        print(states.shape)
         all_s, all_a, all_r, all_sprime, all_done = zip(*minibatch)
         
         all_s = torch.cat(all_s).to(self.device) # (minibatch_size, state_space_dim)
@@ -153,13 +181,18 @@ class R2D2(agents.Agent):
                 current_sprimes = torch.from_numpy(current_sprimes).float().to(self.device)
                 current_dones = torch.from_numpy(current_isterms | current_istruncs).float().to(self.device)
 
-                self.replay.append((
+                self.sequence_buffer.append((
                     current_game_states.detach().cpu(),
                     current_actions.detach().cpu(),
                     current_rewards.detach().cpu(),
                     current_sprimes.detach().cpu(),
                     current_dones.detach().cpu(),
                 ))
+
+                if len(self.sequence_buffer) == self.seq_len:
+                    self.replay.append(self.sequence_buffer.copy())
+                    for _ in range(self.seq_len // 2):
+                        self.sequence_buffer.popleft()
 
                 current_game_states = current_sprimes
                 
