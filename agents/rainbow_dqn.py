@@ -124,11 +124,11 @@ class NStepBuffer:
 
     def nsteps_done(self):
         all_s, all_a, all_r, all_sprime, all_done = zip(*self.nstep_buffer)
-        all_s = torch.stack(all_s).squeeze(0) # (n, state_dim,)
-        all_a = torch.stack(all_a).squeeze(0) # (n,)
-        all_r = torch.stack(all_r).squeeze(0) # (n,)
-        all_sprime = torch.stack(all_sprime).squeeze(0) # (n, state_dim,)
-        all_done = torch.stack(all_done).squeeze(0) # (n,)
+        all_s = torch.stack(all_s).squeeze(1) # (n, state_dim,)
+        all_a = torch.stack(all_a).squeeze(1) # (n,)
+        all_r = torch.stack(all_r).squeeze(1) # (n,)
+        all_sprime = torch.stack(all_sprime).squeeze(1) # (n, state_dim,)
+        all_done = torch.stack(all_done).squeeze(1) # (n,)
 
         final_timestep = (len(all_r) - 1) if self.n > 1 else 0
         for t in range(len(all_r)):

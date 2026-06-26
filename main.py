@@ -77,8 +77,8 @@ agent = agents.RainbowDQN(lr=0.0023, replay_size=100000,
                    vmin=0, vmax=100, N=10, nstep=1, alpha=0.5, 
                    beta_scheduler=utils.LinearScheduler(0.4, 1.0, 16000),
                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.04, 16000),
-                   use_distributional=False, use_noisy=False, use_dueling=False,
-                   use_double=False, use_per=False, load_path=None)
+                   use_distributional=True, use_noisy=True, use_dueling=True,
+                   use_double=True, use_per=False, load_path=None)
 
 # agent = agents.R2D2(lr=0.001, replay_size=10000,
 #                    C=1000, update_freq=4, minibatch_size=32, 
