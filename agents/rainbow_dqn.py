@@ -61,7 +61,10 @@ class ReplayMemory:
         self.current_size = 0
         self.next_data = 0
     
-    def add(self, transition):
+    def __len__(self):
+        return self.current_size
+    
+    def append(self, transition):
         s, a, G, sprime, done = transition
         self.states[self.next_data] = s.numpy()
         self.actions[self.next_data] = a.item()
@@ -111,7 +114,7 @@ class NStepBuffer:
     def __init__(self, n, gamma):
         self.n = n
         self.gamma = gamma
-        self.nstep_buffer = deque(maxlen=n)
+        self.nstep_buffer = deque(maxlen=self.n)
 
     def add(self, s, a, r, sprime, done):
         self.nstep_buffer.append((s, a, r, sprime, done))
@@ -121,13 +124,13 @@ class NStepBuffer:
 
     def nsteps_done(self):
         all_s, all_a, all_r, all_sprime, all_done = zip(*self.nstep_buffer)
-        all_s = torch.stack(all_s).squeeze() # (n, state_dim,)
-        all_a = torch.stack(all_a).squeeze() # (n,)
-        all_r = torch.stack(all_r).squeeze() # (n,)
-        all_sprime = torch.stack(all_sprime).squeeze() # (n, state_dim,)
-        all_done = torch.stack(all_done).squeeze() # (n,)
+        all_s = torch.stack(all_s).squeeze(0) # (n, state_dim,)
+        all_a = torch.stack(all_a).squeeze(0) # (n,)
+        all_r = torch.stack(all_r).squeeze(0) # (n,)
+        all_sprime = torch.stack(all_sprime).squeeze(0) # (n, state_dim,)
+        all_done = torch.stack(all_done).squeeze(0) # (n,)
 
-        final_timestep = len(all_r) - 1
+        final_timestep = (len(all_r) - 1) if self.n > 1 else 0
         for t in range(len(all_r)):
             if all_done[t]:
                 final_timestep = t
@@ -141,10 +144,12 @@ class NStepBuffer:
         
 
 class QNet(torch.nn.Module):
-    def __init__(self, input_size, action_dim, num_atoms, is_conv, is_distributional):
+    def __init__(self, input_size, action_dim, num_atoms, is_conv, is_distributional, is_noisy, is_dueling):
         super(QNet, self).__init__()
         self.conv = is_conv
         self.distributional = is_distributional
+        self.noisy = is_noisy
+        self.dueling = is_dueling
         self.action_dim = action_dim
         self.num_atoms = num_atoms
 
@@ -158,27 +163,34 @@ class QNet(torch.nn.Module):
                 torch.nn.Conv2d(64, 64, kernel_size=3, stride=1),
                 torch.nn.ReLU(),
                 torch.nn.Flatten(),
-                NoisyLinear(3136, 512),
+                NoisyLinear(3136, 512) if is_noisy else torch.nn.Linear(3136, 512),
                 torch.nn.ReLU(),
             )
         else:
             self.body_out_size = 256
             self.body = torch.nn.Sequential(
-                NoisyLinear(*input_size, 256),
+                NoisyLinear(*input_size, 256) if is_noisy else torch.nn.Linear(*input_size, 256),
                 torch.nn.ReLU(),
-                NoisyLinear(256, 256),
+                NoisyLinear(256, 256) if is_noisy else torch.nn.Linear(256, 256),
                 torch.nn.ReLU(),
             )
         
-        if self.distributional:
-            self.state_value_head = NoisyLinear(self.body_out_size, num_atoms)
-            self.advantage_head = NoisyLinear(self.body_out_size, action_dim*num_atoms)
+        if is_dueling:
+            if self.distributional:
+                self.state_value_head = NoisyLinear(self.body_out_size, num_atoms) if self.noisy else torch.nn.Linear(self.body_out_size, num_atoms)
+                self.advantage_head = NoisyLinear(self.body_out_size, action_dim*num_atoms) if self.noisy else torch.nn.Linear(self.body_out_size, action_dim*num_atoms)
+            else:
+                self.state_value_head = NoisyLinear(self.body_out_size, 1) if self.noisy else torch.nn.Linear(self.body_out_size, 1)
+                self.advantage_head = NoisyLinear(self.body_out_size, action_dim) if self.noisy else torch.nn.Linear(self.body_out_size, action_dim)
+        
         else:
-            self.state_value_head = NoisyLinear(self.body_out_size, 1)
-            self.advantage_head = NoisyLinear(self.body_out_size, action_dim)      
+            if self.distributional:
+                self.qval_head = NoisyLinear(self.body_out_size, action_dim*num_atoms) if self.noisy else torch.nn.Linear(self.body_out_size, action_dim*num_atoms)
+            else:
+                self.qval_head = NoisyLinear(self.body_out_size, action_dim) if self.noisy else torch.nn.Linear(self.body_out_size, action_dim)
 
     def forward(self, inp):
-        batch, *state_dims = inp.shape
+        batch = inp.shape[0]
 
         if self.conv:
             new_inp = inp / 255.0
@@ -186,21 +198,36 @@ class QNet(torch.nn.Module):
         else:   
             body_out = self.body(inp)
 
-        state_value_out = self.state_value_head(body_out) # (batch, num_atoms)
-        advantage_out = self.advantage_head(body_out) # (batch, action_dim*num_atoms)
+        if self.dueling:
+            # if using dueling network, get state value + advantage and combine
+            # them into Q values
 
-        if self.distributional:
-            state_value_out = state_value_out.view(batch, 1, self.num_atoms) # (batch, 1, num_atoms)
-            advantage_out = advantage_out.view(batch, self.action_dim, self.num_atoms) # (batch, action_dim, num_atoms)
-       
-        all_out = state_value_out + (advantage_out - torch.mean(advantage_out, axis=1, keepdim=True))
-        return all_out
+            state_value_out = self.state_value_head(body_out) # (batch, num_atoms)
+            advantage_out = self.advantage_head(body_out) # (batch, action_dim*num_atoms)
+
+            if self.distributional:
+                state_value_out = state_value_out.view(batch, 1, self.num_atoms) # (batch, 1, num_atoms)
+                advantage_out = advantage_out.view(batch, self.action_dim, self.num_atoms) # (batch, action_dim, num_atoms)
+        
+            all_out = state_value_out + (advantage_out - torch.mean(advantage_out, axis=1, keepdim=True))
+            return all_out
+    
+        else:
+            # if not using dueling, get q values directly from network output
+
+            if self.distributional:
+                all_out = self.qval_head(body_out).view(batch, self.action_dim, self.num_atoms) # (batch, action_dim, num_atoms)
+            else:
+                all_out = self.qval_head(body_out) # (batch, action_dim)
+            return all_out
 
 class RainbowDQN(agents.Agent):
 
     def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, 
-                 cgn, warmup_steps, gradient_steps, use_distributional, vmin, 
-                 vmax, N, nstep, alpha, beta_scheduler: utils.LinearScheduler,
+                 cgn, warmup_steps, gradient_steps, vmin, vmax, N, nstep, 
+                 alpha, beta_scheduler: utils.LinearScheduler,
+                 epsilon_scheduler: utils.LinearScheduler,
+                 use_distributional, use_noisy, use_dueling, use_double, use_per,
                  load_path=None):
         self.lr = lr
         self.replay_size = replay_size
@@ -212,6 +239,10 @@ class RainbowDQN(agents.Agent):
         self.warmup_steps = warmup_steps
         self.gradient_steps = gradient_steps
         self.use_distributional = use_distributional
+        self.use_noisy = use_noisy
+        self.use_dueling = use_dueling
+        self.use_double = use_double
+        self.use_per = use_per
         self.device = torch.device("cpu")
         self.load_path = load_path
         self.vmin = vmin
@@ -221,6 +252,9 @@ class RainbowDQN(agents.Agent):
         self.alpha = alpha
         self.beta_scheduler = beta_scheduler
         self.beta = beta_scheduler.get_value()
+        if not self.use_noisy:
+            self.epsilon_scheduler = epsilon_scheduler
+            self.epsilon = epsilon_scheduler.get_value()
         self.delta_z = (self.vmax - self.vmin) / (self.num_atoms - 1)
         self.atoms = np.array([self.vmin + i * self.delta_z for i in range(self.num_atoms)])
 
@@ -233,9 +267,14 @@ class RainbowDQN(agents.Agent):
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         
         self.nstep_buffer = NStepBuffer(self.nstep, self.gamma)
-        self.replay = ReplayMemory(self.replay_size, self.alpha, self.beta, 1e-5, self.state_space_dim, self.is_conv)
-        self.qnet = QNet(self.state_space_dim, self.action_space_dim, self.num_atoms, self.is_conv, self.use_distributional).to(self.device)
-        self.target_qnet = QNet(self.state_space_dim, self.action_space_dim, self.num_atoms, self.is_conv, self.use_distributional).to(self.device)
+
+        if self.use_per:
+            self.replay = ReplayMemory(self.replay_size, self.alpha, self.beta, 1e-5, self.state_space_dim, self.is_conv)
+        else:
+            self.replay = deque(maxlen=self.replay_size)
+
+        self.qnet = QNet(self.state_space_dim, self.action_space_dim, self.num_atoms, self.is_conv, self.use_distributional, self.use_noisy, self.use_dueling).to(self.device)
+        self.target_qnet = QNet(self.state_space_dim, self.action_space_dim, self.num_atoms, self.is_conv, self.use_distributional, self.use_noisy, self.use_dueling).to(self.device)
         
         self._update_target_net()
 
@@ -249,6 +288,10 @@ class RainbowDQN(agents.Agent):
             self.optim.load_state_dict(checkpoint["optim"])
 
     def _get_actions(self, states: torch.Tensor):
+        if not self.use_noisy:
+            if np.random.random() < self.epsilon:
+                return torch.tensor([np.random.choice(self.action_space_dim)], dtype=torch.int64).to(self.device)
+
         with torch.no_grad():
             if self.use_distributional:
                 # distributional RL action selection
@@ -263,27 +306,32 @@ class RainbowDQN(agents.Agent):
                 actions = q_values.argmax(dim=-1)
                 return actions
         
-    def expected_update(self, all_s, all_a, all_G, all_sprime, all_done, sampled_nodes, is_weights):
-        masks = 1 - all_done # (minibatch_size,)
+    def expected_update(self, all_s, all_a, all_G, all_sprime, masks, sampled_nodes, is_weights):
 
         q_vals = self.qnet(all_s) # (minibatch_size, action_space_dim,)
         chosen_q_vals = q_vals.gather(1, all_a.unsqueeze(1)).squeeze(1) # (minibatch_size,)
 
         # compute the target values (using the target DQN)
         with torch.no_grad():
-            greedy_action_selection = self.qnet(all_sprime).argmax(dim=-1) # (minibatch_size,)
-            greedy_action_evaluation = self.target_qnet(all_sprime).gather(-1, greedy_action_selection.unsqueeze(1)).squeeze(1)
-            targets = all_G + (self.gamma ** self.nstep) * greedy_action_evaluation * masks # (minibatch_size,)
-
-        td_error = targets - chosen_q_vals # (minibatch_size)
-        self.replay.update_priorities(sampled_nodes, td_error.detach().cpu().numpy())
-
-        # zero grads, calculate loss, backprop, optimiser step
-        self.optim.zero_grad()
+            if self.use_double:
+                greedy_action_selection = self.qnet(all_sprime).argmax(dim=-1) # (minibatch_size,)
+                greedy_action_evaluation = self.target_qnet(all_sprime).gather(-1, greedy_action_selection.unsqueeze(1)).squeeze(1)
+                targets = all_G + (self.gamma ** self.nstep) * greedy_action_evaluation * masks # (minibatch_size,)
+            else:
+                targets = all_G + (self.gamma ** self.nstep) * self.target_qnet(all_sprime).max(1)[0] * masks # (minibatch_size,)
 
         loss = torch.nn.functional.mse_loss(chosen_q_vals, targets, reduction="none") # scalar
-        loss = (is_weights * loss).mean()
-        # loss = loss.mean()
+
+        if self.use_per:
+            td_error = targets - chosen_q_vals # (minibatch_size)
+            self.replay.update_priorities(sampled_nodes, td_error.detach().cpu().numpy())
+            loss = (is_weights * loss).mean()
+        else:
+            loss = loss.mean()
+
+        # zero grads, calculate loss, backprop, optimiser step
+
+        self.optim.zero_grad()
         loss.backward()
 
         if self.cgn is not None:
@@ -295,8 +343,7 @@ class RainbowDQN(agents.Agent):
         self.logger.network_update({"qnet":self.qnet.state_dict(), "target_qnet":self.target_qnet.state_dict(), "optim":self.optim.state_dict()})
 
         
-    def distributional_update(self, all_s, all_a, all_G, all_sprime, all_done, sampled_nodes, is_weights):
-        masks = 1 - all_done # (minibatch_size,)
+    def distributional_update(self, all_s, all_a, all_G, all_sprime, masks, sampled_nodes, is_weights):
 
         with torch.no_grad():
             original_target_next_dist = self.target_qnet(all_sprime) # (minibatch_size, action_dim, num_atoms) LOGITS
@@ -349,32 +396,48 @@ class RainbowDQN(agents.Agent):
         kl_loss = -current_dist_log_probs * projected
         kl_loss = kl_loss.sum(dim=-1)
 
-        self.replay.update_priorities(sampled_nodes, kl_loss.detach().cpu().numpy())
-
-        kl_loss = (kl_loss * is_weights).mean()
+        if self.use_per:
+            self.replay.update_priorities(sampled_nodes, kl_loss.detach().cpu().numpy())
+            kl_loss = (kl_loss * is_weights).mean()
+        else:
+            kl_loss = kl_loss.mean()
 
         self.optim.zero_grad()
         kl_loss.backward()
         self.optim.step()
 
+        self.logger.gradient_step_complete(["kl_loss"], [kl_loss.item()])
+        self.logger.network_update({"qnet":self.qnet.state_dict(), "target_qnet":self.target_qnet.state_dict(), "optim":self.optim.state_dict()})
+
 
     def _improve(self):
-        if self.replay.current_size < self.minibatch_size: return
+        if len(self.replay) < self.minibatch_size: return
 
-        (all_s, all_a, all_G, all_sprime, all_done), sampled_nodes, importance_sampling_weights = self.replay.sample(self.minibatch_size) # (minibatch_size,)
-        
-        all_s = all_s.to(self.device, non_blocking=True) # (minibatch_size, state_space_dim)
-        all_a = all_a.to(self.device, non_blocking=True) # (minibatch_size,) int64 for indexing!
-        all_G = all_G.to(self.device, non_blocking=True) # (minibatch_size,)
-        all_sprime = all_sprime.to(self.device, non_blocking=True) # (minibatch_size, state_space_dim)
-        all_done = all_done.to(self.device, non_blocking=True) # (minibatch_size,)
-        masks = 1.0 - all_done # (minibatch_size,)
-        importance_sampling_weights = torch.from_numpy(importance_sampling_weights).to(self.device)
+        if self.use_per:
+            (all_s, all_a, all_G, all_sprime, all_done), sampled_nodes, importance_sampling_weights = self.replay.sample(self.minibatch_size) # (minibatch_size,)
+            all_s = all_s.to(self.device, non_blocking=True) # (minibatch_size, state_space_dim)
+            all_a = all_a.to(self.device, non_blocking=True) # (minibatch_size,) int64 for indexing!
+            all_G = all_G.to(self.device, non_blocking=True) # (minibatch_size,)
+            all_sprime = all_sprime.to(self.device, non_blocking=True) # (minibatch_size, state_space_dim)
+            all_done = all_done.to(self.device, non_blocking=True) # (minibatch_size,)
+            masks = 1 - all_done # (minibatch_size,)
+            importance_sampling_weights = torch.from_numpy(importance_sampling_weights).to(self.device)
+
+        else:
+            minibatch = random.sample(self.replay, self.minibatch_size)
+            all_s, all_a, all_G, all_sprime, all_done = zip(*minibatch)
+            all_s = torch.stack(all_s).to(self.device) # (minibatch_size, state_space_dim)
+            all_a = torch.stack(all_a).to(self.device) # (minibatch_size,)
+            all_G = torch.stack(all_G).to(self.device) # (minibatch_size,)
+            all_sprime = torch.stack(all_sprime).to(self.device) # (minibatch_size, state_space_dim)
+            all_done = torch.stack(all_done).to(self.device) # (minibatch_size,)
+            masks = 1 - all_done # (minibatch_size,)
+            sampled_nodes, importance_sampling_weights = None, None
 
         if self.use_distributional:
-            self.distributional_update(all_s, all_a, all_G, all_sprime, all_done, sampled_nodes, importance_sampling_weights)
+            self.distributional_update(all_s, all_a, all_G, all_sprime, masks, sampled_nodes, importance_sampling_weights)
         else:
-            self.expected_update(all_s, all_a, all_G, all_sprime, all_done, sampled_nodes, importance_sampling_weights)
+            self.expected_update(all_s, all_a, all_G, all_sprime, masks, sampled_nodes, importance_sampling_weights)
 
     def learn(self, total_timesteps: int, env: envs.Environment, logger: utils.Logger, seed: int = None):
         assert env.num_envs == 1
@@ -395,8 +458,12 @@ class RainbowDQN(agents.Agent):
 
                 if self.logger.timesteps_completed % self.C == 0:
                     self._update_target_net()
-                self.beta = self.beta_scheduler.step()
-                self.replay.beta = self.beta
+
+                if self.use_per:
+                    self.beta = self.beta_scheduler.step()
+                    self.replay.beta = self.beta
+                if not self.use_noisy:
+                    self.epsilon = self.epsilon_scheduler.step()
             
                 current_actions = self._get_actions(current_game_states)
                 current_sprimes, current_rewards, current_isterms, current_istruncs, current_infos = env.step(current_actions.cpu().numpy())
@@ -420,7 +487,7 @@ class RainbowDQN(agents.Agent):
                 )
 
                 if self.nstep_buffer.is_full():
-                    self.replay.add(self.nstep_buffer.nsteps_done())
+                    self.replay.append(self.nstep_buffer.nsteps_done())
 
                 current_game_states = current_sprimes
                 

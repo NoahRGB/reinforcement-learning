@@ -100,13 +100,14 @@ class DQN(agents.Agent):
         all_r = torch.cat(all_r).to(self.device) # (minibatch_size,)
         all_sprime = torch.cat(all_sprime).to(self.device) # (minibatch_size, state_space_dim)
         all_done = torch.cat(all_done).to(self.device) # (minibatch_size,)
+        masks = 1 - all_done # (minibatch_size,)
 
         q_vals = self.qnet(all_s) # (minibatch_size, action_space_dim,)
         chosen_q_vals = q_vals.gather(1, all_a.unsqueeze(1)).squeeze(1) # (minibatch_size,)
 
         # compute the target values (using the target DQN)
         with torch.no_grad():
-            targets = all_r + self.gamma * self.target_qnet(all_sprime).max(1)[0] * (1 - all_done) # (minibatch_size,)
+            targets = all_r + self.gamma * self.target_qnet(all_sprime).max(1)[0] * masks # (minibatch_size,)
 
         # zero grads, calculate loss, backprop, optimiser step
         self.optim.zero_grad()

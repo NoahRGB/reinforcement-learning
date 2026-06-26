@@ -93,4 +93,4 @@ logger = EpisodeRewardLogger()
 
 trained_agent = agent.learn(total_timesteps=TIMESTEPS, callback=logger)
 
-logger.save(f"./results/temps/data/sb3_dqn_cartpole_seed{SEED}")
+# logger.save(f"./results/temps/data/sb3_dqn_cartpole_seed{SEED}")
