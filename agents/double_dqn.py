@@ -90,6 +90,7 @@ class DoubleDQN(agents.Agent):
         all_r = torch.cat(all_r).to(self.device)
         all_sprime = torch.cat(all_sprime).to(self.device)
         all_done = torch.cat(all_done).to(self.device)
+        masks = 1 - all_done # (minibatch_size,)
 
         q_vals = self.qnet(all_s) # (minibatch_size, action_space_dim,)
         chosen_q_vals = q_vals.gather(1, all_a.unsqueeze(1)).squeeze(1) # (minibatch_size,)
@@ -98,7 +99,7 @@ class DoubleDQN(agents.Agent):
         with torch.no_grad():
             greedy_action_selection = self.qnet(all_sprime).argmax(dim=-1) # (minibatch_size,)
             greedy_action_evaluation = self.target_qnet(all_sprime).gather(-1, greedy_action_selection.unsqueeze(1)).squeeze(1)
-            targets = all_r + self.gamma * greedy_action_evaluation * (1 - all_done)
+            targets = all_r + self.gamma * greedy_action_evaluation * masks
 
         # zero grads, calculate loss, backprop, optimiser step
         self.optim.zero_grad()
