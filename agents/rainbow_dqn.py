@@ -142,7 +142,6 @@ class NStepBuffer:
 
         return (all_s[0], all_a[0], G, all_sprime[final_timestep], all_done[final_timestep])
         
-
 class QNet(torch.nn.Module):
     def __init__(self, input_size, action_dim, num_atoms, is_conv, is_distributional, is_noisy, is_dueling):
         super(QNet, self).__init__()

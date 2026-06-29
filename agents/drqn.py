@@ -44,9 +44,10 @@ class ReplayMemory:
         )
 
 class QNet(torch.nn.Module):
-    def __init__(self, input_size, output_size, conv):
+    def __init__(self, input_size, output_size, conv, lstm_size):
         super(QNet, self).__init__()
         self.conv = conv
+        self.lstm_size = lstm_size
         
         if conv:
             self.conv_nn = torch.nn.Sequential(
@@ -59,12 +60,12 @@ class QNet(torch.nn.Module):
                 torch.nn.Flatten(), # (3136,)
             )
 
-            self.lstm = torch.nn.LSTM(3136, 512, batch_first=True)
+            self.lstm = torch.nn.LSTM(3136, self.lstm_size, batch_first=True)
 
         else:
-            self.lstm = torch.nn.LSTM(*input_size, 512, batch_first=True)
+            self.lstm = torch.nn.LSTM(*input_size, self.lstm_size, batch_first=True)
  
-        self.fc = torch.nn.Linear(512, output_size)
+        self.fc = torch.nn.Linear(self.lstm_size, output_size)
     
     def forward(self, inp, inp_hidden=None):
         # input is (batch_size (B), sequence_length (T), state_space_dim)
@@ -94,7 +95,7 @@ class QNet(torch.nn.Module):
 
 class DRQN(agents.Agent):
 
-    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_scheduler, cgn, warmup_steps, gradient_steps, unroll_iterations, load_path=None):
+    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_scheduler, cgn, warmup_steps, gradient_steps, unroll_iterations, lstm_size, load_path=None):
         self.lr = lr
         self.replay_size = replay_size
         self.C = C
@@ -108,6 +109,7 @@ class DRQN(agents.Agent):
         self.gradient_steps = gradient_steps
         self.unroll_iterations = unroll_iterations
         self.load_path = load_path
+        self.lstm_size = lstm_size
         self.device = torch.device("cpu")
 
     def _update_target_net(self):
@@ -119,10 +121,12 @@ class DRQN(agents.Agent):
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         
         self.replay = ReplayMemory(self.replay_size, self.state_space_dim)
-        self.qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
-        self.target_qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
+        self.qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv, self.lstm_size).to(self.device)
+        self.target_qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv, self.lstm_size).to(self.device)
 
-        self.game_hidden_states = (torch.zeros((1, 1, 512)).to(self.device), torch.zeros((1, 1, 512)).to(self.device))
+        self.game_hidden_states = (
+            torch.zeros((1, 1, self.lstm_size)).to(self.device), 
+            torch.zeros((1, 1, self.lstm_size)).to(self.device))
         
         self._update_target_net()
 
@@ -162,7 +166,7 @@ class DRQN(agents.Agent):
         # compute the target values (using the target DQN)
         with torch.no_grad():
             target_qvals, target_hidden = self.target_qnet(all_sprime, None) # (minibatch_size, unroll_iterations, action_space_dim,)
-            targets = all_r + self.gamma * target_qvals.max(2)[0] * (1 - all_done) # (minibatch_size, unroll_iterations,)
+            targets = all_r + self.gamma * target_qvals.max(-1)[0] * (1 - all_done) # (minibatch_size, unroll_iterations,)
 
         # zero grads, calculate loss, backprop, optimiser step
         self.optim.zero_grad()
@@ -219,7 +223,10 @@ class DRQN(agents.Agent):
                     for reward in completed_rewards:
 
                         self.logger.episode_complete(reward)
-                        self.game_hidden_states = (torch.zeros((1, 1, 512)).to(self.device), torch.zeros((1, 1, 512)).to(self.device))
+                        self.game_hidden_states = (
+                            torch.zeros((1, 1, self.lstm_size)).to(self.device), 
+                            torch.zeros((1, 1, self.lstm_size)).to(self.device)
+                        )
 
                 if self.gradient_steps == -1 and self.logger.timesteps_completed > self.warmup_steps:
                     self._improve()
