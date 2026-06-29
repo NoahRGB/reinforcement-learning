@@ -12,14 +12,11 @@ def load_seed(path):
     rewards, timesteps = zip(*data)
     return np.array(timesteps), np.array(rewards)
 
-# paths = ["dqn_2frames", "dqn_4frames", "dqn_1frames"]
-# labels = ["DQN 2 frames", "DQN 4 frames", "DQN 1 frame"]
+# paths = ["sb3_dqn_cartpole", "rbw_plain", "rbw_cartpole"]
+# labels = ["Stable-Baselines DQN", "DQN", "Rainbow DQN"]
 
-# paths = ["pong_dqn_4frames_10million", "pong_dqn_2frames_10million", "pong_dqn_1frames_10million", "pong_drqn_1frames_10million"]
-# labels = ["4 frames", "2 frames", "1 frame", "1 frame + LSTM"]
-
-paths = ["rbw_cartpole", "sb3_dqn_cartpole"]
-labels = ["Rainbow DQN", "Stable Baselines DQN"]
+# paths = ["rbw_cartpole", "rbw_plain", "rbw_nodist", "rbw_nodoub", "rbw_noduel", "rbw_nonoisy", "rbw_nonstep", "rbw_noper"]
+# labels = ["Rainbow DQN", "Plain DQN", "No distribution", "No double", "No duel", "No noisy", "No n-step", "No PER"]
 
 for path, label in zip(paths, labels):
     all_seed_timesteps = []
@@ -44,7 +41,7 @@ for path, label in zip(paths, labels):
     std = curves.std(axis=0)
 
     plt.plot(grid, mean, label=label)
-    plt.fill_between(grid, mean - std, mean + std, alpha=0.2)
+    # plt.fill_between(grid, mean - std, mean + std, alpha=0.2)
 
 plt.xlabel("Timesteps")
 plt.ylabel("Episodic Reward")
@@ -53,5 +50,5 @@ plt.ylim(0, 500)
 plt.xlim(0, 100000)
 plt.title("CartPole averaged over 20 trials")
 # plt.xticks([0, 1e6, 2e6, 3e6, 4e6, 5e6, 6e6, 7e6, 8e6, 9e6, 10e6], ["0", "1M", "2M", "3M", "4M", "5M", "6M", "7M", "8M", "9M", "10M"])
-# plt.savefig("results/temps/data/pong_frame_stack_comparison.png", dpi=300, bbox_inches="tight")
+# plt.savefig("results/temps/data/cartpole_rbw_ablation.png", dpi=300, bbox_inches="tight")
 plt.show()
