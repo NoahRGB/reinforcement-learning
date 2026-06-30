@@ -67,7 +67,7 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    C=1000, update_freq=4, minibatch_size=32, gamma=0.99,
 #                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.01, 15000),
 #                    cgn=10.0, warmup_steps=1000,
-#                    unroll_iterations=10, gradient_steps=1, lstm_size=64,
+#                    unroll_iterations=5, gradient_steps=1, lstm_size=64,
 #                    load_path=None)
 
 # agent = agents.RainbowDQN(lr=0.0023, replay_size=100000,
@@ -80,12 +80,12 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    use_distributional=True, use_noisy=True, use_dueling=True,
 #                    use_double=True, use_per=False, load_path=None)
 
-agent = agents.R2D2(lr=0.0001, replay_size=10000,
+agent = agents.R2D2(lr=0.001, replay_size=10000,
                    C=1000, update_freq=4, minibatch_size=32, 
                    gamma=0.99, epsilon_scheduler=utils.LinearScheduler(1.0, 0.01, 15000),
-                   cgn=10.0, warmup_steps=1000, gradient_steps=1, seq_len=10, eta=0.9,
-                   alpha=0.5, beta_scheduler=utils.LinearScheduler(0.6, 0.6, 1),
-                   lstm_size=64, use_dueling=False, use_double=False, use_per=True, load_path=None)
+                   cgn=10.0, warmup_steps=1000, gradient_steps=1, seq_len=4, overlap=2, eta=0.9,
+                   alpha=0.5, beta_scheduler=utils.LinearScheduler(0.6, 0.6, 1), nsteps=2,
+                   lstm_size=64, use_dueling=True, use_double=True, use_per=True, load_path=None)
 
 # agent = agents.DQN(lr=0.001, replay_size=10000,
 #                    C=1000, update_freq=4, 

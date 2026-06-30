@@ -121,6 +121,9 @@ class NStepBuffer:
 
     def is_full(self):
         return len(self.nstep_buffer) == self.n
+    
+    def clear(self):
+        self.nstep_buffer.clear()
 
     def nsteps_done(self):
         all_s, all_a, all_r, all_sprime, all_done = zip(*self.nstep_buffer)
@@ -472,6 +475,7 @@ class RainbowDQN(agents.Agent):
                     completed_rewards = current_infos["episode"]["r"][done_idxs]
                     for reward in completed_rewards:
                         self.logger.episode_complete(reward)
+                        self.nstep_buffer.clear()
                         
                 current_rewards = torch.from_numpy(current_rewards).float()
                 current_sprimes = torch.from_numpy(current_sprimes).float()

@@ -7,6 +7,46 @@ import agents
 import envs
 import utils
 
+class NStepBuffer:
+    def __init__(self, n, gamma):
+        self.n = n
+        self.gamma = gamma
+        self.nstep_buffer = deque(maxlen=self.n)
+
+    def append(self, s, a, r, sprime, done, hidden_state):
+        self.nstep_buffer.append((s, a, r, sprime, done, hidden_state))
+
+    def is_full(self):
+        return len(self.nstep_buffer) == self.n
+    
+    def clear(self):
+        self.nstep_buffer.clear()
+
+    def nsteps_done(self):
+        all_s, all_a, all_r, all_sprime, all_done, all_hidden = zip(*self.nstep_buffer)
+        all_s = torch.stack(all_s).squeeze(1) # (n, state_dim,)
+        all_a = torch.stack(all_a).squeeze(1) # (n,)
+        all_r = torch.stack(all_r).squeeze(1) # (n,)
+        all_sprime = torch.stack(all_sprime).squeeze(1) # (n, state_dim,)
+        all_done = torch.stack(all_done).squeeze(1) # (n,)
+        initial_hidden_state = (
+            all_hidden[0][0],
+            all_hidden[0][1],
+        )
+
+        final_timestep = (len(all_r) - 1) if self.n > 1 else 0
+        for t in range(len(all_r)):
+            if all_done[t]:
+                final_timestep = t
+                break
+
+        G = 0
+        for t in reversed(range(final_timestep + 1)):
+            G = all_r[t] + self.gamma * G
+
+        return (all_s[0], all_a[0], G, all_sprime[final_timestep], all_done[final_timestep], initial_hidden_state)
+        
+
 class ReplayMemory:
     def __init__(self, size, alpha, beta, epsilon):
         self.size = size
@@ -117,8 +157,8 @@ class R2D2(agents.Agent):
 
     def __init__(self, lr, replay_size, C, update_freq, minibatch_size, 
                  gamma, epsilon_scheduler: utils.LinearScheduler, cgn, 
-                 warmup_steps, gradient_steps, seq_len, eta, alpha,
-                 beta_scheduler: utils.LinearScheduler,
+                 warmup_steps, gradient_steps, seq_len, overlap, eta, alpha,
+                 beta_scheduler: utils.LinearScheduler, nsteps,
                  lstm_size=64,  use_dueling=False, use_double=False, 
                  use_per=False, load_path=None):
         
@@ -132,6 +172,7 @@ class R2D2(agents.Agent):
         self.epsilon = epsilon_scheduler.get_value()
         self.cgn = cgn
         self.seq_len = seq_len
+        self.overlap = overlap
         self.burn_in_steps = seq_len // 2
         self.warmup_steps = warmup_steps
         self.gradient_steps = gradient_steps
@@ -142,6 +183,7 @@ class R2D2(agents.Agent):
         self.use_double = use_double
         self.use_per = use_per
         self.beta_scheduler = beta_scheduler
+        self.nsteps = nsteps
         self.lstm_size = lstm_size
         self.beta = beta_scheduler.get_value()
         self.load_path = load_path
@@ -155,7 +197,8 @@ class R2D2(agents.Agent):
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         
         self.sequence_buffer = deque(maxlen=self.seq_len)
-        
+        self.nstep_buffer = NStepBuffer(self.nsteps, self.gamma)
+
         if self.use_per:
             self.replay = ReplayMemory(self.replay_size//self.seq_len, self.alpha, self.beta, 1e-5)
         else:
@@ -178,7 +221,12 @@ class R2D2(agents.Agent):
     def _get_actions(self, states: torch.Tensor, running_hidden_states: tuple):
         with torch.no_grad():
             states_input = states.unsqueeze(1) # (num_envs, 1, state_dim) add fake time/seq dim
-            q_values, new_running_hidden_states = self.qnet(states_input, running_hidden_states)
+            hidden_input = (
+                running_hidden_states[0].to(self.device),
+                running_hidden_states[1].to(self.device)
+            )
+
+            q_values, new_running_hidden_states = self.qnet(states_input, hidden_input)
             if np.random.random() >= self.epsilon:
                 q_values = q_values.squeeze(1) # (num_envs, action_dim) remove fake time/seq dim
                 actions = q_values.argmax(dim=-1)
@@ -194,46 +242,52 @@ class R2D2(agents.Agent):
         else:
             minibatch = random.sample(self.replay, self.minibatch_size)
 
-        burn_in_start = 0
-        burn_in_end = self.burn_in_steps
-        learnable_start = self.burn_in_steps
-        learnable_end = self.seq_len
+        burnin_start_index = 0
+        burnin_end_index = self.burn_in_steps
+        learnable_start_index = self.burn_in_steps
+        learnable_end_index = self.seq_len
 
         all_s = torch.stack([torch.stack([t[0] for t in seq[0]]).view(self.seq_len, *self.state_space_dim) for seq in minibatch]).to(self.device) # (minibatch_size, seq_len, state_space_dim)
         all_a = torch.stack([torch.stack([t[1] for t in seq[0]]).view(self.seq_len) for seq in minibatch]).to(self.device) # (minibatch_size, seq_len)
         all_r = torch.stack([torch.stack([t[2] for t in seq[0]]).view(self.seq_len) for seq in minibatch]).to(self.device) # (minibatch_size, seq_len)
         all_sprime = torch.stack([torch.stack([t[3] for t in seq[0]]).view(self.seq_len, *self.state_space_dim) for seq in minibatch]).to(self.device) # (minibatch_size, seq_len, state_space_dim)
         all_done = torch.stack([torch.stack([t[4] for t in seq[0]]).view(self.seq_len) for seq in minibatch]).to(self.device) # (minibatch_size, seq_len)
-        masks = 1 - all_done # (minibatch_size, seq_len)
         all_initial_hidden_states = (
             torch.cat([seq[1][0] for seq in minibatch], dim=1).to(self.device), # (minibatch_size, 1, 512)
             torch.cat([seq[1][1] for seq in minibatch], dim=1).to(self.device) # (minibatch_size, 1, 512)
         )
-        importance_sampling_weights = torch.tensor(np.array(importance_sampling_weights)).to(self.device)
 
-        burn_in_s = all_s[:, burn_in_start:burn_in_end] # (minibatch_size, burn_in_steps, state_space_dim)
-        # print(burn_in_s.shape)
+        learnable_s = all_s[:, learnable_start_index:learnable_end_index, :] # (minibatch_size, learnable_steps, state_space_dim)
+        learnable_a = all_a[:, learnable_start_index:learnable_end_index] # (minibatch_size, learnable_steps)
+        learnable_r = all_r[:, learnable_start_index:learnable_end_index] # (minibatch_size, learnable_steps)
+        learnable_sprime = all_sprime[:, learnable_start_index:learnable_end_index, :] # (minibatch_size, learnable_steps, state_space_dim)
+        learnable_done = all_done[:, learnable_start_index:learnable_end_index] # (minibatch_size, learnable_steps)
+        masks = 1 - learnable_done # (minibatch_size, learnable_steps)
 
-        q_vals, state_value_hidden_state_out = self.qnet(all_s, all_initial_hidden_states) # (minibatch_size, seq_len, action_space_dim,)
-        chosen_q_vals = q_vals.gather(-1, all_a.unsqueeze(-1)).squeeze(-1) # (minibatch_size, seq_len)
+        with torch.no_grad():
+            burnin_s = all_s[:, burnin_start_index:burnin_end_index, :] # (minibatch_size, burnin_steps, state_space_dim)
+            _, burnin_hidden_state_out = self.qnet(burnin_s, all_initial_hidden_states) # (minibatch_size, burnin_steps, action_space_dim), (minibatch_size, 1, 512)
+
+        q_vals, state_value_hidden_state_out = self.qnet(learnable_s, burnin_hidden_state_out) # (minibatch_size, seq_len, action_space_dim,)
+        chosen_q_vals = q_vals.gather(-1, learnable_a.unsqueeze(-1)).squeeze(-1) # (minibatch_size, seq_len)
 
         # compute the target values (using the target DQN)
         with torch.no_grad():
 
             if self.use_double:
 
-                greedy_action_qvals, _ = self.qnet(all_sprime, state_value_hidden_state_out) # (minibatch_size,)
+                greedy_action_qvals, _ = self.qnet(learnable_sprime, state_value_hidden_state_out) # (minibatch_size,)
                 greedy_action_selection = greedy_action_qvals.argmax(dim=-1) # (minibatch_size,)
 
-                greedy_action_evaluation_qvals, _ = self.target_qnet(all_sprime, state_value_hidden_state_out)
+                greedy_action_evaluation_qvals, _ = self.target_qnet(learnable_sprime, state_value_hidden_state_out)
                 greedy_action_evaluation = greedy_action_evaluation_qvals.gather(-1, greedy_action_selection.unsqueeze(-1)).squeeze(-1) # (minibatch_size,)
 
-                targets = all_r + self.gamma * greedy_action_evaluation * masks # (minibatch_size, seq_len,)
+                targets = learnable_r + (self.gamma ** self.nsteps) * greedy_action_evaluation * masks # (minibatch_size, seq_len,)
 
             else:
 
-                target_qvals, target_hidden = self.target_qnet(all_sprime, state_value_hidden_state_out) # (minibatch_size, unroll_iterations, action_space_dim,)
-                targets = all_r + self.gamma * target_qvals.max(-1)[0] * masks # (minibatch_size, unroll_iterations,)
+                target_qvals, target_hidden = self.target_qnet(learnable_sprime, state_value_hidden_state_out) # (minibatch_size, unroll_iterations, action_space_dim,)
+                targets = learnable_r + (self.gamma ** self.nsteps) * target_qvals.max(-1)[0] * masks # (minibatch_size, unroll_iterations,)
 
         if self.use_per:
             td_errors = (targets - chosen_q_vals).abs() # (minibatch_size, seq_len)
@@ -247,6 +301,7 @@ class R2D2(agents.Agent):
         loss = torch.nn.functional.mse_loss(chosen_q_vals, targets, reduction="none") # scalar
 
         if self.use_per:
+            importance_sampling_weights = torch.tensor(np.array(importance_sampling_weights)).to(self.device)
             loss = (importance_sampling_weights * loss.mean(dim=-1)).mean()
         else:
             loss = loss.mean()
@@ -276,13 +331,6 @@ class R2D2(agents.Agent):
             torch.zeros((1, 1, self.lstm_size)).to(self.device)
         )
 
-        seq_initial_hidden_states = (
-            running_hidden_states[0].detach().clone(),
-            running_hidden_states[1].detach().clone()
-        )
-
-        start_from_beginning = True
-
         for iteration in range(1, total_iterations + 1):
 
             for current_t in range(self.update_freq):
@@ -291,41 +339,45 @@ class R2D2(agents.Agent):
                 if self.logger.timesteps_completed % self.C == 0:
                     self._update_target_net()
                 self.epsilon = self.epsilon_scheduler.step()
-                self.beta = self.beta_scheduler.step()
-                self.replay.beta = self.beta
+
+                if self.use_per:
+                    self.beta = self.beta_scheduler.step()
+                    self.replay.beta = self.beta
             
-                current_actions, running_hidden_states = self._get_actions(current_game_states, running_hidden_states)
+                current_actions, new_running_hidden_states = self._get_actions(current_game_states, running_hidden_states)
                 current_sprimes, current_rewards, current_isterms, current_istruncs, current_infos = env.step(current_actions.cpu().numpy())
      
-                current_rewards = torch.from_numpy(current_rewards).float().to(self.device)
+                current_rewards = torch.from_numpy(current_rewards).float()
                 current_sprimes = torch.from_numpy(current_sprimes).float().to(self.device)
-                current_dones = torch.from_numpy(current_isterms | current_istruncs).float().to(self.device)
+                current_dones = torch.from_numpy(current_isterms | current_istruncs).float()
 
-                if not start_from_beginning and len(self.sequence_buffer) == (self.seq_len // 2):
-                    seq_initial_hidden_states = (
-                        running_hidden_states[0].detach().clone(),
-                        running_hidden_states[1].detach().clone()
-                    )
-
-                self.sequence_buffer.append((
+                self.nstep_buffer.append(
                     current_game_states.detach().cpu(),
                     current_actions.detach().cpu(),
                     current_rewards.detach().cpu(),
                     current_sprimes.detach().cpu(),
                     current_dones.detach().cpu(),
-                ))
+                    running_hidden_states
+                )
+
+                if self.nstep_buffer.is_full():
+                    self.sequence_buffer.append(self.nstep_buffer.nsteps_done())
+
+                running_hidden_states = new_running_hidden_states
 
                 if len(self.sequence_buffer) == self.seq_len:
-                    start_from_beginning = False
 
-                    self.replay.append((self.sequence_buffer.copy(),
-                        (
-                            seq_initial_hidden_states[0].detach().cpu(), 
-                            seq_initial_hidden_states[1].detach().cpu()
-                        )
+                    # add the sequence of transitions into replay memory
+                    # with the hidden state of the first transition
+                    self.replay.append((
+                        self.sequence_buffer.copy(),
+                        self.sequence_buffer[0][5]
                     ))
 
-                    for _ in range(self.seq_len // 2):
+                    # remove from the left of the seq buffer so
+                    # it can be refilled based on how much overlap
+                    # is specified
+                    for _ in range(self.overlap):
                         self.sequence_buffer.popleft()
 
 
@@ -335,19 +387,13 @@ class R2D2(agents.Agent):
                     for reward in completed_rewards:
                         self.logger.episode_complete(reward)
 
+                        # discard any ongoing sequences, reset hidden states
                         self.sequence_buffer.clear()
-                        
+                        self.nstep_buffer.clear()
                         running_hidden_states = (
                             torch.zeros((1, 1, self.lstm_size)).to(self.device), 
                             torch.zeros((1, 1, self.lstm_size)).to(self.device)
                         )
-
-                        seq_initial_hidden_states = (
-                            running_hidden_states[0].detach().clone(),
-                            running_hidden_states[1].detach().clone()
-                        )
-
-                        start_from_beginning = True
 
                 current_game_states = current_sprimes
                 
