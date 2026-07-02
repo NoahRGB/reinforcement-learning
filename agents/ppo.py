@@ -55,8 +55,9 @@ class ActorCriticNetwork(torch.nn.Module):
 
 
 class PPO(agents.Agent):
-    def __init__(self, lr, gamma, lam, tmax, epsilon, epochs, minibatch_size, value_weight, entropy_weight, cgn):
-        self.lr = lr
+    def __init__(self, lr_scheduler, gamma, lam, tmax, epsilon, epochs, minibatch_size, value_weight, entropy_weight, cgn):
+        self.lr_scheduler = lr_scheduler
+        self.lr = lr_scheduler.get_value()
         self.gamma = gamma
         self.lam = lam
         self.tmax = tmax
@@ -123,8 +124,8 @@ class PPO(agents.Agent):
 
             state_values = state_values.view(self.tmax * num_envs).detach() # (tmax * num_envs)
             advantages = advantages.view(self.tmax * num_envs).detach() # (tmax * num_envs,)
-            s = s.view(self.tmax * num_envs, *s.shape[2:]) # (tmax * num_envs, state_dim)
-            a = a.view(self.tmax * num_envs, *a.shape[2:]) # (tmax * num_envs, state_dim)
+            epoch_s = s.view(self.tmax * num_envs, *s.shape[2:]) # (tmax * num_envs, state_dim)
+            epoch_a = a.view(self.tmax * num_envs, *a.shape[2:]) # (tmax * num_envs, state_dim)
             old_log_probs = old_log_probs.view(self.tmax * num_envs,) # (tmax * num_envs)
 
             returns = (advantages + state_values).detach() # (tmax * num_envs)
@@ -133,8 +134,8 @@ class PPO(agents.Agent):
             for minibatch_start_index in range(0, total_batch_size, self.minibatch_size):
                 minibatch_indices = all_indices[minibatch_start_index : minibatch_start_index + self.minibatch_size]
 
-                minibatch_s = s[minibatch_indices]
-                minibatch_a = a[minibatch_indices]
+                minibatch_s = epoch_s[minibatch_indices]
+                minibatch_a = epoch_a[minibatch_indices]
                 minibatch_returns = returns[minibatch_indices]
                 minibatch_advantages = advantages[minibatch_indices]
                 minibatch_old_log_probs = old_log_probs[minibatch_indices]
@@ -200,6 +201,10 @@ class PPO(agents.Agent):
             
             for current_t in range(self.tmax):
                 self.logger.timestep_complete(n=env.get_num_envs())
+
+                self.lr = self.lr_scheduler.step(n=env.get_num_envs())
+                for param_group in self.optim.param_groups:
+                    param_group['lr'] = self.lr
 
                 dist, current_actions = self._get_actions(current_game_states)
                 current_sprimes, current_rewards, current_isterms, current_istruncs, current_infos = env.step(current_actions.cpu().numpy())

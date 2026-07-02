@@ -156,8 +156,7 @@ class QNet(torch.nn.Module):
         self.num_atoms = num_atoms
 
         if self.conv:
-            self.body_out_size = 512
-            self.body = torch.nn.Sequential(
+            self.conv = torch.nn.Sequential(
                 torch.nn.Conv2d(input_size[0], 32, kernel_size=8, stride=4),
                 torch.nn.ReLU(),
                 torch.nn.Conv2d(32, 64, kernel_size=4, stride=2),
@@ -165,9 +164,15 @@ class QNet(torch.nn.Module):
                 torch.nn.Conv2d(64, 64, kernel_size=3, stride=1),
                 torch.nn.ReLU(),
                 torch.nn.Flatten(),
-                NoisyLinear(3136, 512) if is_noisy else torch.nn.Linear(3136, 512),
+
+            )
+            conv_out_size = self.conv(torch.zeros(1, *input_size)).shape[1]
+            self.body = torch.nn.Sequential(
+                NoisyLinear(conv_out_size, 512) if is_noisy else torch.nn.Linear(conv_out_size, 512),
                 torch.nn.ReLU(),
             )
+            self.body_out_size = 512
+
         else:
             self.body_out_size = 256
             self.body = torch.nn.Sequential(
@@ -196,7 +201,8 @@ class QNet(torch.nn.Module):
 
         if self.conv:
             new_inp = inp / 255.0
-            body_out = self.body(new_inp)
+            conv_out = self.conv(new_inp)
+            body_out = self.body(conv_out)
         else:   
             body_out = self.body(inp)
 

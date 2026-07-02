@@ -46,7 +46,6 @@ class NStepBuffer:
 
         return (all_s[0], all_a[0], G, all_sprime[final_timestep], all_done[final_timestep], initial_hidden_state)
         
-
 class ReplayMemory:
     def __init__(self, size, alpha, beta, epsilon):
         self.size = size
@@ -109,17 +108,31 @@ class QNet(torch.nn.Module):
         self.lstm_size = lstm_size
 
         if conv:
+
+
+            self.lstm_out_size = 1024
             self.conv_body = torch.nn.Sequential(
-                torch.nn.Conv2d(input_size[0], 32, kernel_size=8, stride=4),
+                torch.nn.Conv2d(input_size[0], 16, kernel_size=2),
                 torch.nn.ReLU(),
-                torch.nn.Conv2d(32, 64, kernel_size=4, stride=2),
+                torch.nn.Conv2d(16, 32, kernel_size=2),
                 torch.nn.ReLU(),
-                torch.nn.Conv2d(64, 64, kernel_size=3, stride=1),
+                torch.nn.Conv2d(32, 64, kernel_size=2),
                 torch.nn.ReLU(),
-                torch.nn.Flatten(), # 3136
+                torch.nn.Flatten(),
             )
 
-            self.lstm = torch.nn.LSTM(3136, self.lstm_size, batch_first=True)
+            # self.lstm_out_size = 3136
+            # self.conv_body = torch.nn.Sequential(
+            #     torch.nn.Conv2d(input_size[0], 32, kernel_size=8, stride=4),
+            #     torch.nn.ReLU(),
+            #     torch.nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            #     torch.nn.ReLU(),
+            #     torch.nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            #     torch.nn.ReLU(),
+            #     torch.nn.Flatten(), # 3136
+            # )
+
+            self.lstm = torch.nn.LSTM(self.lstm_out_size, self.lstm_size, batch_first=True)
         else:
             self.lstm = torch.nn.LSTM(*input_size, self.lstm_size, batch_first=True)
 
@@ -140,7 +153,7 @@ class QNet(torch.nn.Module):
             conv_out = self.conv_body(norm_input.view(batch_size * seq_len, channels, height, width))
 
             # restore batch/time for lstm layer (with conv output)
-            lstm_out, hidden = self.lstm(conv_out.view(batch_size, seq_len, 3136), inp_hidden)
+            lstm_out, hidden = self.lstm(conv_out.view(batch_size, seq_len, self.lstm_out_size), inp_hidden)
         else:
             lstm_out, hidden = self.lstm(inp, inp_hidden)
 

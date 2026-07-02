@@ -16,6 +16,8 @@ from .noisy_dqn import NoisyDQN
 from .c51_dqn import C51DQN
 from .rainbow_dqn import RainbowDQN
 from .r2d2 import R2D2
+from .curious_dqn import CuriousDQN
+from .drqn_new import NewDRQN
 
 __all__ = [
     "Agent",
@@ -36,4 +38,6 @@ __all__ = [
     "C51DQN",
     "RainbowDQN",
     "R2D2",
+    "CuriousDQN",
+    "NewDRQN",
 ]

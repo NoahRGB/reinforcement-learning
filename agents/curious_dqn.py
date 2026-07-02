@@ -7,39 +7,106 @@ import agents
 import envs
 import utils
 
+class IntrinsicCuriosityModule(torch.nn.Module):
+    def __init__(self, state_dim, action_dim, is_conv):
+        super(IntrinsicCuriosityModule, self).__init__()
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.is_conv = is_conv
+
+        if self.is_conv:
+            self.enc_out = 1024
+            self.enc = torch.nn.Sequential(
+                torch.nn.Conv2d(state_dim[0], 16, kernel_size=2),
+                torch.nn.ReLU(),
+                torch.nn.Conv2d(16, 32, kernel_size=2),
+                torch.nn.ReLU(),
+                torch.nn.Conv2d(32, 64, kernel_size=2),
+                torch.nn.ReLU(),
+                torch.nn.Flatten(),
+            )
+            # self.env_out = 3136
+            # self.enc = torch.nn.Sequential(
+            #     torch.nn.Conv2d(state_dim[0], 32, kernel_size=8, stride=4),
+            #     torch.nn.ReLU(),
+            #     torch.nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            #     torch.nn.ReLU(),
+            #     torch.nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            #     torch.nn.ReLU(),
+            #     torch.nn.Flatten(),
+            # )
+        else:
+            self.enc_out = 64
+            self.enc = torch.nn.Sequential(
+                torch.nn.Linear(state_dim[0], 128),
+                torch.nn.ReLU(),
+                torch.nn.Linear(128, 64),
+                torch.nn.ReLU(),
+                torch.nn.Linear(64, self.enc_out),
+            )
+        
+        # takes φ(s_t) and φ(s_t+1) and predicts action a_t
+        self.inv_model = torch.nn.Sequential(
+            torch.nn.Linear(2 * self.enc_out, 128),
+            torch.nn.ReLU(),
+            torch.nn.Linear(128, action_dim),
+        )
+
+        # takes a_t and φ(s_t) and predicts φ(s_t+1)
+        self.forward_model = torch.nn.Sequential(
+            torch.nn.Linear(action_dim + self.enc_out, 128),
+            torch.nn.ReLU(),
+            torch.nn.Linear(128, 128),
+            torch.nn.ReLU(),
+            torch.nn.Linear(128, self.enc_out),
+        )
+        
+    def forward(self, s, a, sprime):
+        # s (batch_size, state_dim)
+        # a (batch_size,)
+        # sprime (batch_size, state_dim)
+
+        a_one_hot = torch.nn.functional.one_hot(a, num_classes=self.action_dim).float()
+        s_enc = self.enc(s)
+        sprime_enc = self.enc(sprime).detach()
+
+        a_pred = self.inv_model(torch.concat([s_enc, sprime_enc], dim=1))
+        sprime_enc_pred = self.forward_model(torch.concat([s_enc, a_one_hot], dim=1))
+
+        return a_pred, sprime_enc_pred, sprime_enc
+
+
 class QNet(torch.nn.Module):
     def __init__(self, input_size, output_size, conv):
         super(QNet, self).__init__()
         self.conv = conv
 
         if conv:
-            # self.conv = torch.nn.Sequential(
-            #     torch.nn.Conv2d(input_size[0], 16, kernel_size=2),
-            #     torch.nn.ReLU(),
-            #     torch.nn.Conv2d(16, 32, kernel_size=2),
-            #     torch.nn.ReLU(),
-            #     torch.nn.Conv2d(32, 64, kernel_size=2),
-            #     torch.nn.ReLU(),
-            #     torch.nn.Flatten(),
-            # )
-
-            self.conv = torch.nn.Sequential(
-                torch.nn.Conv2d(input_size[0], 32, kernel_size=8, stride=4),
+            self.body = torch.nn.Sequential(
+                torch.nn.Conv2d(input_size[0], 16, kernel_size=2),
                 torch.nn.ReLU(),
-                torch.nn.Conv2d(32, 64, kernel_size=4, stride=2),
+                torch.nn.Conv2d(16, 32, kernel_size=2),
                 torch.nn.ReLU(),
-                torch.nn.Conv2d(64, 64, kernel_size=3, stride=1),
+                torch.nn.Conv2d(32, 64, kernel_size=2),
                 torch.nn.ReLU(),
                 torch.nn.Flatten(),
-            )
-
-            conv_out_size = self.conv(torch.zeros(1, *input_size)).shape[1]
-            self.body = torch.nn.Sequential(
-                torch.nn.Linear(conv_out_size, 512),
+                torch.nn.Linear(1024, 512),
                 torch.nn.ReLU(),
                 torch.nn.Linear(512, output_size)
             )
 
+            # self.body = torch.nn.Sequential(
+            #     torch.nn.Conv2d(input_size[0], 32, kernel_size=8, stride=4),
+            #     torch.nn.ReLU(),
+            #     torch.nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            #     torch.nn.ReLU(),
+            #     torch.nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            #     torch.nn.ReLU(),
+            #     torch.nn.Flatten(),
+            #     torch.nn.Linear(3136, 512),
+            #     torch.nn.ReLU(),
+            #     torch.nn.Linear(512, output_size)
+            # )
         else:
             self.body = torch.nn.Sequential(
                 torch.nn.Linear(*input_size, 256),
@@ -52,14 +119,12 @@ class QNet(torch.nn.Module):
     def forward(self, inp):
         if self.conv:
             new_inp = inp / 255.0
-            conv_out = self.conv(new_inp)
-            return self.body(conv_out)
-        
+            return self.body(new_inp)
         return self.body(inp)
 
-class DQN(agents.Agent):
+class CuriousDQN(agents.Agent):
 
-    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_scheduler: utils.LinearScheduler, cgn, warmup_steps, gradient_steps, load_path=None):
+    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_scheduler: utils.LinearScheduler, cgn, warmup_steps, gradient_steps, curiosity_weight, load_path=None):
         self.lr = lr
         self.replay_size = replay_size
         self.C = C
@@ -71,6 +136,7 @@ class DQN(agents.Agent):
         self.cgn = cgn
         self.warmup_steps = warmup_steps
         self.gradient_steps = gradient_steps
+        self.curiosity_weight = curiosity_weight
         self.device = torch.device("cpu")
         self.load_path = load_path
 
@@ -85,7 +151,10 @@ class DQN(agents.Agent):
         self.replay = deque(maxlen=self.replay_size)
         self.qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
         self.target_qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
-        
+
+        self.icm = IntrinsicCuriosityModule(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
+        self.icm_optim = torch.optim.Adam(self.icm.parameters(), lr=self.lr)
+
         self._update_target_net()
 
         self.optim = torch.optim.Adam(self.qnet.parameters(), lr=self.lr)
@@ -119,6 +188,16 @@ class DQN(agents.Agent):
         all_done = torch.cat(all_done).to(self.device) # (minibatch_size,)
         masks = 1 - all_done # (minibatch_size,)
 
+        a_pred, sprime_enc_pred, sprime_enc = self.icm(all_s, all_a, all_sprime)
+        inv_loss = torch.nn.functional.cross_entropy(a_pred, all_a)
+        forward_loss = torch.nn.functional.mse_loss(sprime_enc_pred, sprime_enc, reduction="none")
+        icm_loss = inv_loss + forward_loss.mean()
+        self.icm_optim.zero_grad()
+        icm_loss.backward()
+        self.icm_optim.step()
+
+        all_r = all_r + self.curiosity_weight * forward_loss.mean(dim=-1).detach() # (minibatch_size,)
+
         q_vals = self.qnet(all_s) # (minibatch_size, action_space_dim,)
         chosen_q_vals = q_vals.gather(1, all_a.unsqueeze(1)).squeeze(1) # (minibatch_size,)
 
@@ -134,7 +213,7 @@ class DQN(agents.Agent):
             torch.nn.utils.clip_grad_norm_(self.qnet.parameters(), self.cgn)
         self.optim.step()
 
-        self.logger.gradient_step_complete(["qnet_loss"], [loss.item()])
+        self.logger.gradient_step_complete(["qnet_loss", "inv_loss", "forward_loss"], [loss.item(), inv_loss.item(), forward_loss.mean().item()])
         self.logger.network_update({"qnet":self.qnet.state_dict(), "target_qnet":self.target_qnet.state_dict(), "optim":self.optim.state_dict()})
 
 

@@ -105,7 +105,7 @@ class QNet(torch.nn.Module):
 
             return qvals, hidden
 
-class DRQN(agents.Agent):
+class NewDRQN(agents.Agent):
 
     def __init__(self, lr_scheduler, replay_size, C, update_freq, minibatch_size, gamma, epsilon_scheduler, cgn, warmup_steps, gradient_steps, unroll_iterations, lstm_size, load_path=None):
         self.lr_scheduler = lr_scheduler
