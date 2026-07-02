@@ -53,7 +53,7 @@ class ActorCriticNetwork(torch.nn.Module):
     def forward(self, inp: torch.Tensor):
 
         critic_out = self.critic_head(self.value_body(inp)).squeeze(-1)
-
+        
         if self.is_continuous:
             mu_out = self.mu_head(self.policy_body(inp))
             log_sigma_out = self.log_sigma_head

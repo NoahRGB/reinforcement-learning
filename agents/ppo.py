@@ -27,30 +27,42 @@ class ActorCriticNetwork(torch.nn.Module):
             )
 
         else:
-            self.body_out_size = 64
-            self.body = torch.nn.Sequential(
-                torch.nn.Linear(*num_inputs, 64),
-                torch.nn.Tanh(),
-                torch.nn.Linear(64, 64),
-                torch.nn.Tanh()
+            self.body_out_size = 256
+            self.policy_body = torch.nn.Sequential(
+                torch.nn.Linear(*num_inputs, 256),
+                torch.nn.ReLU(),
+                torch.nn.Linear(256, 256),
+                torch.nn.ReLU()
+            )
+
+            self.value_body = torch.nn.Sequential(
+                torch.nn.Linear(*num_inputs, 256),
+                torch.nn.ReLU(),
+                torch.nn.Linear(256, 256),
+                torch.nn.ReLU()
             )
 
         self.critic_head = torch.nn.Linear(self.body_out_size, 1)
 
         if is_continuous:
             self.mu_head = torch.nn.Linear(self.body_out_size, *num_outputs)
-            self.log_sigma_head = torch.nn.Parameter(torch.zeros(*num_outputs))
+            self.log_sigma_head = torch.nn.Parameter(torch.full(num_outputs, -2.0))
         else:
             self.logits_head = torch.nn.Linear(self.body_out_size, num_outputs)
 
     def forward(self, inp: torch.Tensor):
-        main_out = self.body(inp)
-        critic_out = self.critic_head(main_out).squeeze(-1)
+
+        value_out = self.value_body(inp)
+        critic_out = self.critic_head(value_out).squeeze(-1)
+        policy_out = self.policy_body(inp)
+
         if self.is_continuous:
-            mu_out = self.mu_head(main_out)
+            
+            mu_out = self.mu_head(policy_out)
             log_sigma_out = self.log_sigma_head
             return (mu_out, log_sigma_out.exp()), critic_out
-        logits_out = self.logits_head(main_out)
+        
+        logits_out = self.logits_head(policy_out)
         return logits_out, critic_out
 
 
