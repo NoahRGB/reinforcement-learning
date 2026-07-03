@@ -67,7 +67,7 @@ class ActorCriticNetwork(torch.nn.Module):
 
 
 class PPO(agents.Agent):
-    def __init__(self, lr_scheduler, gamma, lam, tmax, epsilon, epochs, minibatch_size, value_weight, entropy_weight, cgn):
+    def __init__(self, lr_scheduler, gamma, lam, tmax, epsilon, epochs, minibatch_size, value_weight, entropy_weight, cgn, load_path=None):
         self.lr_scheduler = lr_scheduler
         self.lr = lr_scheduler.get_value()
         self.gamma = gamma
@@ -80,6 +80,7 @@ class PPO(agents.Agent):
         self.entropy_weight = entropy_weight
         self.cgn = cgn
         self.device = torch.device("cpu")
+        self.load_path = load_path
 
     def _setup(self, env: envs.Environment):
         self.is_conv = env.is_conv()
@@ -88,6 +89,11 @@ class PPO(agents.Agent):
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         self.net = ActorCriticNetwork(self.state_space_dim, self.action_space_dim, self.is_continuous, self.is_conv).to(self.device)
         self.optim = torch.optim.RMSprop(self.net.parameters(), self.lr, eps=1e-5)
+
+        if self.load_path is not None:
+            checkpoint = torch.load(self.load_path, weights_only=False, map_location=self.device)
+            self.net.load_state_dict(checkpoint["net"])
+            self.optim.load_state_dict(checkpoint["optim"])
 
     def _get_actions(self, states: torch.Tensor):
         with torch.no_grad():

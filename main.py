@@ -13,7 +13,7 @@ USE_TENSORBOARD_LOGS = True
 PRINT_PROGRESS = True
 NETWORK_SAVE_INTERVAL = 0
 SEED = 1
-ENV_NAME = "HumanoidStandup-v5" # "CartPole-v1" # "MiniGrid-MemoryS7-v0" # 
+ENV_NAME = "Humanoid-v5" # "CartPole-v1" # "MiniGrid-MemoryS7-v0" # 
 NUM_ENVS = 1
 TIMESTEPS = 120000
 TITLE = f"a"
@@ -48,9 +48,10 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    value_weight=0.5, entropy_weight=0.0, 
 #                    cgn=0.5, lstm_hidden_size=64)
 
-agent = agents.PPO(lr_scheduler=utils.LinearScheduler(0.0000255673, 0.0000255673, 1), gamma=0.99, lam=0.9, tmax=512,
-                   epsilon=0.3, epochs=20, minibatch_size=32,
-                   value_weight=0.43, entropy_weight=0.00000362109, cgn=0.7)
+agent = agents.PPO(lr_scheduler=utils.LinearScheduler(0.0000255673, 0.0000255673, 1), 
+                   gamma=0.99, lam=0.9, tmax=512, epsilon=0.3, epochs=20, 
+                   minibatch_size=32, value_weight=0.43, entropy_weight=0.00000362109, 
+                   cgn=0.7, load_path="results/temps/data/human.pt")
 
 # agent = agents.REINFORCE(policy_lr=0.001, state_value_lr=0.01,
 #                          gamma=0.99, use_baseline=True)
@@ -107,6 +108,6 @@ agent = agents.PPO(lr_scheduler=utils.LinearScheduler(0.0000255673, 0.0000255673
 #                    load_path=None)
 
 agent.to(DEVICE)
-env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=True, render_mode=None) # , allowed_actions=[0, 1, 2], swap_channel=True
+env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=True, render_mode="human") # , allowed_actions=[0, 1, 2], swap_channel=True
 agent.learn(TIMESTEPS, env, LOGGER, seed=SEED)
  
