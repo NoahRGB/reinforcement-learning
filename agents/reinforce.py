@@ -36,7 +36,6 @@ class PolicyNN(torch.nn.Module):
     def forward(self, inp):
         return self.body(inp)
 
-
 class REINFORCE(agents.Agent):
 
     def __init__(self, policy_lr: float, state_value_lr: float, gamma: float, use_baseline: bool):
@@ -60,7 +59,7 @@ class REINFORCE(agents.Agent):
         self.policy_optim = torch.optim.Adam(self.policy_net.parameters(), lr=self.policy_lr)
         self.state_value_optim = torch.optim.Adam(self.state_value_net.parameters(), lr=self.state_value_lr)
 
-    def _improve(self, states: list, actions: list, rewards: list, sprimes: list, dones: list):        
+    def _improve(self, states: list, actions: list, rewards: list, sprimes: list, dones: list, env: envs.Environment):        
         s = torch.cat(states).to(self.device) # (episode_len, state_dim)
         a = torch.cat(actions).to(self.device) # (episode_len,)
         r = torch.cat(rewards).to(self.device) # (episode_len,)
@@ -93,7 +92,10 @@ class REINFORCE(agents.Agent):
         self.state_value_optim.step()
 
         self.logger.gradient_step_complete(["policy_loss", "state_value_loss"], [policy_loss.item(), state_value_loss.item()])
-        self.logger.network_update({"pol_nn":self.policy_net.state_dict(), "sv_nn":self.state_value_net.state_dict()})
+        log = {"pol_nn":self.policy_net.state_dict(), "sv_nn":self.state_value_net.state_dict(), "pol_optim":self.policy_optim.state_dict(), "sv_optim":self.state_value_optim.state_dict()}
+        if env.normalise_obs:
+            log["norm"] = env.get_normalised_obs()
+        self.logger.network_update(log)
 
     def learn(self, total_timesteps: int, env: envs.Environment, logger: utils.Logger, seed: int = None):
         assert env.get_num_envs() == 1
@@ -123,7 +125,7 @@ class REINFORCE(agents.Agent):
             current_game_states = sprimes[-1]
 
             if "episode" in current_infos:
-                self._improve(states, actions, rewards, sprimes, dones)
+                self._improve(states, actions, rewards, sprimes, dones, env)
                 states, actions, rewards, sprimes, dones = [], [], [], [], []
 
                 done_idxs = current_infos["_episode"]

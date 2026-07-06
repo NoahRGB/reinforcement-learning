@@ -41,7 +41,7 @@ class QFunc(torch.nn.Module):
 
 class DDPG(agents.Agent):
 
-    def __init__(self, lr, gamma, noise_factor, replay_size, minibatch_size, update_freq, target_factor, warmup_steps):
+    def __init__(self, lr, gamma, noise_factor, replay_size, minibatch_size, update_freq, target_factor, warmup_steps, gradient_steps):
         self.lr = lr
         self.gamma = gamma
         self.noise_factor = noise_factor
@@ -50,6 +50,7 @@ class DDPG(agents.Agent):
         self.update_freq = update_freq
         self.target_factor = target_factor
         self.warmup_steps = warmup_steps
+        self.gradient_steps = gradient_steps
         self.device = torch.device("cpu")
 
     def _clamp_actions(self, actions: torch.Tensor):
@@ -78,7 +79,7 @@ class DDPG(agents.Agent):
         self.actor_optimiser = torch.optim.Adam(self.actor.parameters(), lr=self.lr)
         self.qfunc_optimiser = torch.optim.Adam(self.qfunc.parameters(), lr=self.lr)
 
-    def _improve(self):
+    def _improve(self, env: envs.Environment):
         if len(self.replay) < self.minibatch_size: return
 
         minibatch = random.sample(self.replay, self.minibatch_size)
@@ -124,15 +125,18 @@ class DDPG(agents.Agent):
             target_param.data.copy_(self.target_factor * target_param.data + (1 - self.target_factor) * param.data)
 
         self.logger.gradient_step_complete(["qfunc_loss", "actor_loss"], [qfunc_loss.item(), actor_loss.item()])
-        self.logger.network_update({
+
+        log = {
             "actor": self.actor.state_dict(),
             "qfunc": self.qfunc.state_dict(),
             "target_actor": self.target_actor.state_dict(),
             "target_qfunc": self.target_qfunc.state_dict(),
             "actor_optimiser": self.actor_optimiser.state_dict(),
             "qfunc_optimiser": self.qfunc_optimiser.state_dict(),
-        })
-
+        }
+        if env.normalise_obs:
+            log["norm"] = env.get_normalised_obs()
+        self.logger.network_update(log)
 
     def learn(self, total_timesteps: int, env: envs.Environment, logger: utils.Logger, seed: int = None, quiet: bool = False):
         assert env.get_num_envs() == 1
@@ -173,8 +177,13 @@ class DDPG(agents.Agent):
 
                 current_game_states = current_sprimes
 
-            if logger.timesteps_completed > self.warmup_steps:
-                self._improve()
+                if self.gradient_steps == -1 and self.logger.timesteps_completed > self.warmup_steps:
+                    self._improve(env)
+
+            if self.gradient_steps != -1 and self.logger.timesteps_completed > self.warmup_steps:
+                for grad_update in range(self.gradient_steps):
+                    self._improve(env)
+
         
         self.logger.training_done()
 

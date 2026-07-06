@@ -51,6 +51,7 @@ for file_idx, file in enumerate(found_pkls):
 
 plt.xlabel("Episode")
 plt.ylabel("Reward")
+# plt.ylim(0, 5000)
 # plt.title("")
 plt.legend()
 # plt.savefig("", dpi=300, bbox_inches="tight")

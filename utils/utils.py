@@ -27,3 +27,12 @@ def seed(seed: int):
         np.random.seed(seed)
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
+
+def get_wrapper(env, wrapper):
+    current = env
+    while True:
+        if isinstance(current, wrapper):
+            return current
+        if hasattr(current, "env"):
+            current = current.env
+        return None

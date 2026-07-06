@@ -8,6 +8,8 @@ import numpy as np
 from .environment import Environment
 from .wrappers import SpecifyActions, SwapChannel
 
+import utils
+
 class Gymenv(Environment):
     def __init__(self, env_name: str, num_envs: int, 
                  seed: int = None, normalise_obs: bool = False, 
@@ -62,6 +64,27 @@ class Gymenv(Environment):
         self.single_action_space = self.env.single_action_space
 
         self.start_states, self.start_info = self.env.reset(seed=self.seed)
+    
+    def get_normalised_obs(self):
+        normalised_data = []
+        for env in self.env.env.envs:
+            normalise_wrapper = utils.get_wrapper(env, gym.wrappers.NormalizeObservation)
+            if normalise_wrapper is not None:
+                normalised_data.append({
+                    "mean": normalise_wrapper.obs_rms.mean.copy(), 
+                    "var": normalise_wrapper.obs_rms.var.copy(),
+                    "count": normalise_wrapper.obs_rms.count,
+                })
+        return normalised_data
+    
+    def load_normalised_obs(self, normalised_data):
+        if self.normalise_obs:
+            for env_idx, env in enumerate(self.env.env.envs):
+                normalise_wrapper = utils.get_wrapper(env, gym.wrappers.NormalizeObservation)
+                if normalise_wrapper is not None:
+                    normalise_wrapper.obs_rms.mean = normalised_data[env_idx]["mean"]
+                    normalise_wrapper.obs_rms.var = normalised_data[env_idx]["var"]
+                    normalise_wrapper.obs_rms.count = normalised_data[env_idx]["count"]
 
     def step(self, actions: np.array):
         step = self.env.step(actions)

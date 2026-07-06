@@ -294,6 +294,8 @@ class RainbowDQN(agents.Agent):
             self.qnet.load_state_dict(checkpoint["qnet"])
             self.target_qnet.load_state_dict(checkpoint["target_qnet"])
             self.optim.load_state_dict(checkpoint["optim"])
+            if "norm" in checkpoint:
+                env.load_normalised_obs(checkpoint["norm"])
 
     def _get_actions(self, states: torch.Tensor):
         if not self.use_noisy:
@@ -314,7 +316,7 @@ class RainbowDQN(agents.Agent):
                 actions = q_values.argmax(dim=-1)
                 return actions
         
-    def expected_update(self, all_s, all_a, all_G, all_sprime, masks, sampled_nodes, is_weights):
+    def expected_update(self, all_s, all_a, all_G, all_sprime, masks, sampled_nodes, is_weights, env: envs.Environment):
 
         q_vals = self.qnet(all_s) # (minibatch_size, action_space_dim,)
         chosen_q_vals = q_vals.gather(1, all_a.unsqueeze(1)).squeeze(1) # (minibatch_size,)
@@ -348,10 +350,12 @@ class RainbowDQN(agents.Agent):
         self.optim.step()
 
         self.logger.gradient_step_complete(["qnet_loss"], [loss.item()])
-        self.logger.network_update({"qnet":self.qnet.state_dict(), "target_qnet":self.target_qnet.state_dict(), "optim":self.optim.state_dict()})
-
+        log = {"qnet":self.qnet.state_dict(), "target_qnet":self.target_qnet.state_dict(), "optim":self.optim.state_dict()}
+        if env.normalise_obs:
+            log["norm"] = env.get_normalised_obs()
+        self.logger.network_update(log)
         
-    def distributional_update(self, all_s, all_a, all_G, all_sprime, masks, sampled_nodes, is_weights):
+    def distributional_update(self, all_s, all_a, all_G, all_sprime, masks, sampled_nodes, is_weights, env: envs.Environment):
 
         with torch.no_grad():
             original_target_next_dist = self.target_qnet(all_sprime) # (minibatch_size, action_dim, num_atoms) LOGITS
@@ -415,10 +419,12 @@ class RainbowDQN(agents.Agent):
         self.optim.step()
 
         self.logger.gradient_step_complete(["kl_loss"], [kl_loss.item()])
-        self.logger.network_update({"qnet":self.qnet.state_dict(), "target_qnet":self.target_qnet.state_dict(), "optim":self.optim.state_dict()})
+        log = {"qnet":self.qnet.state_dict(), "target_qnet":self.target_qnet.state_dict(), "optim":self.optim.state_dict()}
+        if env.normalise_obs:
+            log["norm"] = env.get_normalised_obs()
+        self.logger.network_update(log)
 
-
-    def _improve(self):
+    def _improve(self, env: envs.Environment):
         if len(self.replay) < self.minibatch_size: return
 
         if self.use_per:
@@ -443,9 +449,9 @@ class RainbowDQN(agents.Agent):
             sampled_nodes, importance_sampling_weights = None, None
 
         if self.use_distributional:
-            self.distributional_update(all_s, all_a, all_G, all_sprime, masks, sampled_nodes, importance_sampling_weights)
+            self.distributional_update(all_s, all_a, all_G, all_sprime, masks, sampled_nodes, importance_sampling_weights, env)
         else:
-            self.expected_update(all_s, all_a, all_G, all_sprime, masks, sampled_nodes, importance_sampling_weights)
+            self.expected_update(all_s, all_a, all_G, all_sprime, masks, sampled_nodes, importance_sampling_weights, env)
 
     def learn(self, total_timesteps: int, env: envs.Environment, logger: utils.Logger, seed: int = None):
         assert env.num_envs == 1
@@ -501,11 +507,11 @@ class RainbowDQN(agents.Agent):
                 current_game_states = current_sprimes
                 
                 if self.gradient_steps == -1 and self.logger.timesteps_completed > self.warmup_steps:
-                    self._improve()
+                    self._improve(env)
 
             if self.gradient_steps != -1 and self.logger.timesteps_completed > self.warmup_steps:
                 for grad_update in range(self.gradient_steps):
-                    self._improve()
+                    self._improve(env)
 
         self.logger.training_done()
 

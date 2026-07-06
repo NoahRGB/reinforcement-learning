@@ -1,4 +1,4 @@
-from .utils import detect_torch_device, create_tensorboard_writer, seed
+from .utils import detect_torch_device, create_tensorboard_writer, seed, get_wrapper
 from .spaces import detect_space_size, is_space_continuous, is_space_discrete
 from .logger import Logger
 from .schedulers import LinearScheduler
@@ -9,6 +9,7 @@ __all__ = [
     "create_tensorboard_writer",
     "detect_space_size",
     "seed",
+    "get_wrapper",
     "is_space_continuous",
     "is_space_discrete",
     "Logger",

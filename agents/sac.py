@@ -97,7 +97,7 @@ class SAC(agents.Agent):
         self.qfunc1_optimiser = torch.optim.Adam(self.qfunc1.parameters(), lr=self.lr)
         self.qfunc2_optimiser = torch.optim.Adam(self.qfunc2.parameters(), lr=self.lr)
 
-    def _improve(self):
+    def _improve(self, env: envs.Environment):
         if len(self.replay) < self.minibatch_size: return
 
         minibatch = random.sample(self.replay, self.minibatch_size)
@@ -173,7 +173,7 @@ class SAC(agents.Agent):
             target_param.data.copy_(self.target_factor * target_param.data + (1 - self.target_factor) * param.data)
 
         self.logger.gradient_step_complete(["qfunc1_loss", "qfunc2_loss", "policy_loss", "alpha_loss"], [qfunc1_loss.item(), qfunc2_loss.item(), policy_loss.item(), alpha_loss.item()])
-        self.logger.network_update({
+        log = {
             "actor": self.actor.state_dict(),
             "qfunc1": self.qfunc1.state_dict(),
             "qfunc2": self.qfunc2.state_dict(),
@@ -183,7 +183,10 @@ class SAC(agents.Agent):
             "qfunc1_optimiser": self.qfunc1_optimiser.state_dict(),
             "qfunc2_optimiser": self.qfunc2_optimiser.state_dict(),
             "alpha_optimiser": self.alpha_optimiser.state_dict(),
-        })
+        }
+        if env.normalise_obs:
+            log["norm"] = env.get_normalised_obs()
+        self.logger.network_update(log)
 
     def learn(self, total_timesteps: int, env: envs.Environment, logger: utils.Logger, seed: int = None, quiet: bool = False):
         assert env.get_num_envs() == 1
@@ -225,7 +228,7 @@ class SAC(agents.Agent):
                 current_game_states = current_sprimes
 
             if logger.timesteps_completed > self.warmup_steps:
-                self._improve()
+                self._improve(env)
         
         self.logger.training_done()
 

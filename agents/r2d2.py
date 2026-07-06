@@ -230,6 +230,8 @@ class R2D2(agents.Agent):
             self.qnet.load_state_dict(checkpoint["qnet"])
             self.target_qnet.load_state_dict(checkpoint["target_qnet"])
             self.optim.load_state_dict(checkpoint["optim"])
+            if "norm" in checkpoint:
+                env.load_normalised_obs(checkpoint["norm"])
 
     def _get_actions(self, states: torch.Tensor, running_hidden_states: tuple):
         with torch.no_grad():
@@ -247,7 +249,7 @@ class R2D2(agents.Agent):
             else:
                 return torch.tensor([np.random.choice(self.action_space_dim)], dtype=torch.int64), new_running_hidden_states
         
-    def _improve(self):
+    def _improve(self, env: envs.Environment):
         if len(self.replay) < self.minibatch_size: return
 
         if self.use_per:
@@ -325,8 +327,11 @@ class R2D2(agents.Agent):
         self.optim.step()
 
         self.logger.gradient_step_complete(["qnet_loss"], [loss.item()])
-        self.logger.network_update({"qnet":self.qnet.state_dict(), "target_qnet":self.target_qnet.state_dict(), "optim":self.optim.state_dict()})
 
+        log = {"qnet":self.qnet.state_dict(), "target_qnet":self.target_qnet.state_dict(), "optim":self.optim.state_dict()}
+        if env.normalise_obs:
+            log["norm"] = env.get_normalised_obs()
+        self.logger.network_update(log)
 
     def learn(self, total_timesteps: int, env: envs.Environment, logger: utils.Logger, seed: int = None):
         assert env.num_envs == 1
@@ -411,11 +416,11 @@ class R2D2(agents.Agent):
                 current_game_states = current_sprimes
                 
                 if self.gradient_steps == -1 and self.logger.timesteps_completed > self.warmup_steps:
-                    self._improve()
+                    self._improve(env)
 
             if self.gradient_steps != -1 and self.logger.timesteps_completed > self.warmup_steps:
                 for grad_update in range(self.gradient_steps):
-                    self._improve()
+                    self._improve(env)
 
         self.logger.training_done()
 

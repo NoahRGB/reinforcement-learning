@@ -94,6 +94,8 @@ class PPO(agents.Agent):
             checkpoint = torch.load(self.load_path, weights_only=False, map_location=self.device)
             self.net.load_state_dict(checkpoint["net"])
             self.optim.load_state_dict(checkpoint["optim"])
+            if "norm" in checkpoint:
+                env.load_normalised_obs(checkpoint["norm"])
 
     def _get_actions(self, states: torch.Tensor):
         with torch.no_grad():
@@ -108,9 +110,10 @@ class PPO(agents.Agent):
             actions = dist.sample()
             return dist, actions
 
-    def _improve(self, s: torch.Tensor, a: torch.Tensor, r: torch.Tensor, sprime: torch.Tensor, done: torch.Tensor, old_log_probs: torch.Tensor, num_envs: int):
+    def _improve(self, s: torch.Tensor, a: torch.Tensor, r: torch.Tensor, sprime: torch.Tensor, done: torch.Tensor, old_log_probs: torch.Tensor, env: envs.Environment):
         # s (tmax, num_envs, state_dim), a (tmax, num_envs, action_dim), r (tmax, num_envs), sprime (tmax, num_envs, state_dim), done (tmax, num_envs), old_log_probs (tmax, num_envs)
         masks = 1 - done # (tmax, num_envs)
+        num_envs = env.get_num_envs()
 
         total_batch_size = self.tmax * num_envs
         all_indices = np.arange(total_batch_size)
@@ -191,7 +194,10 @@ class PPO(agents.Agent):
 
                 self.logger.gradient_step_complete(["policy_loss", "state_value_loss"], [policy_loss.item(), state_value_loss.item()])
     
-        self.logger.network_update({"net": self.net.state_dict(), "optim": self.optim.state_dict()})
+        log = {"net": self.net.state_dict(), "optim": self.optim.state_dict()}
+        if env.normalise_obs:
+            log["norm"] = env.get_normalised_obs()
+        self.logger.network_update(log)
 
                 
     def learn(self, total_timesteps: int, env: envs.Environment, logger: utils.Logger, seed: int = None, quiet: bool = False):
@@ -245,7 +251,7 @@ class PPO(agents.Agent):
 
                 current_game_states = sprimes[current_t]
 
-            self._improve(states, actions, rewards, sprimes, dones, old_log_probs, env.num_envs)
+            self._improve(states, actions, rewards, sprimes, dones, old_log_probs, env)
 
         self.logger.training_done()
 

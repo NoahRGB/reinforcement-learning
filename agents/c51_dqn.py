@@ -90,6 +90,8 @@ class C51DQN(agents.Agent):
             self.qnet.load_state_dict(checkpoint["qnet"])
             self.target_qnet.load_state_dict(checkpoint["target_qnet"])
             self.optim.load_state_dict(checkpoint["optim"])
+            if "norm" in checkpoint:
+                env.load_normalised_obs(checkpoint["norm"])
 
     def _get_actions(self, states: torch.Tensor):
         with torch.no_grad():
@@ -102,7 +104,7 @@ class C51DQN(agents.Agent):
             else:
                 return torch.tensor([np.random.choice(self.action_space_dim)], dtype=torch.int64).to(self.device)
         
-    def _improve(self):
+    def _improve(self, env: envs.Environment):
         if len(self.replay) < self.minibatch_size: return
 
         minibatch = random.sample(self.replay, self.minibatch_size)
@@ -162,7 +164,12 @@ class C51DQN(agents.Agent):
         kl_loss.backward()
         self.optim.step()
 
+        log = {"qnet": self.qnet.state_dict(), "target_qnet": self.target_qnet.state_dict(), "optim": self.optim.state_dict()}
+        if env.normalise_obs:
+            log["norm"] = env.get_normalised_obs()
+        self.logger.network_update(log)
 
+        
     def learn(self, total_timesteps: int, env: envs.Environment, logger: utils.Logger, seed: int = None):
         assert env.num_envs == 1
         assert utils.is_space_discrete(env.get_single_action_space())
@@ -207,11 +214,11 @@ class C51DQN(agents.Agent):
                 current_game_states = current_sprimes
                 
                 if self.gradient_steps == -1 and self.logger.timesteps_completed > self.warmup_steps:
-                    self._improve()
+                    self._improve(env)
 
             if self.gradient_steps != -1 and self.logger.timesteps_completed > self.warmup_steps:
                 for grad_update in range(self.gradient_steps):
-                    self._improve()
+                    self._improve(env)
 
         self.logger.training_done()
 

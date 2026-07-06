@@ -83,7 +83,7 @@ class TD3(agents.Agent):
 
         self.replay = deque(maxlen=self.replay_size)
 
-    def _improve(self):
+    def _improve(self, env: envs.Environment):
         if len(self.replay) < self.minibatch_size: return
 
         minibatch = random.sample(self.replay, self.minibatch_size)
@@ -149,7 +149,10 @@ class TD3(agents.Agent):
         else:
             self.logger.gradient_step_complete(["qfunc1_loss", "qfunc2_loss"], [qfunc1_loss.item(), qfunc2_loss.item()])
 
-        self.logger.network_update({"actor":self.actor.state_dict(), "target_actor":self.target_actor.state_dict(), "qfunc1":self.qfunc1.state_dict(), "qfunc2":self.qfunc2.state_dict(), "target_qfunc1":self.target_qfunc1.state_dict(), "target_qfunc2":self.target_qfunc2.state_dict(), "actor_optimiser":self.actor_optimiser.state_dict(), "qfunc1_optimiser":self.qfunc1_optimiser.state_dict(), "qfunc2_optimiser":self.qfunc2_optimiser.state_dict()})
+        log = {"actor":self.actor.state_dict(), "target_actor":self.target_actor.state_dict(), "qfunc1":self.qfunc1.state_dict(), "qfunc2":self.qfunc2.state_dict(), "target_qfunc1":self.target_qfunc1.state_dict(), "target_qfunc2":self.target_qfunc2.state_dict(), "actor_optimiser":self.actor_optimiser.state_dict(), "qfunc1_optimiser":self.qfunc1_optimiser.state_dict(), "qfunc2_optimiser":self.qfunc2_optimiser.state_dict()}
+        if env.normalise_obs:
+            log["norm"] = env.get_normalised_obs()
+        self.logger.network_update(log)
 
     def learn(self, total_timesteps: int, env: envs.Gymenv, logger: utils.Logger, seed: int = None, quiet: bool = False):
         assert env.get_num_envs() == 1
@@ -191,7 +194,7 @@ class TD3(agents.Agent):
                 current_game_states = current_sprimes
 
             if logger.timesteps_completed > self.warmup_steps:
-                self._improve()
+                self._improve(env)
         
         self.logger.training_done()
 

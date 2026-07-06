@@ -79,13 +79,15 @@ vec_env = make_vec_env("CartPole-v1", n_envs=NUM_ENVS, seed=SEED)
 # agent = TD3("MlpPolicy", vec_env, gamma=0.98, buffer_size=200000, learning_starts=10000, target_policy_noise=0.1, stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH)
 # agent = A2C("MlpPolicy", vec_env, ent_coef=0.0, stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH)
 
-agent = DQN("MlpPolicy", vec_env, learning_rate=0.0023, batch_size=64,
-            gamma=0.99, buffer_size=100000, learning_starts=1000, train_freq=256, gradient_steps=128,
-            target_update_interval=10, exploration_fraction=0.16, exploration_final_eps=0.04,
-            stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH,
-            policy_kwargs=dict(
-                net_arch=[256, 256]
-            ),)
+# agent = DQN("MlpPolicy", vec_env, learning_rate=0.0023, batch_size=64,
+#             gamma=0.99, buffer_size=100000, learning_starts=1000, train_freq=256, gradient_steps=128,
+#             target_update_interval=10, exploration_fraction=0.16, exploration_final_eps=0.04,
+#             stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH,
+#             policy_kwargs=dict(
+#                 net_arch=[256, 256]
+#             ),)
+
+agent = DDPG("MlpPolicy", vec_env, learning_rate=0.001, batch_size=256,)
 
 print(agent.policy)
 
