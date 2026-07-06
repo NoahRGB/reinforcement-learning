@@ -8,14 +8,14 @@ import envs
 gym.register(id="POMDPCartPole", entry_point=envs.POMDPCartPole)
 
 DEVICE = utils.detect_torch_device(quiet=False)
-USE_NORMAL_LOGS = True
+USE_NORMAL_LOGS = False
 USE_TENSORBOARD_LOGS = True
 PRINT_PROGRESS = True
 NETWORK_SAVE_INTERVAL = 0
 SEED = 1
 ENV_NAME = "Pendulum-v1" # "CartPole-v1" # "MiniGrid-MemoryS7-v0" # 
-NUM_ENVS = 1
-TIMESTEPS = 50000
+NUM_ENVS = 4
+TIMESTEPS = 1000000
 TITLE = f"a"
 
 LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
@@ -49,18 +49,18 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    cgn=0.5, lstm_hidden_size=64)
 
 agent = agents.PPO(lr_scheduler=utils.LinearScheduler(0.0003, 0.0003, 1), 
-                   gamma=0.99, lam=0.9, tmax=512, epsilon=0.2, epochs=20, 
+                   gamma=0.9, lam=0.95, tmax=1024, epsilon=0.2, epochs=10, 
                    minibatch_size=32, value_weight=0.5, entropy_weight=0.0, 
-                   cgn=0.7, load_path=None)
+                   cgn=0.5, load_path=None)
 
-# agent = agents.REINFORCE(policy_lr=0.001, state_value_lr=0.01,
+# agent = agents.REINFORCE(policy_lr=0.01, state_value_lr=0.01,
 #                          gamma=0.99, use_baseline=True)
 
-# agent = agents.A2C(lr=0.0007, gamma=0.99,
-#                    lam=1.0, tmax=5,
-#                    value_weight=0.5,
-#                    entropy_weight=0.0,
-#                    cgn=0.5)
+# agent = agents.A2C(lr=0.001, gamma=0.99,
+#                    lam=0.95, tmax=5,
+#                    value_weight=0.2,
+#                    entropy_weight=0.01,
+#                    cgn=10.0)
 
 # agent = agents.NewDRQN(lr_scheduler=utils.LinearScheduler(0.001, 0.0, 50000), replay_size=10000,
 #                    C=300, update_freq=4, minibatch_size=32, gamma=0.9,
