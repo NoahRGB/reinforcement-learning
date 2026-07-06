@@ -17,3 +17,6 @@ class LinearScheduler:
     def get_value(self):
         return self.current_value
     
+    def __str__(self):
+        return f"LinearScheduler(start_value={self.start_value}, end_value={self.end_value}, decay_steps={self.decay_steps}, current_step={self.current_step}, current_value={self.current_value})"
+    

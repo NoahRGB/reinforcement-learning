@@ -8,14 +8,14 @@ import envs
 gym.register(id="POMDPCartPole", entry_point=envs.POMDPCartPole)
 
 DEVICE = utils.detect_torch_device(quiet=False)
-USE_NORMAL_LOGS = False
+USE_NORMAL_LOGS = True
 USE_TENSORBOARD_LOGS = True
 PRINT_PROGRESS = True
 NETWORK_SAVE_INTERVAL = 0
 SEED = 1
-ENV_NAME = "Humanoid-v5" # "CartPole-v1" # "MiniGrid-MemoryS7-v0" # 
+ENV_NAME = "Pendulum-v1" # "CartPole-v1" # "MiniGrid-MemoryS7-v0" # 
 NUM_ENVS = 1
-TIMESTEPS = 1000
+TIMESTEPS = 50000
 TITLE = f"a"
 
 LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
@@ -27,20 +27,20 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
                           utils.Logger.Category.LOSS])
 
 
-# agent = agents.TD3(lr=0.001, gamma=0.98, noise_factor=0.1,
+# agent = agents.TD3(lr=0.001, gamma=0.98, noise_factor=0.1, target_noise_factor=0.2,
 #                    replay_size=200000, minibatch_size=256,
 #                    target_factor=0.005, d=2, noise_clip=0.5,
-#                    warmup_steps=10000)
+#                    warmup_steps=10000, gradient_steps=1)
 
 # agent = agents.DDPG(lr=0.001, gamma=0.98, noise_factor=0.1,
 #                      replay_size=200000, minibatch_size=256, 
 #                      update_freq=1, target_factor=0.005,
 #                      warmup_steps=10000, gradient_steps=1)
 
-# agent = agents.SAC(lr=0.001, gamma=0.99, replay_size=1000000,
+# agent = agents.SAC(lr=0.001, gamma=0.99, replay_size=200000,
 #                    minibatch_size=256, update_freq=1,
 #                    alpha_start=0.0001, target_factor=0.005,
-#                    warmup_steps=100)
+#                    warmup_steps=10000, gradient_steps=1)
 
 # agent = agents.LSTM_PPO(lr_scheduler=utils.LinearScheduler(0.001, 0.0, 100000), gamma=0.98, lam=0.8, tmax=32,
 #                    epsilon_scheduler=utils.LinearScheduler(0.2, 0.0, 100000),
@@ -48,19 +48,19 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    value_weight=0.5, entropy_weight=0.0, 
 #                    cgn=0.5, lstm_hidden_size=64)
 
-# agent = agents.PPO(lr_scheduler=utils.LinearScheduler(0.0003, 0.0003, 1), 
-#                    gamma=0.99, lam=0.9, tmax=512, epsilon=0.2, epochs=20, 
-#                    minibatch_size=32, value_weight=0.5, entropy_weight=0.0, 
-#                    cgn=0.7, load_path=None)
+agent = agents.PPO(lr_scheduler=utils.LinearScheduler(0.0003, 0.0003, 1), 
+                   gamma=0.99, lam=0.9, tmax=512, epsilon=0.2, epochs=20, 
+                   minibatch_size=32, value_weight=0.5, entropy_weight=0.0, 
+                   cgn=0.7, load_path=None)
 
 # agent = agents.REINFORCE(policy_lr=0.001, state_value_lr=0.01,
 #                          gamma=0.99, use_baseline=True)
 
-agent = agents.A2C(lr=0.0007, gamma=0.99,
-                   lam=1.0, tmax=5,
-                   value_weight=0.5,
-                   entropy_weight=0.0,
-                   cgn=0.5)
+# agent = agents.A2C(lr=0.0007, gamma=0.99,
+#                    lam=1.0, tmax=5,
+#                    value_weight=0.5,
+#                    entropy_weight=0.0,
+#                    cgn=0.5)
 
 # agent = agents.NewDRQN(lr_scheduler=utils.LinearScheduler(0.001, 0.0, 50000), replay_size=10000,
 #                    C=300, update_freq=4, minibatch_size=32, gamma=0.9,
@@ -108,6 +108,6 @@ agent = agents.A2C(lr=0.0007, gamma=0.99,
 #                    load_path=None)
 
 agent.to(DEVICE)
-env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=True, render_mode=None) # , allowed_actions=[0, 1, 2], swap_channel=True
+env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=False, render_mode=None) # , allowed_actions=[0, 1, 2], swap_channel=True
 agent.learn(TIMESTEPS, env, LOGGER, seed=SEED)
  

@@ -73,6 +73,14 @@ class Logger:
     def timestep_complete(self, n=1):
         self.timesteps_completed += n
 
+    def log_parameters(self, actor_class):
+        if self.save_network or self.use_files:
+            output = f""
+            for name in dir(actor_class):
+                output += f"{name}: {getattr(actor_class, name)}\n"
+            with open(f"{self.save_loc}/details.txt", "w") as f:
+                f.write(output)
+
     def gradient_step_complete(self, loss_names, loss_values):
         self.gradient_steps += 1
         if self.Category.LOSS in self.categories:

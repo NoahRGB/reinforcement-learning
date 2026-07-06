@@ -83,6 +83,7 @@ class PPO(agents.Agent):
         self.load_path = load_path
 
     def _setup(self, env: envs.Environment):
+        self.logger.log_parameters(self)
         self.is_conv = env.is_conv()
         self.is_continuous = utils.is_space_continuous(env.get_single_action_space())
         self.state_space_dim = utils.detect_space_size(env.get_single_state_space())

@@ -4,7 +4,7 @@ from stable_baselines3 import *
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize
 from stable_baselines3.common.callbacks import BaseCallback
-from sb3_contrib import RecurrentPPO
+from stable_baselines3.common.noise import NormalActionNoise
 from sb3_contrib import RecurrentPPO
 
 import numpy as np
@@ -59,7 +59,7 @@ NUM_ENVS = 1
 STATS_WINDOW = 100
 
 # env = gym.make("Pendulum-v1", render_mode=None)
-vec_env = make_vec_env("CartPole-v1", n_envs=NUM_ENVS, seed=SEED)
+vec_env = make_vec_env("Pendulum-v1", n_envs=NUM_ENVS, seed=SEED)
 # vec_env = VecNormalize(vec_env)
 
 # agent = RecurrentPPO("MlpLstmPolicy", vec_env, learning_rate=0.001, gamma=0.98, gae_lambda=0.8, n_steps=32,
@@ -76,7 +76,6 @@ vec_env = make_vec_env("CartPole-v1", n_envs=NUM_ENVS, seed=SEED)
 #                         net_arch=dict(pi=[64], vf=[64])
 #                     ),)
 
-# agent = TD3("MlpPolicy", vec_env, gamma=0.98, buffer_size=200000, learning_starts=10000, target_policy_noise=0.1, stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH)
 # agent = A2C("MlpPolicy", vec_env, ent_coef=0.0, stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH)
 
 # agent = DQN("MlpPolicy", vec_env, learning_rate=0.0023, batch_size=64,
@@ -87,7 +86,22 @@ vec_env = make_vec_env("CartPole-v1", n_envs=NUM_ENVS, seed=SEED)
 #                 net_arch=[256, 256]
 #             ),)
 
-agent = DDPG("MlpPolicy", vec_env, learning_rate=0.001, batch_size=256,)
+single_env = gym.make("Pendulum-v1", render_mode=None)
+n_actions = single_env.action_space.shape[-1]
+action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
+# agent = DDPG("MlpPolicy", vec_env, 
+#              learning_rate=0.001, batch_size=256,
+#              gamma=0.98, buffer_size=200000, learning_starts=10000, train_freq=1, gradient_steps=1,
+#              tau=0.005, action_noise=action_noise,
+#              policy_kwargs=dict(
+#                 net_arch=[400, 300]
+#             ))
+agent = TD3("MlpPolicy", vec_env, gamma=0.98, buffer_size=200000, 
+            learning_starts=10000, target_policy_noise=0.1, 
+            stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH, action_noise=action_noise,
+            policy_kwargs=dict(
+                net_arch=[400, 300]
+            ))
 
 print(agent.policy)
 

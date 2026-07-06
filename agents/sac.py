@@ -45,7 +45,7 @@ class QFunc(torch.nn.Module):
 
 class SAC(agents.Agent):
 
-    def __init__(self, lr, gamma, replay_size, minibatch_size, update_freq, alpha_start, target_factor, warmup_steps):
+    def __init__(self, lr, gamma, replay_size, minibatch_size, update_freq, alpha_start, target_factor, warmup_steps, gradient_steps):
         self.lr = lr
         self.gamma = gamma
         self.replay_size = replay_size
@@ -55,6 +55,7 @@ class SAC(agents.Agent):
         self.alpha = alpha_start
         self.target_factor = target_factor
         self.warmup_steps = warmup_steps
+        self.gradient_steps = gradient_steps
         self.device = torch.device("cpu")
 
     def _scale_action(self, a):
@@ -67,16 +68,17 @@ class SAC(agents.Agent):
         with torch.no_grad():
             mu, sigma = self.actor(states) # (num_envs, action_space_dim,)
             dist = torch.distributions.Normal(mu, sigma)
-            action = self._scale_action(torch.tanh(dist.rsample()).detach()) # (num_envs, action_space_dim,)
+            action = torch.tanh(dist.rsample()).detach()
             return action # (num_envs, action_space_dim,)
 
     def _setup(self, env: envs.Environment):
+        self.logger.log_parameters(self)
         self.state_space_dim = utils.detect_space_size(env.get_single_state_space())
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
-        self.action_space_high = env.get_single_action_space().high
-        self.action_space_low = env.get_single_action_space().low
-        self.torch_action_space_scale = torch.tensor((self.action_space_high - self.action_space_low) / 2, dtype=torch.float32).to(self.device)
-        self.torch_action_space_bias = torch.tensor((self.action_space_high + self.action_space_low) / 2, dtype=torch.float32).to(self.device)
+        self.action_space_high = torch.from_numpy(env.get_single_action_space().high).float().to(self.device)
+        self.action_space_low = torch.from_numpy(env.get_single_action_space().low).float().to(self.device)
+        self.torch_action_space_scale = ((self.action_space_high - self.action_space_low) / 2.0).to(self.device)
+        self.torch_action_space_bias = ((self.action_space_high + self.action_space_low) / 2.0).to(self.device)
 
         self.replay = deque(maxlen=self.replay_size)
         self.actor = Actor(self.state_space_dim, self.action_space_dim).to(self.device)
@@ -121,8 +123,7 @@ class SAC(agents.Agent):
             fresh_dists = torch.distributions.Normal(fresh_mu, fresh_sigma)
             fresh_raw_actions = fresh_dists.rsample() # (minibatch_size, action_space_dim,)
             fresh_actions = torch.tanh(fresh_raw_actions) # (minibatch_size, action_space_dim,)
-            fresh_scaled_actions = self._scale_action(fresh_actions) # (minibatch_size, action_space_dim,)
-            fresh_action_network_input = torch.concat([all_sprime, fresh_scaled_actions], dim=1) # (minibatch_size, state_space_dim + action_space_dim,)
+            fresh_action_network_input = torch.concat([all_sprime, fresh_actions], dim=1) # (minibatch_size, state_space_dim + action_space_dim,)
             fresh_actions_log_probs = fresh_dists.log_prob(fresh_raw_actions).sum(-1) - torch.log(1 - fresh_actions.pow(2) + 1e-6).sum(-1) # (minibatch_size,)
         
             # calculate Q targets
@@ -145,8 +146,7 @@ class SAC(agents.Agent):
         fresh_dists = torch.distributions.Normal(fresh_mu, fresh_sigma)
         fresh_raw_actions = fresh_dists.rsample() # (minibatch_size, action_space_dim,)
         fresh_actions = torch.tanh(fresh_raw_actions) # (minibatch_size, action_space_dim,)
-        fresh_scaled_actions = self._scale_action(fresh_actions) # (minibatch_size, action_space_dim,)
-        fresh_action_network_input = torch.concat([all_s, fresh_scaled_actions], dim=1) # (minibatch_size, state_space_dim + action_space_dim,)
+        fresh_action_network_input = torch.concat([all_s, fresh_actions], dim=1) # (minibatch_size, state_space_dim + action_space_dim,)
         fresh_actions_log_probs = fresh_dists.log_prob(fresh_raw_actions).sum(-1) - torch.log(1 - fresh_actions.pow(2) + 1e-6).sum(-1) # (minibatch_size,)
 
         min_qvals = torch.min(self.qfunc1(fresh_action_network_input), self.qfunc2(fresh_action_network_input)).squeeze(1) # (minibatch_size,)
@@ -205,7 +205,7 @@ class SAC(agents.Agent):
                 self.logger.timestep_complete()
 
                 current_actions = self._get_actions(current_game_states)
-                current_sprimes, current_rewards, current_isterms, current_istruncs, current_infos = env.step(current_actions.cpu().numpy())
+                current_sprimes, current_rewards, current_isterms, current_istruncs, current_infos = env.step(self._scale_action(current_actions).cpu().numpy())
 
                 if "episode" in current_infos:
                     done_idxs = current_infos["_episode"]
@@ -227,8 +227,13 @@ class SAC(agents.Agent):
 
                 current_game_states = current_sprimes
 
-            if logger.timesteps_completed > self.warmup_steps:
-                self._improve(env)
+
+                if self.gradient_steps == -1 and self.logger.timesteps_completed > self.warmup_steps:
+                    self._improve(env)
+
+            if self.gradient_steps != -1 and self.logger.timesteps_completed > self.warmup_steps:
+                for grad_update in range(self.gradient_steps):
+                    self._improve(env)
         
         self.logger.training_done()
 

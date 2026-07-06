@@ -144,6 +144,7 @@ class CuriousDQN(agents.Agent):
         self.target_qnet.load_state_dict(self.qnet.state_dict())
 
     def _setup(self, env: envs.Environment):
+        self.logger.log_parameters(self)
         self.is_conv = env.is_conv()
         self.state_space_dim = utils.detect_space_size(env.get_single_state_space())
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())

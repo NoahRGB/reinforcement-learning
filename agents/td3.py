@@ -1,6 +1,7 @@
 import random
 from collections import deque
 import torch
+import numpy as np
 
 import agents
 import envs
@@ -16,6 +17,7 @@ class Actor(torch.nn.Module):
             torch.nn.Linear(400, 300),
             torch.nn.ReLU(),
             torch.nn.Linear(300, *output_size),
+            torch.nn.Tanh()
         )
 
     def forward(self, inp):
@@ -39,10 +41,11 @@ class QFunc(torch.nn.Module):
 
 class TD3(agents.Agent):
 
-    def __init__(self, lr, gamma, noise_factor, replay_size, minibatch_size, target_factor, d, noise_clip, warmup_steps):
+    def __init__(self, lr, gamma, noise_factor, target_noise_factor, replay_size, minibatch_size, target_factor, d, noise_clip, warmup_steps, gradient_steps):
         self.lr = lr
         self.gamma = gamma
         self.noise_factor = noise_factor
+        self.target_noise_factor = target_noise_factor
         self.replay_size = replay_size
         self.minibatch_size = minibatch_size
         self.target_factor = target_factor
@@ -50,10 +53,18 @@ class TD3(agents.Agent):
         self.noise_clip = noise_clip
         self.warmup_steps = warmup_steps
         self.update_freq = 1
+        self.gradient_steps = gradient_steps
         self.device = torch.device("cpu")
 
+    def _scale_action(self, a):
+        if isinstance(a, np.ndarray):
+            return a * (self.action_space_high - self.action_space_low) / 2 + (self.action_space_high + self.action_space_low) / 2
+        elif isinstance(a, torch.Tensor):
+            return a * self.torch_action_space_scale + self.torch_action_space_bias
+
     def _clamp_actions(self, actions: torch.Tensor):
-        return actions.clamp(self.action_space_low, self.action_space_high)
+        return actions.clamp(-1.0, 1.0)
+        # return actions.clamp(self.action_space_low, self.action_space_high)
 
     def _get_actions(self, states: torch.Tensor):
         with torch.no_grad():
@@ -61,10 +72,13 @@ class TD3(agents.Agent):
             return self._clamp_actions(actions + torch.randn_like(actions) * self.noise_factor) # (num_envs, action_space_dim,)
 
     def _setup(self, env: envs.Environment):
+        self.logger.log_parameters(self)
         self.state_space_dim = utils.detect_space_size(env.get_single_state_space())
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         self.action_space_high = torch.from_numpy(env.get_single_action_space().high).float().to(self.device)
         self.action_space_low = torch.from_numpy(env.get_single_action_space().low).float().to(self.device)
+        self.torch_action_space_scale = ((self.action_space_high - self.action_space_low) / 2.0).to(self.device)
+        self.torch_action_space_bias = ((self.action_space_high + self.action_space_low) / 2.0).to(self.device)
 
         self.actor = Actor(self.state_space_dim, self.action_space_dim).to(self.device)
         self.qfunc1 = QFunc(self.state_space_dim, self.action_space_dim).to(self.device)
@@ -102,7 +116,7 @@ class TD3(agents.Agent):
 
         with torch.no_grad():
             target_policy_actions = self.target_actor(all_sprime) # (minibatch_size, action_space_dim,)
-            target_policy_actions += (torch.randn_like(target_policy_actions) * self.noise_factor).clamp(-self.noise_clip, self.noise_clip) # (minibatch_size, action_space_dim,)
+            target_policy_actions += (torch.randn_like(target_policy_actions) * self.target_noise_factor).clamp(-self.noise_clip, self.noise_clip) # (minibatch_size, action_space_dim,)
             target_policy_actions = self._clamp_actions(target_policy_actions)
             target_policy_network_input = torch.concat([all_sprime, target_policy_actions], dim=1) # (minibatch_size, state_space_dim + action_space_dim,)
 
@@ -136,13 +150,13 @@ class TD3(agents.Agent):
 
             # update target nets
             for target_param, param in zip(self.target_qfunc1.parameters(), self.qfunc1.parameters()):
-                target_param.data.copy_(self.target_factor * target_param.data + (1 - self.target_factor) * param.data)
+                target_param.data.copy_((1 - self.target_factor) * target_param.data + self.target_factor * param.data)
             
             for target_param, param in zip(self.target_qfunc2.parameters(), self.qfunc2.parameters()):
-                target_param.data.copy_(self.target_factor * target_param.data + (1 - self.target_factor) * param.data)
+                target_param.data.copy_((1 - self.target_factor) * target_param.data + self.target_factor * param.data)
 
             for target_param, param in zip(self.target_actor.parameters(), self.actor.parameters()):
-                target_param.data.copy_(self.target_factor * target_param.data + (1 - self.target_factor) * param.data)
+                target_param.data.copy_((1 - self.target_factor) * target_param.data + self.target_factor * param.data)
 
         if updating_actor:
             self.logger.gradient_step_complete(["qfunc1_loss", "qfunc2_loss", "actor_loss"], [qfunc1_loss.item(), qfunc2_loss.item(), actor_loss.item()])
@@ -171,7 +185,7 @@ class TD3(agents.Agent):
                 self.logger.timestep_complete()
 
                 current_actions = self._get_actions(current_game_states)
-                current_sprimes, current_rewards, current_isterms, current_istruncs, current_infos = env.step(current_actions.cpu().numpy())
+                current_sprimes, current_rewards, current_isterms, current_istruncs, current_infos = env.step(self._scale_action(current_actions).cpu().numpy())
 
                 if "episode" in current_infos:
                     done_idxs = current_infos["_episode"]
@@ -193,8 +207,12 @@ class TD3(agents.Agent):
 
                 current_game_states = current_sprimes
 
-            if logger.timesteps_completed > self.warmup_steps:
-                self._improve(env)
+                if self.gradient_steps == -1 and self.logger.timesteps_completed > self.warmup_steps:
+                    self._improve(env)
+
+            if self.gradient_steps != -1 and self.logger.timesteps_completed > self.warmup_steps:
+                for grad_update in range(self.gradient_steps):
+                    self._improve(env)
         
         self.logger.training_done()
 

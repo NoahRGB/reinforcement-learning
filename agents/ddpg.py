@@ -18,6 +18,7 @@ class Actor(torch.nn.Module):
             torch.nn.Linear(400, 300),
             torch.nn.ReLU(),
             torch.nn.Linear(300, *output_size),
+            torch.nn.Tanh(),
         )
 
     def forward(self, inp):
@@ -53,8 +54,15 @@ class DDPG(agents.Agent):
         self.gradient_steps = gradient_steps
         self.device = torch.device("cpu")
 
+    def _scale_action(self, a):
+        if isinstance(a, np.ndarray):
+            return a * (self.action_space_high - self.action_space_low) / 2 + (self.action_space_high + self.action_space_low) / 2
+        elif isinstance(a, torch.Tensor):
+            return a * self.torch_action_space_scale + self.torch_action_space_bias
+
     def _clamp_actions(self, actions: torch.Tensor):
-        return actions.clamp(self.action_space_low, self.action_space_high)
+        return actions.clamp(-1.0, 1.0)
+        # return actions.clamp(self.action_space_low, self.action_space_high)
 
     def _get_actions(self, states: torch.Tensor):
         with torch.no_grad():
@@ -62,10 +70,13 @@ class DDPG(agents.Agent):
             return self._clamp_actions(actions + torch.randn_like(actions) * self.noise_factor) # (num_envs, action_space_dim,)
 
     def _setup(self, env: envs.Environment):
+        self.logger.log_parameters(self)
         self.state_space_dim = utils.detect_space_size(env.get_single_state_space())
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         self.action_space_high = torch.from_numpy(env.get_single_action_space().high).float().to(self.device)
         self.action_space_low = torch.from_numpy(env.get_single_action_space().low).float().to(self.device)
+        self.torch_action_space_scale = torch.tensor((self.action_space_high - self.action_space_low) / 2, dtype=torch.float32).to(self.device)
+        self.torch_action_space_bias = torch.tensor((self.action_space_high + self.action_space_low) / 2, dtype=torch.float32).to(self.device)
 
         self.replay = deque(maxlen=self.replay_size)
         self.actor = Actor(self.state_space_dim, self.action_space_dim).to(self.device)
@@ -119,10 +130,10 @@ class DDPG(agents.Agent):
         # update target networks
 
         for target_param, param in zip(self.target_qfunc.parameters(), self.qfunc.parameters()):
-            target_param.data.copy_(self.target_factor * target_param.data + (1 - self.target_factor) * param.data)
+            target_param.data.copy_((1 - self.target_factor) * target_param.data + self.target_factor * param.data)
         
         for target_param, param in zip(self.target_actor.parameters(), self.actor.parameters()):
-            target_param.data.copy_(self.target_factor * target_param.data + (1 - self.target_factor) * param.data)
+            target_param.data.copy_((1 - self.target_factor) * target_param.data + self.target_factor * param.data)
 
         self.logger.gradient_step_complete(["qfunc_loss", "actor_loss"], [qfunc_loss.item(), actor_loss.item()])
 
@@ -155,7 +166,7 @@ class DDPG(agents.Agent):
                 self.logger.timestep_complete()
 
                 current_actions = self._get_actions(current_game_states)
-                current_sprimes, current_rewards, current_isterms, current_istruncs, current_infos = env.step(current_actions.cpu().numpy())
+                current_sprimes, current_rewards, current_isterms, current_istruncs, current_infos = env.step(self._scale_action(current_actions).cpu().numpy())
 
                 if "episode" in current_infos:
                     done_idxs = current_infos["_episode"]
@@ -163,16 +174,16 @@ class DDPG(agents.Agent):
                     for reward in completed_rewards:
                         self.logger.episode_complete(reward)
 
-                current_rewards = torch.from_numpy(current_rewards).float().to(self.device)
+                current_rewards = torch.from_numpy(current_rewards).float()
                 current_sprimes = torch.from_numpy(current_sprimes).float().to(self.device)
-                current_dones = torch.from_numpy(current_isterms | current_istruncs).float().to(self.device)
+                current_dones = torch.from_numpy(current_isterms | current_istruncs).float()
 
                 self.replay.append((
                     current_game_states.detach(),
                     current_actions.detach(),
-                    current_rewards,
+                    current_rewards.detach(),
                     current_sprimes,
-                    current_dones,
+                    current_dones.detach(),
                 ))
 
                 current_game_states = current_sprimes

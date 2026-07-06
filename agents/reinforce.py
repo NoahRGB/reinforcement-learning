@@ -52,6 +52,7 @@ class REINFORCE(agents.Agent):
             return dist.sample()
     
     def _setup(self, env: envs.Environment):
+        self.logger.log_parameters(self)
         self.state_space_dim = utils.detect_space_size(env.get_single_state_space())
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         self.policy_net = PolicyNN(self.state_space_dim, self.action_space_dim).to(self.device)
