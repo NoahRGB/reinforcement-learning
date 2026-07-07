@@ -108,8 +108,6 @@ class QNet(torch.nn.Module):
         self.lstm_size = lstm_size
 
         if conv:
-
-
             self.lstm_out_size = 1024
             self.conv_body = torch.nn.Sequential(
                 torch.nn.Conv2d(input_size[0], 16, kernel_size=2),

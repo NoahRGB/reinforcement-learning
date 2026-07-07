@@ -1,5 +1,5 @@
-import minigrid, miniworld
-from miniworld.wrappers import PyTorchObsWrapper, GreyscaleWrapper
+# import minigrid, miniworld
+# from miniworld.wrappers import PyTorchObsWrapper, GreyscaleWrapper
 import gymnasium as gym
 import ale_py
 
@@ -37,13 +37,13 @@ class Gymenv(Environment):
                 )
                 env = gym.wrappers.FrameStackObservation(env, stack_size=2)
 
-            if self.minigrid:
-                env = minigrid.wrappers.ImgObsWrapper(env)
+            # if self.minigrid:
+            #     env = minigrid.wrappers.ImgObsWrapper(env)
 
-            if self.miniworld:
-                # env = GreyscaleWrapper(env)
-                env = gym.wrappers.GrayscaleObservation(env, keep_dim=True)
-                env = PyTorchObsWrapper(env)
+            # if self.miniworld:
+            #     # env = GreyscaleWrapper(env)
+            #     env = gym.wrappers.GrayscaleObservation(env, keep_dim=True)
+            #     env = PyTorchObsWrapper(env)
 
             if self.normalise_obs:
                 env = gym.wrappers.NormalizeObservation(env)

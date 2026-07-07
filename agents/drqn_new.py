@@ -107,6 +107,8 @@ class NewDRQN(agents.Agent):
         self.target_qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv, self.lstm_size).to(self.device)
         
         self._update_target_net()
+        self.sequence_buffer = deque(maxlen=self.seq_len)
+
 
         self.optim = torch.optim.Adam(self.qnet.parameters(), lr=self.lr)
 
@@ -230,6 +232,7 @@ class NewDRQN(agents.Agent):
                         self.sequence_buffer.popleft()
 
                 current_game_states = current_sprimes
+                running_hidden_states = new_running_hidden_states
 
                 if "episode" in current_infos:
                     done_idxs = current_infos["_episode"]
