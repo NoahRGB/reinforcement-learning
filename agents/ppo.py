@@ -27,19 +27,19 @@ class ActorCriticNetwork(torch.nn.Module):
             )
 
         else:
-            self.body_out_size = 64
+            self.body_out_size = 256
             self.policy_body = torch.nn.Sequential(
-                torch.nn.Linear(*num_inputs, 64),
-                torch.nn.Tanh(),
-                torch.nn.Linear(64, 64),
-                torch.nn.Tanh()
+                torch.nn.Linear(*num_inputs, 256),
+                torch.nn.ReLU(),
+                torch.nn.Linear(256, 256),
+                torch.nn.ReLU()
             )
 
             self.value_body = torch.nn.Sequential(
-                torch.nn.Linear(*num_inputs, 64),
-                torch.nn.Tanh(),
-                torch.nn.Linear(64, 64),
-                torch.nn.Tanh()
+                torch.nn.Linear(*num_inputs, 256),
+                torch.nn.ReLU(),
+                torch.nn.Linear(256, 256),
+                torch.nn.ReLU()
             )
 
         self.critic_head = torch.nn.Linear(self.body_out_size, 1)

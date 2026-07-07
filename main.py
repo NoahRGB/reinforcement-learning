@@ -1,4 +1,4 @@
-import sys
+import sys, time
 import gymnasium as gym
 
 import utils
@@ -13,8 +13,8 @@ USE_TENSORBOARD_LOGS = True
 PRINT_PROGRESS = True
 NETWORK_SAVE_INTERVAL = 0
 SEED = 1
-ENV_NAME = "Pendulum-v1" # "CartPole-v1" # "MiniGrid-MemoryS7-v0" # 
-NUM_ENVS = 4
+ENV_NAME = "POMDPCartPole" # "CartPole-v1" # "MiniGrid-MemoryS7-v0" # 
+NUM_ENVS = 1
 TIMESTEPS = 1000000
 TITLE = f"a"
 
@@ -48,10 +48,10 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    value_weight=0.5, entropy_weight=0.0, 
 #                    cgn=0.5, lstm_hidden_size=64)
 
-agent = agents.PPO(lr_scheduler=utils.LinearScheduler(0.0003, 0.0003, 1), 
-                   gamma=0.9, lam=0.95, tmax=1024, epsilon=0.2, epochs=10, 
-                   minibatch_size=32, value_weight=0.5, entropy_weight=0.0, 
-                   cgn=0.5, load_path=None)
+# agent = agents.PPO(lr_scheduler=utils.LinearScheduler(0.0003, 0.0003, 1), 
+#                    gamma=0.9, lam=0.95, tmax=1024, epsilon=0.2, epochs=10, 
+#                    minibatch_size=32, value_weight=0.5, entropy_weight=0.0, 
+#                    cgn=0.5, load_path=None")
 
 # agent = agents.REINFORCE(policy_lr=0.01, state_value_lr=0.01,
 #                          gamma=0.99, use_baseline=True)
@@ -62,18 +62,18 @@ agent = agents.PPO(lr_scheduler=utils.LinearScheduler(0.0003, 0.0003, 1),
 #                    entropy_weight=0.01,
 #                    cgn=10.0)
 
-# agent = agents.NewDRQN(lr_scheduler=utils.LinearScheduler(0.001, 0.0, 50000), replay_size=10000,
-#                    C=300, update_freq=4, minibatch_size=32, gamma=0.9,
-#                    epsilon_scheduler=utils.LinearScheduler(0.01, 0.01, 1),
-#                    cgn=10.0, warmup_steps=1000,
-#                    unroll_iterations=20, gradient_steps=1, lstm_size=64,
-#                    load_path=None)
+agent = agents.NewDRQN(lr_scheduler=utils.LinearScheduler(0.001, 0.001, 1), replay_size=10000,
+                   C=1000, update_freq=1, minibatch_size=32, gamma=0.99,
+                   epsilon_scheduler=utils.LinearScheduler(1.0, 0.05, 20000),
+                   cgn=10.0, warmup_steps=1000,
+                   seq_len=4, overlap=4, gradient_steps=1, lstm_size=64,
+                   load_path=None)
 
-# agent = agents.DRQN(lr_scheduler=utils.LinearScheduler(0.001, 0.0, 50000), replay_size=10000,
-#                    C=300, update_freq=4, minibatch_size=32, gamma=0.9,
-#                    epsilon_scheduler=utils.LinearScheduler(0.01, 0.01, 1),
+# agent = agents.DRQN(lr_scheduler=utils.LinearScheduler(0.001, 0.001, 1), replay_size=10000,
+#                    C=1000, update_freq=1, minibatch_size=32, gamma=0.99,
+#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.05, 20000),
 #                    cgn=10.0, warmup_steps=1000,
-#                    unroll_iterations=20, gradient_steps=1, lstm_size=64,
+#                    unroll_iterations=1, gradient_steps=1, lstm_size=64,
 #                    load_path=None)
 
 # agent = agents.RainbowDQN(lr=0.001, replay_size=10000,
@@ -107,7 +107,9 @@ agent = agents.PPO(lr_scheduler=utils.LinearScheduler(0.0003, 0.0003, 1),
 #                    cgn=10.0, warmup_steps=1000, gradient_steps=1,
 #                    load_path=None)
 
+start = time.perf_counter()
 agent.to(DEVICE)
 env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=False, render_mode=None) # , allowed_actions=[0, 1, 2], swap_channel=True
 agent.learn(TIMESTEPS, env, LOGGER, seed=SEED)
- 
+end = time.perf_counter()
+print(f"Time taken: {end - start}")

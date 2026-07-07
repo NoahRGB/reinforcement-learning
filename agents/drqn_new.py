@@ -7,42 +7,6 @@ import agents
 import envs
 import utils
 
-class ReplayMemory:
-    def __init__(self, size, state_space_dim):
-        self.max_size = size
-        self.current_size = 0
-        self.next_insert = 0
-        self.s = torch.zeros((self.max_size, *state_space_dim), dtype=torch.float32)
-        self.a = torch.zeros((self.max_size), dtype=torch.int64)
-        self.r = torch.zeros((self.max_size), dtype=torch.float32)
-        self.sprime = torch.zeros((self.max_size, *state_space_dim), dtype=torch.float32)
-        self.done = torch.zeros((self.max_size), dtype=torch.float32)
-
-    def add(self, s, a, r, sprime, done):
-        self.s[self.next_insert] = s.detach().cpu()
-        self.a[self.next_insert] = a.detach().cpu()
-        self.r[self.next_insert] = r.detach().cpu()
-        self.sprime[self.next_insert] = sprime.detach().cpu()
-        self.done[self.next_insert] = done.detach().cpu()
-
-        self.next_insert = (self.next_insert + 1) % self.max_size
-        self.current_size = min(self.current_size + 1, self.max_size)
-
-    def get_minibatch(self, minibatch_size, unroll_iterations):
-        legal = min(self.current_size, self.max_size) - unroll_iterations
-        start_idxs = (np.random.randint(0, legal, size=minibatch_size) + self.next_insert) % self.max_size
-        sequence_idxs = torch.from_numpy(
-            (start_idxs[:, None] + np.arange(unroll_iterations)) % self.max_size
-        )
-        
-        return (
-            self.s[sequence_idxs],
-            self.a[sequence_idxs],
-            self.r[sequence_idxs],
-            self.sprime[sequence_idxs],
-            self.done[sequence_idxs],
-        )
-
 class QNet(torch.nn.Module):
     def __init__(self, input_size, output_size, conv, lstm_size):
         super(QNet, self).__init__()
@@ -107,7 +71,9 @@ class QNet(torch.nn.Module):
 
 class NewDRQN(agents.Agent):
 
-    def __init__(self, lr_scheduler, replay_size, C, update_freq, minibatch_size, gamma, epsilon_scheduler, cgn, warmup_steps, gradient_steps, unroll_iterations, lstm_size, load_path=None):
+    def __init__(self, lr_scheduler, replay_size, C, update_freq, 
+                 minibatch_size, gamma, epsilon_scheduler, cgn, warmup_steps, 
+                 gradient_steps, seq_len, overlap, lstm_size, load_path=None):
         self.lr_scheduler = lr_scheduler
         self.lr = lr_scheduler.get_value()
         self.replay_size = replay_size
@@ -120,7 +86,8 @@ class NewDRQN(agents.Agent):
         self.cgn = cgn
         self.warmup_steps = warmup_steps
         self.gradient_steps = gradient_steps
-        self.unroll_iterations = unroll_iterations
+        self.seq_len = seq_len
+        self.overlap = overlap
         self.load_path = load_path
         self.lstm_size = lstm_size
         self.device = torch.device("cpu")
@@ -134,13 +101,10 @@ class NewDRQN(agents.Agent):
         self.state_space_dim = utils.detect_space_size(env.get_single_state_space())
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         
-        self.replay = ReplayMemory(self.replay_size, self.state_space_dim)
+        self.sequence_buffer = deque(maxlen=self.seq_len)
+        self.replay = deque(maxlen=self.replay_size//self.seq_len)
         self.qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv, self.lstm_size).to(self.device)
         self.target_qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv, self.lstm_size).to(self.device)
-
-        self.game_hidden_states = (
-            torch.zeros((1, 1, self.lstm_size)).to(self.device), 
-            torch.zeros((1, 1, self.lstm_size)).to(self.device))
         
         self._update_target_net()
 
@@ -154,35 +118,45 @@ class NewDRQN(agents.Agent):
             if "norm" in checkpoint:
                 env.load_normalised_obs(checkpoint["norm"])
 
-    def _get_actions(self, states: torch.Tensor):
+    def _get_actions(self, states: torch.Tensor, running_hidden_states: tuple):
         with torch.no_grad():
+            states_input = states.unsqueeze(1) # (num_envs, 1, state_dim) add fake time/seq dim
+            q_values, hidden_out = self.qnet(states_input, running_hidden_states)
             if np.random.random() >= self.epsilon:
-                states_input = states.unsqueeze(1) # (num_envs, 1, state_dim) add fake time/seq dim
-                q_values, hidden = self.qnet(states_input, self.game_hidden_states)
                 actions = q_values.squeeze(1).argmax(dim=-1)
-                self.game_hidden_states = hidden
-                return actions
+                return actions, hidden_out
             else:
-                return torch.tensor([np.random.choice(self.action_space_dim)], dtype=torch.int64).to(self.device)
+                return torch.tensor([np.random.choice(self.action_space_dim)], dtype=torch.int64).to(self.device), hidden_out
         
     def _improve(self, env: envs.Environment):
-        if self.replay.current_size < self.minibatch_size: return
+        if len(self.replay) < self.minibatch_size: return
 
-        minibatch = self.replay.get_minibatch(self.minibatch_size, self.unroll_iterations)
-        all_s, all_a, all_r, all_sprime, all_done = minibatch
-        all_s = all_s.to(self.device)
-        all_a = all_a.to(self.device)
-        all_r = all_r.to(self.device)
-        all_sprime = all_sprime.to(self.device)
-        all_done = all_done.to(self.device)
-        
-        q_vals, hidden = self.qnet(all_s, None) # (minibatch_size, unroll_iterations, action_space_dim,)
-        chosen_q_vals = q_vals.gather(2, all_a.unsqueeze(-1)).squeeze(-1) # (minibatch_size, unroll_iterations,)
+        minibatch = random.sample(self.replay, self.minibatch_size)
+        # print(f"minibatch len = {len(minibatch)}, minibatch type = {type(minibatch)}")
+        # print(f"minibatch[0] len = {len(minibatch[0])}, minibatch[0] type = {type(minibatch[0])}")
+        # print(f"minibatch[0][0] len = {len(minibatch[0][0])}, minibatch[0][0] type = {type(minibatch[0][0])}")
+
+        # (minibatch_size, seq_len, state_dim)
+
+        sequences = [list(tup[0]) for tup in minibatch] # (minibatch_size, seq_len, (s, a, r, s', done) )
+
+        all_s = torch.stack([torch.stack([tup[0][0] for tup in sequence]) for sequence in sequences]).to(self.device) # (minibatch_size, seq_len, state_dim)
+        all_a = torch.stack([torch.stack([tup[1][0] for tup in sequence]) for sequence in sequences]).to(self.device) # (minibatch_size, seq_len,)
+        all_r = torch.stack([torch.stack([tup[2][0] for tup in sequence]) for sequence in sequences]).to(self.device) # (minibatch_size, seq_len,)
+        all_sprime = torch.stack([torch.stack([tup[3][0] for tup in sequence]) for sequence in sequences]).to(self.device) # (minibatch_size, seq_len, state_dim)
+        all_done = torch.stack([torch.stack([tup[4][0] for tup in sequence]) for sequence in sequences]).to(self.device) # (minibatch_size, seq_len,)
+        all_initial_hidden_states = (
+            torch.cat([seq[1][0] for seq in minibatch], dim=1).to(self.device), # (1, minibatch_size, lstm_size)
+            torch.cat([seq[1][1] for seq in minibatch], dim=1).to(self.device) # (1, minibatch_size, lstm_size)
+        )
+
+        q_vals, hidden = self.qnet(all_s, None) # (minibatch_size, seq_len, action_space_dim,)
+        chosen_q_vals = q_vals.gather(2, all_a.unsqueeze(-1)).squeeze(-1) # (minibatch_size, seq_len,)
 
         # compute the target values (using the target DQN)
         with torch.no_grad():
-            target_qvals, target_hidden = self.target_qnet(all_sprime, None) # (minibatch_size, unroll_iterations, action_space_dim,)
-            targets = all_r + self.gamma * target_qvals.max(-1)[0] * (1 - all_done) # (minibatch_size, unroll_iterations,)
+            target_qvals, target_hidden = self.target_qnet(all_sprime, None) # (minibatch_size, seq_len, action_space_dim,)
+            targets = all_r + self.gamma * target_qvals.max(-1)[0] * (1 - all_done) # (minibatch_size, seq_len,)
 
         # zero grads, calculate loss, backprop, optimiser step
         self.optim.zero_grad()
@@ -194,7 +168,7 @@ class NewDRQN(agents.Agent):
 
         self.logger.gradient_step_complete(["qnet_loss"], [loss.item()])
         log = {"qnet":self.qnet.state_dict(), "target_qnet":self.target_qnet.state_dict(), "optim":self.optim.state_dict()}
-        if self.logger.env.normalise_obs:
+        if env.normalise_obs:
             log["norm"] = self.logger.env.get_normalised_obs()
         self.logger.network_update(log)
 
@@ -205,9 +179,14 @@ class NewDRQN(agents.Agent):
         utils.seed(seed)
         self.logger = logger
         total_iterations = total_timesteps // self.update_freq
-        current_game_states = torch.from_numpy(env.start_states).float().to(self.device)
+        current_game_states = torch.from_numpy(env.start_states).float()
 
         self._setup(env)
+
+        running_hidden_states = (
+            torch.zeros((1, 1, self.lstm_size)).to(self.device), 
+            torch.zeros((1, 1, self.lstm_size)).to(self.device)
+        )
 
         for iteration in range(1, total_iterations + 1):
 
@@ -222,20 +201,33 @@ class NewDRQN(agents.Agent):
                 for param in self.optim.param_groups:
                     param["lr"] = self.lr
             
-                current_actions = self._get_actions(current_game_states.to(self.device))
+                current_actions, new_running_hidden_states = self._get_actions(current_game_states.to(self.device), running_hidden_states)
                 current_sprimes, current_rewards, current_isterms, current_istruncs, current_infos = env.step(current_actions.cpu().numpy())
       
                 current_rewards = torch.from_numpy(current_rewards).float()
                 current_sprimes = torch.from_numpy(current_sprimes).float()
                 current_dones = torch.from_numpy(current_isterms | current_istruncs).float()
 
-                self.replay.add(
+                self.sequence_buffer.append((
                     current_game_states.detach().cpu(),
                     current_actions.detach().cpu(),
                     current_rewards,
                     current_sprimes,
                     current_dones,
+                    running_hidden_states,
+                ))
+
+                running_hidden_states = (
+                    new_running_hidden_states[0].detach(),
+                    new_running_hidden_states[1].detach(),
                 )
+
+                if len(self.sequence_buffer) == self.seq_len:
+                    seq_initial_hidden_state = self.sequence_buffer[0][5]
+                    self.replay.append((self.sequence_buffer.copy(), seq_initial_hidden_state))
+
+                    for _ in range(self.overlap):
+                        self.sequence_buffer.popleft()
 
                 current_game_states = current_sprimes
 
@@ -245,10 +237,11 @@ class NewDRQN(agents.Agent):
                     for reward in completed_rewards:
 
                         self.logger.episode_complete(reward)
-                        self.game_hidden_states = (
+                        running_hidden_states = (
                             torch.zeros((1, 1, self.lstm_size)).to(self.device), 
                             torch.zeros((1, 1, self.lstm_size)).to(self.device)
                         )
+                        self.sequence_buffer.clear()
 
                 if self.gradient_steps == -1 and self.logger.timesteps_completed > self.warmup_steps:
                     self._improve(env)
