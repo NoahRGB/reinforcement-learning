@@ -9,17 +9,41 @@ class CrazyMaze(gym.Env):
 
         self.action_space = gym.spaces.Discrete(4)
 
+#         self.maze = """
+# ###################################
+# #S  #   #   #   #   #   #   #   #2#
+# # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # #
+# #1#   #   #   #   #   #   #   #   #
+# ###################################"""
+
         self.maze = """
-###################################
-#S  #   #   #   #   #   #   #   #2#
-# # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # #
-#1#   #   #   #   #   #   #   #   #
-###################################"""
+###############
+#S  #   #   #2#
+# # # # # # # #
+# # # # # # # #
+# # # # # # # #
+# # # # # # # #
+# # # # # # # #
+# # # # # # # #
+#1#   #   #   #
+###############"""
+
+#         self.maze = """
+# ###########
+# #S  #   #2#
+# # # # # # #
+# # # # # # #
+# # # # # # #
+# # # # # # #
+# # # # # # #
+# # # # # # #
+# #1#   #   #
+# ###########"""
         
         self.rows = [row for row in self.maze.split("\n") if row != ""]
         equal = [row for row in self.rows if len(row) == len(self.rows[0])]
@@ -108,7 +132,7 @@ class CrazyMaze(gym.Env):
                 reward = 5
                 terminated = True
             elif new_cell == "2":
-                reward = 100
+                reward = 100000
                 terminated = True
 
         obs = np.array([self.player_row_idx * self.num_cols + self.player_col_idx])
@@ -122,5 +146,5 @@ class CrazyMaze(gym.Env):
         ...
 
     def close(self):
-        if self.screen is not None:
+        if self.render_mode == "human":
             pygame.quit()

@@ -45,7 +45,7 @@ class QFunc(torch.nn.Module):
 
 class SAC(agents.Agent):
 
-    def __init__(self, lr, gamma, replay_size, minibatch_size, update_freq, alpha_start, target_factor, warmup_steps, gradient_steps):
+    def __init__(self, lr, gamma, replay_size, minibatch_size, update_freq, alpha_start, auto_alpha, target_factor, warmup_steps, gradient_steps):
         self.lr = lr
         self.gamma = gamma
         self.replay_size = replay_size
@@ -54,6 +54,7 @@ class SAC(agents.Agent):
         self.alpha_start = alpha_start
         self.alpha = alpha_start
         self.target_factor = target_factor
+        self.auto_alpha = auto_alpha
         self.warmup_steps = warmup_steps
         self.gradient_steps = gradient_steps
         self.device = torch.device("cpu")
@@ -89,8 +90,11 @@ class SAC(agents.Agent):
 
         self.entropy_target = -self.action_space_dim[0] # paper says this should be -dim(A) (e.g. -6 for HalfCheetah)
 
-        self.log_alpha = torch.nn.Parameter(torch.tensor(np.log(self.alpha_start)).to(self.device)).to(self.device)
-        self.alpha_optimiser = torch.optim.Adam([self.log_alpha], lr=self.lr)
+        if self.auto_alpha:
+            self.log_alpha = torch.nn.Parameter(torch.tensor(np.log(self.alpha_start)).to(self.device)).to(self.device)
+            self.alpha_optimiser = torch.optim.Adam([self.log_alpha], lr=self.lr)
+        else:
+            self.alpha = self.alpha_start
 
         self.target_qfunc1.load_state_dict(self.qfunc1.state_dict())
         self.target_qfunc2.load_state_dict(self.qfunc2.state_dict())
@@ -128,7 +132,10 @@ class SAC(agents.Agent):
         
             # calculate Q targets
             min_qvals = torch.min(self.target_qfunc1(fresh_action_network_input), self.target_qfunc2(fresh_action_network_input)).squeeze(1) # (minibatch_size,)
-            qfunc_targets = all_r + self.gamma * masks * (min_qvals - self.log_alpha.exp().detach() * fresh_actions_log_probs) # (minibatch_size,)
+            if self.auto_alpha:
+                qfunc_targets = all_r + self.gamma * masks * (min_qvals - self.log_alpha.exp().detach() * fresh_actions_log_probs) # (minibatch_size,)
+            else:
+                qfunc_targets = all_r + self.gamma * masks * (min_qvals - self.alpha * fresh_actions_log_probs) # (minibatch_size,)
 
         # backprop + SGD for both qfuncs
         self.qfunc1_optimiser.zero_grad()
@@ -152,17 +159,19 @@ class SAC(agents.Agent):
         min_qvals = torch.min(self.qfunc1(fresh_action_network_input), self.qfunc2(fresh_action_network_input)).squeeze(1) # (minibatch_size,)
 
         self.actor_optimiser.zero_grad()
-        policy_loss = -(min_qvals - self.log_alpha.exp().detach() * fresh_actions_log_probs).mean()
+        if self.auto_alpha:
+            policy_loss = -(min_qvals - self.log_alpha.exp().detach() * fresh_actions_log_probs).mean()
+        else:
+            policy_loss = -(min_qvals - self.alpha * fresh_actions_log_probs).mean()
         policy_loss.backward()
         self.actor_optimiser.step()
 
         # update alpha
-
-        alpha_loss = -(self.log_alpha * (fresh_actions_log_probs.detach() + self.entropy_target)).mean()
-        
-        self.alpha_optimiser.zero_grad()
-        alpha_loss.backward()
-        self.alpha_optimiser.step()
+        if self.auto_alpha:
+            alpha_loss = -(self.log_alpha * (fresh_actions_log_probs.detach() + self.entropy_target)).mean()
+            self.alpha_optimiser.zero_grad()
+            alpha_loss.backward()
+            self.alpha_optimiser.step()
 
         # update target qfuncs
 
@@ -172,7 +181,7 @@ class SAC(agents.Agent):
         for target_param, param in zip(self.target_qfunc2.parameters(), self.qfunc2.parameters()):
             target_param.data.copy_(self.target_factor * target_param.data + (1 - self.target_factor) * param.data)
 
-        self.logger.gradient_step_complete(["qfunc1_loss", "qfunc2_loss", "policy_loss", "alpha_loss"], [qfunc1_loss.item(), qfunc2_loss.item(), policy_loss.item(), alpha_loss.item()])
+        self.logger.gradient_step_complete(["qfunc1_loss", "qfunc2_loss", "policy_loss"], [qfunc1_loss.item(), qfunc2_loss.item(), policy_loss.item()])
         log = {
             "actor": self.actor.state_dict(),
             "qfunc1": self.qfunc1.state_dict(),
@@ -182,10 +191,12 @@ class SAC(agents.Agent):
             "actor_optimiser": self.actor_optimiser.state_dict(),
             "qfunc1_optimiser": self.qfunc1_optimiser.state_dict(),
             "qfunc2_optimiser": self.qfunc2_optimiser.state_dict(),
-            "alpha_optimiser": self.alpha_optimiser.state_dict(),
         }
         if env.normalise_obs:
             log["norm"] = env.get_normalised_obs()
+        if self.auto_alpha:
+            log["alpha_optimiser"] = self.alpha_optimiser.state_dict()
+
         self.logger.network_update(log)
 
     def learn(self, total_timesteps: int, env: envs.Environment, logger: utils.Logger, seed: int = None, quiet: bool = False):

@@ -60,6 +60,8 @@ class IntrinsicCuriosityModule(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(128, self.enc_out),
         )
+
+        self.qnet = torch.nn.Linear(self.enc_out, action_dim)
         
     def forward(self, s, a, sprime):
         # s (batch_size, state_dim)
@@ -68,12 +70,16 @@ class IntrinsicCuriosityModule(torch.nn.Module):
 
         a_one_hot = torch.nn.functional.one_hot(a, num_classes=self.action_dim).float()
         s_enc = self.enc(s)
-        sprime_enc = self.enc(sprime).detach()
+        sprime_enc = self.enc(sprime)
 
         a_pred = self.inv_model(torch.concat([s_enc, sprime_enc], dim=1))
         sprime_enc_pred = self.forward_model(torch.concat([s_enc, a_one_hot], dim=1))
 
         return a_pred, sprime_enc_pred, sprime_enc
+
+    def qvals(self, s):
+        s_enc = self.enc(s)
+        return self.qnet(s_enc)
 
 
 class QNet(torch.nn.Module):
@@ -109,11 +115,11 @@ class QNet(torch.nn.Module):
             # )
         else:
             self.body = torch.nn.Sequential(
-                torch.nn.Linear(*input_size, 256),
+                torch.nn.Linear(*input_size, 64),
                 torch.nn.ReLU(),
-                torch.nn.Linear(256, 256),
+                torch.nn.Linear(64, 64),
                 torch.nn.ReLU(),
-                torch.nn.Linear(256, output_size),
+                torch.nn.Linear(64, output_size),
             )
     
     def forward(self, inp):
@@ -124,7 +130,7 @@ class QNet(torch.nn.Module):
 
 class CuriousDQN(agents.Agent):
 
-    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_scheduler: utils.LinearScheduler, cgn, warmup_steps, gradient_steps, curiosity_weight, load_path=None):
+    def __init__(self, lr, replay_size, C, update_freq, minibatch_size, gamma, epsilon_scheduler: utils.LinearScheduler, cgn, warmup_steps, gradient_steps, curiosity_weight, beta, lam, load_path=None):
         self.lr = lr
         self.replay_size = replay_size
         self.C = C
@@ -137,11 +143,14 @@ class CuriousDQN(agents.Agent):
         self.warmup_steps = warmup_steps
         self.gradient_steps = gradient_steps
         self.curiosity_weight = curiosity_weight
+        self.beta = beta
+        self.lam = lam
         self.device = torch.device("cpu")
         self.load_path = load_path
 
     def _update_target_net(self):
-        self.target_qnet.load_state_dict(self.qnet.state_dict())
+        # self.target_qnet.load_state_dict(self.qnet.state_dict())
+        self.target_icm.load_state_dict(self.icm.state_dict())
 
     def _setup(self, env: envs.Environment):
         self.logger.log_parameters(self)
@@ -150,29 +159,25 @@ class CuriousDQN(agents.Agent):
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         
         self.replay = deque(maxlen=self.replay_size)
-        self.qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
-        self.target_qnet = QNet(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
 
         self.icm = IntrinsicCuriosityModule(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
+        self.target_icm = IntrinsicCuriosityModule(self.state_space_dim, self.action_space_dim, self.is_conv).to(self.device)
         self.icm_optim = torch.optim.Adam(self.icm.parameters(), lr=self.lr)
 
         self._update_target_net()
 
-        self.optim = torch.optim.Adam(self.qnet.parameters(), lr=self.lr)
-        # self.optim = torch.optim.RMSprop(self.qnet.parameters(), lr=self.lr, momentum=0.95)
-
         if self.load_path is not None:
             checkpoint = torch.load(self.load_path, weights_only=False, map_location=self.device)
-            self.qnet.load_state_dict(checkpoint["qnet"])
-            self.target_qnet.load_state_dict(checkpoint["target_qnet"])
-            self.optim.load_state_dict(checkpoint["optim"])
+            self.icm.load_state_dict(checkpoint["icm"])
+            self.target_icm.load_state_dict(checkpoint["target_icm"])
+            self.icm_optim.load_state_dict(checkpoint["icm_optim"])
             if "norm" in checkpoint:
                 env.load_normalised_obs(checkpoint["norm"])
 
     def _get_actions(self, states: torch.Tensor):
         with torch.no_grad():
             if np.random.random() >= self.epsilon:
-                q_values = self.qnet(states)
+                q_values = self.icm.qvals(states)
                 actions = q_values.argmax(dim=-1)
                 return actions
             else:
@@ -182,43 +187,43 @@ class CuriousDQN(agents.Agent):
         if len(self.replay) < self.minibatch_size: return
 
         minibatch = random.sample(self.replay, self.minibatch_size)
-        all_s, all_a, all_r, all_sprime, all_done = zip(*minibatch)
+        all_s, all_a, all_r, all_sprime, all_done, all_intrinsic_rewards = zip(*minibatch)
         
         all_s = torch.cat(all_s).to(self.device) # (minibatch_size, state_space_dim)
         all_a = torch.cat(all_a).to(self.device) # (minibatch_size,)
         all_r = torch.cat(all_r).to(self.device) # (minibatch_size,)
         all_sprime = torch.cat(all_sprime).to(self.device) # (minibatch_size, state_space_dim)
         all_done = torch.cat(all_done).to(self.device) # (minibatch_size,)
+        all_intrinsic_rewards = torch.cat(all_intrinsic_rewards).to(self.device) # (minibatch_size,)
         masks = 1 - all_done # (minibatch_size,)
 
         a_pred, sprime_enc_pred, sprime_enc = self.icm(all_s, all_a, all_sprime)
         inv_loss = torch.nn.functional.cross_entropy(a_pred, all_a)
-        forward_loss = torch.nn.functional.mse_loss(sprime_enc_pred, sprime_enc, reduction="none")
-        icm_loss = inv_loss + forward_loss.mean()
-        self.icm_optim.zero_grad()
-        icm_loss.backward()
-        self.icm_optim.step()
+        forward_loss = torch.nn.functional.mse_loss(sprime_enc_pred, sprime_enc.detach(), reduction="none")
 
-        all_r = all_r + self.curiosity_weight * forward_loss.mean(dim=-1).detach() # (minibatch_size,)
+        all_r =  all_r + self.curiosity_weight * forward_loss.mean(-1) # (minibatch_size,)
 
-        q_vals = self.qnet(all_s) # (minibatch_size, action_space_dim,)
+        q_vals = self.icm.qvals(all_s) # (minibatch_size, action_space_dim,)
         chosen_q_vals = q_vals.gather(1, all_a.unsqueeze(1)).squeeze(1) # (minibatch_size,)
 
         # compute the target values (using the target DQN)
         with torch.no_grad():
-            targets = all_r + self.gamma * self.target_qnet(all_sprime).max(1)[0] * masks # (minibatch_size,)
+            targets = all_r + self.gamma * self.target_icm.qvals(all_sprime).max(1)[0] * masks # (minibatch_size,)
 
-        # zero grads, calculate loss, backprop, optimiser step
-        self.optim.zero_grad()
-        loss = torch.nn.functional.mse_loss(chosen_q_vals, targets) # scalar
-        loss.backward()
+        self.icm_optim.zero_grad()
+
+        qnet_loss = torch.nn.functional.mse_loss(chosen_q_vals, targets) # scalar
+        icm_loss = self.lam * qnet_loss + (1 - self.beta) * inv_loss + self.beta * forward_loss.mean()
+
+        icm_loss.backward()
+
         if self.cgn is not None:
-            torch.nn.utils.clip_grad_norm_(self.qnet.parameters(), self.cgn)
-        self.optim.step()
+            torch.nn.utils.clip_grad_norm_(self.icm.parameters(), self.cgn)
 
-        self.logger.gradient_step_complete(["qnet_loss", "inv_loss", "forward_loss"], [loss.item(), inv_loss.item(), forward_loss.mean().item()])
-        
-        log = {"qnet":self.qnet.state_dict(), "target_qnet":self.target_qnet.state_dict(), "optim":self.optim.state_dict()}
+        self.icm_optim.step()
+
+        self.logger.gradient_step_complete(["qnet_loss", "inv_loss", "forward_loss"], [qnet_loss.item(), inv_loss.item(), forward_loss.mean().item()])
+        log = {"icm":self.icm.state_dict(), "target_icm":self.target_icm.state_dict(), "icm_optim":self.icm_optim.state_dict()}
         if env.normalise_obs:
             log["norm"] = env.get_normalised_obs()
         self.logger.network_update(log)
@@ -257,12 +262,17 @@ class CuriousDQN(agents.Agent):
                 current_sprimes = torch.from_numpy(current_sprimes).float().to(self.device)
                 current_dones = torch.from_numpy(current_isterms | current_istruncs).float().to(self.device)
 
+                with torch.no_grad():
+                    a_pred, sprime_enc_pred, sprime_enc = self.icm(current_game_states, current_actions, current_sprimes)
+                    intrinsic_reward = torch.nn.functional.mse_loss(sprime_enc_pred, sprime_enc, reduction="none").mean(-1)
+
                 self.replay.append((
                     current_game_states.detach().cpu(),
                     current_actions.detach().cpu(),
                     current_rewards.detach().cpu(),
                     current_sprimes.detach().cpu(),
                     current_dones.detach().cpu(),
+                    intrinsic_reward
                 ))
 
                 current_game_states = current_sprimes
