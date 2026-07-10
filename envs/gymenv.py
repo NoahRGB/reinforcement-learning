@@ -1,5 +1,15 @@
-# import minigrid, miniworld
-# from miniworld.wrappers import PyTorchObsWrapper, GreyscaleWrapper
+
+try:
+    import minigrid, miniworld
+    from miniworld.wrappers import PyTorchObsWrapper, GreyscaleWrapper
+except Exception:
+    ...
+
+try:
+    import gymnasium_robotics
+except Exception:
+    ...
+
 import gymnasium as gym
 import ale_py
 
@@ -9,6 +19,8 @@ from .environment import Environment
 from .wrappers import SpecifyActions, SwapChannel
 
 import utils
+
+gym.register_envs(gymnasium_robotics)
 
 class Gymenv(Environment):
     def __init__(self, env_name: str, num_envs: int, 
@@ -26,6 +38,7 @@ class Gymenv(Environment):
         self.atari = "ALE" in env_name or "Pong" in env_name
         self.minigrid = "MiniGrid" in env_name
         self.miniworld = "MiniWorld" in env_name
+        self.gym_robotics = "Fetch" in env_name or "Hand" in env_name
 
         def make_one_env():
             env = gym.make(self.env_name, **env_kwargs)
@@ -37,13 +50,13 @@ class Gymenv(Environment):
                 )
                 env = gym.wrappers.FrameStackObservation(env, stack_size=2)
 
-            # if self.minigrid:
-            #     env = minigrid.wrappers.ImgObsWrapper(env)
+            if self.minigrid:
+                env = minigrid.wrappers.ImgObsWrapper(env)
 
-            # if self.miniworld:
-            #     # env = GreyscaleWrapper(env)
-            #     env = gym.wrappers.GrayscaleObservation(env, keep_dim=True)
-            #     env = PyTorchObsWrapper(env)
+            if self.miniworld:
+                # env = GreyscaleWrapper(env)
+                env = gym.wrappers.GrayscaleObservation(env, keep_dim=True)
+                env = PyTorchObsWrapper(env)
 
             if self.normalise_obs:
                 env = gym.wrappers.NormalizeObservation(env)
@@ -87,9 +100,10 @@ class Gymenv(Environment):
                     normalise_wrapper.obs_rms.count = normalised_data[env_idx]["count"]
 
     def step(self, actions: np.array):
-        step = self.env.step(actions)
-        # self.env.render()
-        return step
+        observation, reward, terminated, truncated, info = self.env.step(actions)
+        if self.gym_robotics:
+            observation = observation["observation"]
+        return observation, reward, terminated, truncated, info
     
     def get_num_envs(self):
         return self.num_envs
@@ -101,7 +115,7 @@ class Gymenv(Environment):
         return self.single_action_space
     
     def get_start_states(self):
-        return self.start_states
+        return self.start_states["observation"]
     
     def is_conv(self):
         return self.atari or self.minigrid or self.miniworld

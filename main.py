@@ -14,7 +14,7 @@ USE_TENSORBOARD_LOGS = True
 PRINT_PROGRESS = True
 NETWORK_SAVE_INTERVAL = 0
 SEED = 1
-ENV_NAME = "CrazyMaze" # "MiniGrid-MemoryS7-v0" # 
+ENV_NAME = "CrazyMaze" # "CrazyMaze" # "MiniGrid-MemoryS7-v0" # 
 NUM_ENVS = 1
 TIMESTEPS = 1000000
 TITLE = f"a"
@@ -94,23 +94,23 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    alpha=0.5, beta_scheduler=utils.LinearScheduler(0.6, 1.0, 10000), nsteps=5,
 #                    lstm_size=128, use_dueling=True, use_double=True, use_per=False, load_path=None)
 
-agent = agents.CuriousDQN(lr=0.01, replay_size=10000,
-                   C=100, update_freq=1, 
-                   minibatch_size=32, gamma=1.0, 
-                   epsilon_scheduler=utils.LinearScheduler(1.0, 0.05, 100000),
-                   cgn=10.0, warmup_steps=0, gradient_steps=1,
-                   curiosity_weight=0.01, beta=0.2, lam=0.1, load_path=None)
-
-# agent = agents.DQN(lr=0.01, replay_size=10000,
+# agent = agents.CuriousDQN(lr=0.01, replay_size=10000,
 #                    C=100, update_freq=1, 
-#                    minibatch_size=32, gamma=0.99, 
-#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.05, 10000),
+#                    minibatch_size=32, gamma=1.0, 
+#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.05, 100000),
 #                    cgn=10.0, warmup_steps=0, gradient_steps=1,
-#                    load_path=None)
+#                    curiosity_weight=0.01, beta=0.2, lam=0.1, load_path=None)
+
+agent = agents.DQN(lr=0.01, replay_size=10000,
+                   C=100, update_freq=1, 
+                   minibatch_size=32, gamma=0.99, 
+                   epsilon_scheduler=utils.LinearScheduler(1.0, 0.05, 10000),
+                   cgn=10.0, warmup_steps=0, gradient_steps=1,
+                   load_path=None)
 
 start = time.perf_counter()
 agent.to(DEVICE)
-env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=False, render_mode=None) # , allowed_actions=[0, 1, 2], swap_channel=True
+env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=False, render_mode="human") # , allowed_actions=[0, 1, 2], swap_channel=True
 agent.learn(TIMESTEPS, env, LOGGER, seed=SEED)
 end = time.perf_counter()
 print(f"Time taken: {end - start}")

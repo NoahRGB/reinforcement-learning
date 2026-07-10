@@ -6,6 +6,8 @@ def detect_space_size(space: gym.Space):
         return space.n
     if type(space) == gym.spaces.Box:
         return space.shape
+    if type(space) == gym.spaces.Dict:
+        return space["observation"].shape
     
 def is_space_continuous(space: gym.Space):
     return False if type(space) == gym.spaces.Discrete else True
