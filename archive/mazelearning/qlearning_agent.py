@@ -8,9 +8,10 @@ import random
 class QLearningAgent(Agent):
     def __init__(self, environment, epsilon, discount_factor, step_size=1.0):
         super().__init__(environment)
-        self.title = f"Q learning agent (off policy TD)"
+        # self.title = f"Q learning agent (off policy TD)"
+        self.title = f"Decaying ε-greedy Q-learning agent"
 
-        self.qtable = np.full((environment.maze_height, environment.maze_width, len(environment.actions)), 0.0)
+        self.qtable = np.full((environment.maze_height, environment.maze_width, len(environment.actions)), -100.0)
 
         self.epsilon = epsilon
         self.step_size = step_size
@@ -18,6 +19,8 @@ class QLearningAgent(Agent):
 
         self.completed_iterations = 0
         self.trajectory_length_history = []
+        self.current_episode_reward = 0
+        self.episodic_reward_history = []
         self.reset_iteration()
 
     def get_best_actions(self, state):
@@ -28,6 +31,7 @@ class QLearningAgent(Agent):
         best_q_value = legal_q_values.max()
         best_q_indices = np.argwhere(q_values == best_q_value).flatten().tolist()
         best_q_indices = [index for index in best_q_indices if index in legal_moves]
+
         return best_q_indices
 
     def run_policy(self, state):
@@ -46,11 +50,13 @@ class QLearningAgent(Agent):
         self.current_iteration_path = []
 
         self.epsilon *= 0.99
+        self.epsilon = max(self.epsilon, 0.0)
 
     def iteration_step(self):
         self.time_step += 1
         action = self.run_policy(self.state)
         new_state, reward, self.done = self.environment.step(action, self.state)
+        self.current_episode_reward += reward
 
         current_state_y, current_state_x = self.state
         new_state_y, new_state_x = new_state
@@ -66,6 +72,8 @@ class QLearningAgent(Agent):
         if self.done:
             self.trajectory_length_history.append(self.time_step)
             self.completed_iterations += 1
+            self.episodic_reward_history.append(self.current_episode_reward)
+            self.current_episode_reward = 0
 
     def learn(self, iterations, quiet=False):
         for episode in range(iterations):
@@ -73,11 +81,17 @@ class QLearningAgent(Agent):
             while not self.done:
                 self.iteration_step()
             if not quiet: print(f"iteration {episode}, length: {self.trajectory_length_history[-1]}")
+        return self.episodic_reward_history
 
     def plot(self):
-        plt.plot(self.trajectory_length_history)
-        plt.ylabel("Trajectory Length")
-        plt.yscale("log")
+        # plt.plot(self.trajectory_length_history)
+        # plt.ylabel("Trajectory Length")
+        # plt.yscale("log")
+        # plt.xlabel("Iteration")
+        # plt.grid()
+        # plt.show()
+        plt.plot(self.episodic_reward_history)
+        plt.ylabel("Reward")
         plt.xlabel("Iteration")
         plt.grid()
         plt.show()

@@ -8,7 +8,8 @@ import random
 class OnPolicyMonteCarloAgent(Agent):
     def __init__(self, environment, epsilon, discount_factor, every_visit):
         super().__init__(environment)
-        self.title = f"On-policy decarying ε-greedy Monte carlo agent ({'every visit' if every_visit else 'first visit'})"
+        # self.title = f"On-policy decarying ε-greedy Monte carlo agent ({'every visit' if every_visit else 'first visit'})"
+        self.title = f"Decaying ε-greedy Monte Carlo Agent"
 
         self.qtable = np.full((environment.maze_height, environment.maze_width, len(environment.actions)), -1.)
         self.visit_count = np.zeros((environment.maze_height, environment.maze_width, len(environment.actions)), dtype=np.float64)
@@ -20,6 +21,8 @@ class OnPolicyMonteCarloAgent(Agent):
 
         self.completed_iterations = 0
         self.trajectory_length_history = []
+        self.current_episode_reward = 0
+        self.episodic_reward_history = []
         self.reset_iteration()
 
     def get_best_actions(self, state):
@@ -50,6 +53,7 @@ class OnPolicyMonteCarloAgent(Agent):
         self.episodes = []
         self.visited = set()
         self.epsilon *= 0.99
+        self.epsilon = max(self.epsilon, 0.0)
 
     def iteration_step(self):
         self.time_step += 1
@@ -57,6 +61,7 @@ class OnPolicyMonteCarloAgent(Agent):
         # keep track of s', a, r for when the episode ends
         action = self.run_policy(self.state)
         new_state, reward, self.done = self.environment.step(action, self.state)
+        self.current_episode_reward += reward
         self.episodes.append((self.state, action, reward))
 
         self.state = new_state
@@ -65,6 +70,8 @@ class OnPolicyMonteCarloAgent(Agent):
         if self.done:
             self.trajectory_length_history.append(self.time_step)
             self.completed_iterations += 1
+            self.episodic_reward_history.append(self.current_episode_reward)
+            self.current_episode_reward = 0
 
             # episode has ended, so do all the learning in one go
             cumulative_reward = 0
@@ -83,6 +90,7 @@ class OnPolicyMonteCarloAgent(Agent):
             while not self.done:
                 self.iteration_step()
             if not quiet: print(f"iteration {episode}, length: {self.trajectory_length_history[-1]}")
+        return self.episodic_reward_history
 
     def plot(self):
         plt.plot(self.trajectory_length_history)

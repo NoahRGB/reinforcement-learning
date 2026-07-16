@@ -50,9 +50,9 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    cgn=0.5, lstm_hidden_size=64)
 
 # agent = agents.PPO(lr_scheduler=utils.LinearScheduler(0.0001, 0.0001, 1), 
-#                    gamma=0.95, lam=0.9, tmax=100000, epsilon=1.0, epochs=5, 
-#                    minibatch_size=32, value_weight=0.4, entropy_weight=0.002, 
-#                    cgn=2.0, load_path=None)
+#                    gamma=0.95, lam=0.9, tmax=100000, epsilon=0.3, epochs=5, 
+#                    minibatch_size=32, value_weight=0.4, entropy_weight=0.0, 
+#                    cgn=2.0, load_path="./results/temps/data/torch_network.pt")
 
 # agent = agents.REINFORCE(policy_lr=0.01, state_value_lr=0.01,
 #                          gamma=0.99, use_baseline=True)
@@ -101,6 +101,13 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    cgn=10.0, warmup_steps=0, gradient_steps=1,
 #                    curiosity_weight=0.01, beta=0.2, lam=0.1, load_path=None)
 
+# agent = agents.DQN(lr=0.01, replay_size=10000,
+#                    C=100, update_freq=1, 
+#                    minibatch_size=32, gamma=1.0, 
+#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.05, 100000),
+#                    cgn=10.0, warmup_steps=0, gradient_steps=1,
+#                    curiosity_weight=0.01, beta=0.2, lam=0.1, load_path=None)
+
 agent = agents.DQN(lr=0.01, replay_size=10000,
                    C=100, update_freq=1, 
                    minibatch_size=32, gamma=0.99, 
@@ -110,7 +117,7 @@ agent = agents.DQN(lr=0.01, replay_size=10000,
 
 start = time.perf_counter()
 agent.to(DEVICE)
-env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=False, render_mode="human") # , allowed_actions=[0, 1, 2], swap_channel=True
+env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=True, render_mode="human") # , allowed_actions=[0, 1, 2], swap_channel=True
 agent.learn(TIMESTEPS, env, LOGGER, seed=SEED)
 end = time.perf_counter()
 print(f"Time taken: {end - start}")
