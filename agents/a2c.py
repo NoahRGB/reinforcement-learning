@@ -52,15 +52,29 @@ class ActorCriticNetwork(torch.nn.Module):
 
     def forward(self, inp: torch.Tensor):
 
-        critic_out = self.critic_head(self.value_body(inp)).squeeze(-1)
+        if self.is_conv:
+            norm_inp = inp / 255.0
+            body_out = self.body(norm_inp)
+            critic_out = self.critic_head(body_out).squeeze(-1)
+            
+            if self.is_continuous:
+                mu_out = self.mu_head(body_out)
+                log_sigma_out = self.log_sigma_head
+                return (mu_out, log_sigma_out.exp()), critic_out
+            
+            logits_out = self.logits_head(body_out)
+            return logits_out, critic_out
         
-        if self.is_continuous:
-            mu_out = self.mu_head(self.policy_body(inp))
-            log_sigma_out = self.log_sigma_head
-            return (mu_out, log_sigma_out.exp()), critic_out
-        
-        logits_out = self.logits_head(self.policy_body(inp))
-        return logits_out, critic_out
+        else:
+            critic_out = self.critic_head(self.value_body(inp)).squeeze(-1)
+            
+            if self.is_continuous:
+                mu_out = self.mu_head(self.policy_body(inp))
+                log_sigma_out = self.log_sigma_head
+                return (mu_out, log_sigma_out.exp()), critic_out
+            
+            logits_out = self.logits_head(self.policy_body(inp))
+            return logits_out, critic_out
 
 
 class A2C(agents.Agent):

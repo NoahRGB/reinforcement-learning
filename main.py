@@ -9,15 +9,16 @@ gym.register(id="POMDPCartPole", entry_point=envs.POMDPCartPole)
 gym.register(id="CrazyMaze", entry_point=envs.CrazyMaze)
 
 DEVICE = utils.detect_torch_device(quiet=False)
-USE_NORMAL_LOGS = False
+USE_NORMAL_LOGS = True
 USE_TENSORBOARD_LOGS = True
 PRINT_PROGRESS = True
 NETWORK_SAVE_INTERVAL = 0
+RENDER_MODE = None
 SEED = 1
-ENV_NAME = "CrazyMaze" # "CrazyMaze" # "MiniGrid-MemoryS7-v0" # 
+ENV_NAME = "CrazyMaze"   #"PongNoFrameskip-v4" # "MiniGrid-MemoryS7-v0" # 
 NUM_ENVS = 1
-TIMESTEPS = 1000000
-TITLE = f"a"
+TIMESTEPS = 50000
+TITLE = f"curiosity_maze_seed{SEED}"
 
 LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
                          USE_NORMAL_LOGS,
@@ -33,15 +34,15 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    target_factor=0.005, d=2, noise_clip=0.5,
 #                    warmup_steps=10000, gradient_steps=1)
 
-# agent = agents.DDPG(lr=0.001, gamma=0.98, noise_factor=0.1,
-#                      replay_size=200000, minibatch_size=256, 
-#                      update_freq=1, target_factor=0.005,
+# agent = agents.DDPG(lr=0.001, gamma=0.99, noise_factor=0.1,
+#                      replay_size=1000000, minibatch_size=64, 
+#                      update_freq=1, target_factor=0.001,
 #                      warmup_steps=10000, gradient_steps=1)
 
-# agent = agents.SAC(lr=0.001, gamma=0.99, replay_size=200000,
+# agent = agents.SAC(lr=0.001, gamma=0.99, replay_size=1000000,
 #                    minibatch_size=256, update_freq=1,
-#                    alpha_start=0.1, auto_alpha=False, target_factor=0.005,
-#                    warmup_steps=10000, gradient_steps=1)
+#                    alpha_start=0.0000001, auto_alpha=True, target_factor=0.005,
+#                    warmup_steps=100, gradient_steps=1)
 
 # agent = agents.LSTM_PPO(lr_scheduler=utils.LinearScheduler(0.001, 0.0, 100000), gamma=0.98, lam=0.8, tmax=32,
 #                    epsilon_scheduler=utils.LinearScheduler(0.2, 0.0, 100000),
@@ -49,10 +50,10 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    value_weight=0.5, entropy_weight=0.0, 
 #                    cgn=0.5, lstm_hidden_size=64)
 
-# agent = agents.PPO(lr_scheduler=utils.LinearScheduler(0.0001, 0.0001, 1), 
-#                    gamma=0.95, lam=0.9, tmax=100000, epsilon=0.3, epochs=5, 
-#                    minibatch_size=32, value_weight=0.4, entropy_weight=0.0, 
-#                    cgn=2.0, load_path="./results/temps/data/torch_network.pt")
+# agent = agents.PPO(lr_scheduler=utils.LinearScheduler(0.00025, 0.00025, 1), 
+#                    gamma=0.99, lam=0.95, tmax=128, epsilon=0.1, epochs=4, 
+#                    minibatch_size=256, value_weight=0.5, entropy_weight=0.01, 
+#                    cgn=0.5, load_path=None)
 
 # agent = agents.REINFORCE(policy_lr=0.01, state_value_lr=0.01,
 #                          gamma=0.99, use_baseline=True)
@@ -96,28 +97,21 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 
 # agent = agents.CuriousDQN(lr=0.01, replay_size=10000,
 #                    C=100, update_freq=1, 
-#                    minibatch_size=32, gamma=1.0, 
-#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.05, 100000),
+#                    minibatch_size=64, gamma=1.0, 
+#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.0, 50000),
 #                    cgn=10.0, warmup_steps=0, gradient_steps=1,
-#                    curiosity_weight=0.01, beta=0.2, lam=0.1, load_path=None)
-
-# agent = agents.DQN(lr=0.01, replay_size=10000,
-#                    C=100, update_freq=1, 
-#                    minibatch_size=32, gamma=1.0, 
-#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.05, 100000),
-#                    cgn=10.0, warmup_steps=0, gradient_steps=1,
-#                    curiosity_weight=0.01, beta=0.2, lam=0.1, load_path=None)
+#                    curiosity_weight=1.0, beta=0.3, lam=0.2, load_path=None)
 
 agent = agents.DQN(lr=0.01, replay_size=10000,
                    C=100, update_freq=1, 
-                   minibatch_size=32, gamma=0.99, 
-                   epsilon_scheduler=utils.LinearScheduler(1.0, 0.05, 10000),
+                   minibatch_size=64, gamma=1.0, 
+                   epsilon_scheduler=utils.LinearScheduler(1.0, 0.0, 50000),
                    cgn=10.0, warmup_steps=0, gradient_steps=1,
                    load_path=None)
 
 start = time.perf_counter()
 agent.to(DEVICE)
-env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=True, render_mode="human") # , allowed_actions=[0, 1, 2], swap_channel=True
+env = envs.Gymenv(ENV_NAME, NUM_ENVS, seed=SEED, normalise_obs=False, render_mode=RENDER_MODE) # , allowed_actions=[0, 1, 2], swap_channel=True
 agent.learn(TIMESTEPS, env, LOGGER, seed=SEED)
 end = time.perf_counter()
 print(f"Time taken: {end - start}")

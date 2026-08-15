@@ -11,9 +11,10 @@ import numpy as np
 import pickle, pathlib
 import gymnasium as gym
 
-from envs import POMDPCartPole
+from envs import POMDPCartPole, CrazyMaze
 
 gym.register(id="POMDPCartPole", entry_point=POMDPCartPole)
+gym.register(id="CrazyMaze", entry_point=CrazyMaze)
 
 class EpisodeRewardLogger(BaseCallback):
     def __init__(self):
@@ -51,69 +52,76 @@ def linear_schedule(initial_value):
         return progress_remaining * initial_value
     return func
 
+seeds = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 
-LOG_PATH = "./runs"
-SEED = 1
-TIMESTEPS = 100000
-NUM_ENVS = 1
-STATS_WINDOW = 100
+for s in seeds:
+    SEED = s
+    LOG_PATH = "./runs"
+    TIMESTEPS = 30000
+    NUM_ENVS = 1
+    STATS_WINDOW = 100
 
-# env = gym.make("Pendulum-v1", render_mode=None)
-vec_env = make_vec_env("Pendulum-v1", n_envs=NUM_ENVS, seed=SEED)
-# vec_env = VecNormalize(vec_env)
+    vec_env = make_vec_env("Pendulum-v1", n_envs=NUM_ENVS, seed=SEED)
+    # vec_env = VecNormalize(vec_env)
 
-# agent = RecurrentPPO("MlpLstmPolicy", vec_env, learning_rate=0.001, gamma=0.98, gae_lambda=0.8, n_steps=32,
-#                    ent_coef=0.0, vf_coef=0.5, max_grad_norm=0.5,
-#                    n_epochs=20, batch_size=256,
-#                    tensorboard_log=LOG_PATH,
-#                    seed=SEED,
-#                    clip_range=linear_schedule(0.2),
-#                    policy_kwargs=dict(
-#                         ortho_init=False,
-#                         activation_fn=torch.nn.ReLU,
-#                         lstm_hidden_size=64,
-#                         enable_critic_lstm=True,
-#                         net_arch=dict(pi=[64], vf=[64])
-#                     ),)
+    # agent = RecurrentPPO("MlpLstmPolicy", vec_env, learning_rate=0.001, gamma=0.98, gae_lambda=0.8, n_steps=32,
+    #                    ent_coef=0.0, vf_coef=0.5, max_grad_norm=0.5,
+    #                    n_epochs=20, batch_size=256,
+    #                    tensorboard_log=LOG_PATH,
+    #                    seed=SEED,
+    #                    clip_range=linear_schedule(0.2),
+    #                    policy_kwargs=dict(
+    #                         ortho_init=False,
+    #                         activation_fn=torch.nn.ReLU,
+    #                         lstm_hidden_size=64,
+    #                         enable_critic_lstm=True,
+    #                         net_arch=dict(pi=[64], vf=[64])
+    #                     ),)
 
-# agent = A2C("MlpPolicy", vec_env, ent_coef=0.0, stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH)
+    # agent = A2C("MlpPolicy", vec_env, ent_coef=0.0, stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH)
 
-agent = PPO("MlpPolicy", vec_env, learning_rate=0.0003, gamma=0.9, gae_lambda=0.95, n_steps=1024,
-            ent_coef=0.0, vf_coef=0.5, max_grad_norm=0.5,
-            n_epochs=10, batch_size=32,
-            tensorboard_log=LOG_PATH,
-            seed=SEED,
-            clip_range=0.2)
+    agent = SAC("MlpPolicy", vec_env, learning_rate=0.001, gamma=0.99, buffer_size=1000000,
+                learning_starts=100, train_freq=1, gradient_steps=1,
+                batch_size=256, tau=0.005, target_entropy="auto", target_update_interval=1, 
+                stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH)
 
-# agent = DQN("MlpPolicy", vec_env, learning_rate=0.0023, batch_size=64,
-#             gamma=0.99, buffer_size=100000, learning_starts=1000, train_freq=256, gradient_steps=128,
-#             target_update_interval=10, exploration_fraction=0.16, exploration_final_eps=0.04,
-#             stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH,
-#             policy_kwargs=dict(
-#                 net_arch=[256, 256]
-#             ),)
 
-# single_env = gym.make("Pendulum-v1", render_mode=None)
-# n_actions = single_env.action_space.shape[-1]
-# action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
-# agent = DDPG("MlpPolicy", vec_env, 
-#              learning_rate=0.001, batch_size=256,
-#              gamma=0.98, buffer_size=200000, learning_starts=10000, train_freq=1, gradient_steps=1,
-#              tau=0.005, action_noise=action_noise,
-#              policy_kwargs=dict(
-#                 net_arch=[400, 300]
-#             ))
-# agent = TD3("MlpPolicy", vec_env, gamma=0.98, buffer_size=200000, 
-#             learning_starts=10000, target_policy_noise=0.1, 
-#             stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH, action_noise=action_noise,
-#             policy_kwargs=dict(
-#                 net_arch=[400, 300]
-#             ))
+    # agent = PPO("CnnPolicy", vec_env, learning_rate=0.0003, gamma=0.9, gae_lambda=0.95, n_steps=1024,
+    #             ent_coef=0.0, vf_coef=0.5, max_grad_norm=0.5,
+    #             n_epochs=10, batch_size=32,
+    #             tensorboard_log=LOG_PATH,
+    #             seed=SEED,
+    #             clip_range=0.2)
 
-print(agent.policy)
+    # agent = DQN("MlpPolicy", vec_env, learning_rate=0.0023, batch_size=64,
+    #             gamma=0.99, buffer_size=100000, learning_starts=1000, train_freq=256, gradient_steps=128,
+    #             target_update_interval=10, exploration_fraction=0.50, exploration_final_eps=0.05,
+    #             stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH,
+    #             policy_kwargs=dict(
+    #                 net_arch=[256, 256]
+    #             ),)
 
-logger = EpisodeRewardLogger()
+    # single_env = gym.make("Pendulum-v1", render_mode=None)
+    # n_actions = single_env.action_space.shape[-1]
+    # action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
+    # agent = DDPG("MlpPolicy", vec_env, 
+    #              learning_rate=0.001, batch_size=256,
+    #              gamma=0.98, buffer_size=200000, learning_starts=10000, train_freq=1, gradient_steps=1,
+    #              tau=0.005, action_noise=action_noise,
+    #              policy_kwargs=dict(
+    #                 net_arch=[400, 300]
+    #             ))
+    # agent = TD3("MlpPolicy", vec_env, gamma=0.98, buffer_size=200000, 
+    #             learning_starts=10000, target_policy_noise=0.1, 
+    #             stats_window_size=STATS_WINDOW, seed=SEED, tensorboard_log=LOG_PATH, action_noise=action_noise,
+    #             policy_kwargs=dict(
+    #                 net_arch=[400, 300]
+    #             ))
 
-trained_agent = agent.learn(total_timesteps=TIMESTEPS, callback=logger)
+    print(agent.policy)
 
-# logger.save(f"./results/temps/data/sb3_dqn_cartpole_seed{SEED}")
+    logger = EpisodeRewardLogger()
+
+    trained_agent = agent.learn(total_timesteps=TIMESTEPS, callback=logger)
+
+    logger.save(f"./results/temps/data/sb3_sac_pendulum_seed{SEED}")

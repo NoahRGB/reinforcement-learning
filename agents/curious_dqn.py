@@ -201,6 +201,8 @@ class CuriousDQN(agents.Agent):
         inv_loss = torch.nn.functional.cross_entropy(a_pred, all_a)
         forward_loss = torch.nn.functional.mse_loss(sprime_enc_pred, sprime_enc.detach(), reduction="none")
 
+        # print(forward_loss.mean().item())
+
         all_r =  all_r + self.curiosity_weight * forward_loss.mean(-1) # (minibatch_size,)
 
         q_vals = self.icm.qvals(all_s) # (minibatch_size, action_space_dim,)

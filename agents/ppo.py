@@ -15,8 +15,8 @@ class ActorCriticNetwork(torch.nn.Module):
 
         if is_conv:
             
-            self.body_out_size = 3136
-            self.body = torch.nn.Sequential(
+            self.body_out_size = 512
+            self.policy_body = torch.nn.Sequential(
                 torch.nn.Conv2d(num_inputs[0], 32, kernel_size=8, stride=4),
                 torch.nn.ReLU(),
                 torch.nn.Conv2d(32, 64, kernel_size=4, stride=2),
@@ -24,6 +24,20 @@ class ActorCriticNetwork(torch.nn.Module):
                 torch.nn.Conv2d(64, 64, kernel_size=3, stride=1),
                 torch.nn.ReLU(),
                 torch.nn.Flatten(),
+                torch.nn.Linear(3136, 512),
+                torch.nn.ReLU()
+            )
+
+            self.value_body = torch.nn.Sequential(
+                torch.nn.Conv2d(num_inputs[0], 32, kernel_size=8, stride=4),
+                torch.nn.ReLU(),
+                torch.nn.Conv2d(32, 64, kernel_size=4, stride=2),
+                torch.nn.ReLU(),
+                torch.nn.Conv2d(64, 64, kernel_size=3, stride=1),
+                torch.nn.ReLU(),
+                torch.nn.Flatten(),
+                torch.nn.Linear(3136, 512),
+                torch.nn.ReLU()
             )
 
         else:
@@ -52,18 +66,34 @@ class ActorCriticNetwork(torch.nn.Module):
 
     def forward(self, inp: torch.Tensor):
 
-        value_out = self.value_body(inp)
-        critic_out = self.critic_head(value_out).squeeze(-1)
-        policy_out = self.policy_body(inp)
+        if self.is_conv:
+            norm_inp = inp / 255.0
+            value_out = self.value_body(norm_inp)
+            critic_out = self.critic_head(value_out).squeeze(-1)
+            policy_out = self.policy_body(norm_inp)
 
-        if self.is_continuous:
+            if self.is_continuous:
+                
+                mu_out = self.mu_head(policy_out)
+                log_sigma_out = self.log_sigma_head
+                return (mu_out, log_sigma_out.exp()), critic_out
             
-            mu_out = self.mu_head(policy_out)
-            log_sigma_out = self.log_sigma_head
-            return (mu_out, log_sigma_out.exp()), critic_out
+            logits_out = self.logits_head(policy_out)
+            return logits_out, critic_out
         
-        logits_out = self.logits_head(policy_out)
-        return logits_out, critic_out
+        else:
+            value_out = self.value_body(inp)
+            critic_out = self.critic_head(value_out).squeeze(-1)
+            policy_out = self.policy_body(inp)
+
+            if self.is_continuous:
+                
+                mu_out = self.mu_head(policy_out)
+                log_sigma_out = self.log_sigma_head
+                return (mu_out, log_sigma_out.exp()), critic_out
+            
+            logits_out = self.logits_head(policy_out)
+            return logits_out, critic_out
 
 
 class PPO(agents.Agent):
@@ -89,7 +119,8 @@ class PPO(agents.Agent):
         self.state_space_dim = utils.detect_space_size(env.get_single_state_space())
         self.action_space_dim = utils.detect_space_size(env.get_single_action_space())
         self.net = ActorCriticNetwork(self.state_space_dim, self.action_space_dim, self.is_continuous, self.is_conv).to(self.device)
-        self.optim = torch.optim.RMSprop(self.net.parameters(), self.lr, eps=1e-5)
+        self.optim = torch.optim.Adam(self.net.parameters(), self.lr)
+        # self.optim = torch.optim.RMSprop(self.net.parameters(), self.lr, eps=1e-5)
 
         if self.load_path is not None:
             checkpoint = torch.load(self.load_path, weights_only=False, map_location=self.device)

@@ -5,11 +5,6 @@ try:
 except Exception:
     ...
 
-try:
-    import gymnasium_robotics
-except Exception:
-    ...
-
 import gymnasium as gym
 import ale_py
 
@@ -19,8 +14,6 @@ from .environment import Environment
 from .wrappers import SpecifyActions, SwapChannel
 
 import utils
-
-gym.register_envs(gymnasium_robotics)
 
 class Gymenv(Environment):
     def __init__(self, env_name: str, num_envs: int, 
@@ -35,20 +28,21 @@ class Gymenv(Environment):
         self.seed = seed
         self.normalise_obs = normalise_obs
         self.allowed_actions = allowed_actions
-        self.atari = "ALE" in env_name or "Pong" in env_name
+        self.atari = "ALE" in env_name or "Pong" in env_name or "Boxing" in env_name or "SpaceInvaders" in env_name or "Breakout" in env_name
         self.minigrid = "MiniGrid" in env_name
         self.miniworld = "MiniWorld" in env_name
-        self.gym_robotics = "Fetch" in env_name or "Hand" in env_name
 
         def make_one_env():
             env = gym.make(self.env_name, **env_kwargs)
 
             if self.atari:
+                env = gym.make(self.env_name, frameskip=1, **env_kwargs)
                 env = gym.wrappers.AtariPreprocessing(env,
                     noop_max=30, frame_skip=4, terminal_on_life_loss=False,
                     screen_size=84, grayscale_obs=True, grayscale_newaxis=False
                 )
-                env = gym.wrappers.FrameStackObservation(env, stack_size=2)
+                env = gym.wrappers.FrameStackObservation(env, stack_size=4)
+                # env = gym.wrappers.ClipReward(env, min_reward=-1, max_reward=1)
 
             if self.minigrid:
                 env = minigrid.wrappers.ImgObsWrapper(env)
@@ -101,8 +95,6 @@ class Gymenv(Environment):
 
     def step(self, actions: np.array):
         observation, reward, terminated, truncated, info = self.env.step(actions)
-        if self.gym_robotics:
-            observation = observation["observation"]
         return observation, reward, terminated, truncated, info
     
     def get_num_envs(self):
@@ -115,7 +107,7 @@ class Gymenv(Environment):
         return self.single_action_space
     
     def get_start_states(self):
-        return self.start_states["observation"]
+        return self.start_states
     
     def is_conv(self):
         return self.atari or self.minigrid or self.miniworld

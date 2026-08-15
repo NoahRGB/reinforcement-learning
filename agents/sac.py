@@ -12,14 +12,14 @@ class Actor(torch.nn.Module):
         super(Actor, self).__init__()
 
         self.main_body = torch.nn.Sequential(
-            torch.nn.Linear(*input_size, 64),
+            torch.nn.Linear(*input_size, 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(64, 64),
+            torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
         )
 
-        self.mu = torch.nn.Linear(64, *output_size)
-        self.log_sigma = torch.nn.Linear(64, *output_size)
+        self.mu = torch.nn.Linear(256, *output_size)
+        self.log_sigma = torch.nn.Linear(256, *output_size)
 
     def forward(self, inp):
         main_body_out = self.main_body(inp)
@@ -33,11 +33,11 @@ class QFunc(torch.nn.Module):
         super(QFunc, self).__init__()
 
         self.fc_nn = torch.nn.Sequential(
-            torch.nn.Linear(input_size[0] + output_size[0], 64),
+            torch.nn.Linear(input_size[0] + output_size[0], 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(64, 64),
+            torch.nn.Linear(256, 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(64, 1),
+            torch.nn.Linear(256, 1),
         )
 
     def forward(self, inp):
