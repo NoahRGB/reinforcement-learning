@@ -12,13 +12,13 @@ DEVICE = utils.detect_torch_device(quiet=False)
 USE_NORMAL_LOGS = True
 USE_TENSORBOARD_LOGS = True
 PRINT_PROGRESS = True
-NETWORK_SAVE_INTERVAL = 0
-RENDER_MODE = None
+NETWORK_SAVE_INTERVAL = 1000
+RENDER_MODE = "human"
 SEED = 1
-ENV_NAME = "CrazyMaze"   #"PongNoFrameskip-v4" # "MiniGrid-MemoryS7-v0" # 
+ENV_NAME = "CrazyMaze" # "PongNoFrameskip-v4" # "MiniGrid-MemoryS7-v0" # 
 NUM_ENVS = 1
-TIMESTEPS = 50000
-TITLE = f"curiosity_maze_seed{SEED}"
+TIMESTEPS = 2000000
+TITLE = f"aa"
 
 LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
                          USE_NORMAL_LOGS,
@@ -50,10 +50,10 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    value_weight=0.5, entropy_weight=0.0, 
 #                    cgn=0.5, lstm_hidden_size=64)
 
-# agent = agents.PPO(lr_scheduler=utils.LinearScheduler(0.00025, 0.00025, 1), 
-#                    gamma=0.99, lam=0.95, tmax=128, epsilon=0.1, epochs=4, 
-#                    minibatch_size=256, value_weight=0.5, entropy_weight=0.01, 
-#                    cgn=0.5, load_path=None)
+# agent = agents.PPO(lr_scheduler=utils.LinearScheduler(0.01, 0.01, 1), 
+#                    gamma=1.0, lam=0.95, tmax=64, epsilon=0.1, epochs=2, 
+#                    minibatch_size=64, value_weight=0.5, entropy_weight=0.1, 
+#                    cgn=10.0, load_path=None)
 
 # agent = agents.REINFORCE(policy_lr=0.01, state_value_lr=0.01,
 #                          gamma=0.99, use_baseline=True)
@@ -71,11 +71,11 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    seq_len=4, overlap=4, gradient_steps=1, lstm_size=64,
 #                    load_path=None)
 
-# agent = agents.DRQN(lr_scheduler=utils.LinearScheduler(0.001, 0.001, 1), replay_size=10000,
-#                    C=1000, update_freq=1, minibatch_size=32, gamma=0.99,
-#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.05, 20000),
+# agent = agents.DRQN(lr_scheduler=utils.LinearScheduler(0.001, 0.001, 1), replay_size=100000,
+#                    C=500, update_freq=1, minibatch_size=32, gamma=0.99,
+#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.05, 1000000),
 #                    cgn=10.0, warmup_steps=1000,
-#                    unroll_iterations=1, gradient_steps=1, lstm_size=64,
+#                    unroll_iterations=16, gradient_steps=1, lstm_size=64,
 #                    load_path=None)
 
 # agent = agents.RainbowDQN(lr=0.001, replay_size=10000,
@@ -95,12 +95,12 @@ LOGGER = utils.Logger(USE_TENSORBOARD_LOGS,
 #                    alpha=0.5, beta_scheduler=utils.LinearScheduler(0.6, 1.0, 10000), nsteps=5,
 #                    lstm_size=128, use_dueling=True, use_double=True, use_per=False, load_path=None)
 
-agent = agents.CuriousDQN(lr=0.01, replay_size=10000,
-                   C=100, update_freq=1, 
-                   minibatch_size=64, gamma=1.0, 
-                   epsilon_scheduler=utils.LinearScheduler(1.0, 0.05, 50000),
-                   cgn=10.0, warmup_steps=0, gradient_steps=1,
-                   curiosity_weight=1.0, beta=0.3, lam=0.2, load_path=None)
+# agent = agents.CuriousDQN(lr=0.01, replay_size=10000,
+#                    C=100, update_freq=1, 
+#                    minibatch_size=64, gamma=1.0, 
+#                    epsilon_scheduler=utils.LinearScheduler(1.0, 0.05, 50000),
+#                    cgn=10.0, warmup_steps=0, gradient_steps=1,
+#                    curiosity_weight=1.0, beta=0.3, lam=0.2, load_path=None)
 
 # agent = agents.DQN(lr=0.01, replay_size=10000,
 #                    C=100, update_freq=1, 

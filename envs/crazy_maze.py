@@ -151,7 +151,7 @@ class CrazyMaze(gym.Env):
                 reward = 5
                 terminated = True
             elif new_cell == "2":
-                reward = 100000
+                reward = 100
                 terminated = True
 
         # obs = np.array([self.player_row_idx * self.num_cols + self.player_col_idx])
